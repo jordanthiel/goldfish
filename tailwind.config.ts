@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,13 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Add custom theme colors for the app
+				therapy: {
+					purple: '#9b87f5',
+					pink: '#D946EF',
+					'light-purple': '#D6BCFA',
+					'soft-pink': '#FFDEE2',
 				}
 			},
 			borderRadius: {
@@ -89,7 +97,10 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+			},
+			backgroundImage: {
+				'gradient-primary': 'linear-gradient(to right, #9b87f5, #D946EF)',
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
