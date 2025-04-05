@@ -11,6 +11,7 @@ import ClientList from '@/components/clients/ClientList';
 import AppointmentCalendar from '@/components/calendar/AppointmentCalendar';
 import SessionNotes from '@/components/notes/SessionNotes';
 import VideoConsultation from '@/components/video/VideoConsultation';
+import InsuranceClaims from '@/components/claims/InsuranceClaims';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,6 +32,7 @@ const Dashboard = () => {
                   <TabsTrigger value="clients">Clients</TabsTrigger>
                   <TabsTrigger value="calendar">Calendar</TabsTrigger>
                   <TabsTrigger value="notes">Notes</TabsTrigger>
+                  <TabsTrigger value="claims">Claims</TabsTrigger>
                   <TabsTrigger value="video">Video</TabsTrigger>
                 </TabsList>
                 
@@ -48,6 +50,10 @@ const Dashboard = () => {
                 
                 <TabsContent value="notes" className="mt-0">
                   <SessionNotes />
+                </TabsContent>
+                
+                <TabsContent value="claims" className="mt-0">
+                  <InsuranceClaims />
                 </TabsContent>
                 
                 <TabsContent value="video" className="mt-0">
