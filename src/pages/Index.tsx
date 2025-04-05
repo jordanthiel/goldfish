@@ -96,46 +96,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Insurance claims highlight section */}
-        <section className="py-20 bg-therapy-light-purple">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col lg:flex-row items-center gap-12">
-              <div className="lg:w-1/2">
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">Streamline Your Insurance Billing Process</h2>
-                <p className="text-xl text-gray-700 mb-6">
-                  Say goodbye to insurance billing headaches. Goldfish simplifies the entire claims process from submission to payment tracking.
-                </p>
-                <ul className="space-y-4 mb-8">
-                  {[
-                    "Submit claims directly to insurance providers",
-                    "Track claim status in real-time",
-                    "Receive alerts for denied or pending claims",
-                    "Generate reports on reimbursement rates",
-                    "Store patient insurance information securely"
-                  ].map((item, index) => (
-                    <li key={index} className="flex items-start">
-                      <CheckCircle className="h-6 w-6 text-therapy-purple mr-2 flex-shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button asChild size="lg" className="text-lg btn-gradient">
-                  <Link to="/signup">Get Started with Claims Management</Link>
-                </Button>
-              </div>
-              <div className="lg:w-1/2">
-                <div className="bg-white rounded-xl shadow-xl overflow-hidden border p-2">
-                  <img 
-                    src="/placeholder.svg" 
-                    alt="Insurance Claims Dashboard" 
-                    className="w-full rounded-lg"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        
         {/* Call to action */}
         <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
           <div className="container mx-auto px-4 text-center">
