@@ -20,7 +20,6 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  FileCheck,
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
@@ -57,11 +56,6 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
       name: 'Session Notes',
       icon: <FileText className="h-5 w-5" />,
       value: 'notes',
-    },
-    {
-      name: 'Insurance Claims',
-      icon: <FileCheck className="h-5 w-5" />,
-      value: 'claims',
     },
     {
       name: 'Video Consultations',
