@@ -13,96 +13,86 @@ export interface ClientInvitation {
 }
 
 export const invitationService = {
-  // Create an invitation for a client
+  // Create a new invitation for a client
   async createInvitation(clientId: string, email: string): Promise<ClientInvitation> {
-    // Get current user id (therapist)
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!user) {
+    if (!userData.user) {
       throw new Error('User not authenticated');
     }
-
-    // Use the create_client_invitation function
-    const { data, error } = await supabase
-      .rpc('create_client_invitation', {
-        therapist_id_param: user.id,
+    
+    const { data, error } = await supabase.rpc(
+      'create_client_invitation',
+      {
+        therapist_id_param: userData.user.id,
         client_id_param: clientId,
         email_param: email
-      });
+      }
+    );
 
     if (error) {
-      console.error('Error creating invitation:', error);
+      throw new Error(error.message);
+    }
+
+    return data as unknown as ClientInvitation;
+  },
+
+  // Send invitation email to client
+  async sendInvitationEmail(invitationId: string): Promise<any> {
+    const { data, error } = await supabase.rpc(
+      'send_client_invitation_email',
+      {
+        invite_id: invitationId
+      }
+    );
+
+    if (error) {
       throw new Error(error.message);
     }
 
     return data;
   },
 
-  // Send an invitation email
-  async sendInvitationEmail(invitationId: string): Promise<any> {
-    try {
-      // First get the invitation data
-      const { data: emailData, error: emailDataError } = await supabase
-        .rpc('send_client_invitation_email', {
-          invite_id: invitationId
-        });
-
-      if (emailDataError) throw emailDataError;
-
-      // Then call our edge function to send the actual email
-      const { data, error } = await supabase.functions.invoke('send-invitation', {
-        body: { invitationId },
-      });
-
-      if (error) throw error;
-
-      return data;
-    } catch (error) {
-      console.error('Error sending invitation email:', error);
-      throw error;
-    }
-  },
-
-  // Get all invitations for a client
-  async getClientInvitations(clientId: string): Promise<ClientInvitation[]> {
+  // Get all invitations for the current user's clients
+  async getClientInvitations(): Promise<ClientInvitation[]> {
     const { data, error } = await supabase
       .from('client_invitations')
-      .select('*')
-      .eq('client_id', clientId);
+      .select('*');
 
     if (error) {
-      console.error('Error fetching invitations:', error);
       throw new Error(error.message);
     }
 
-    return data || [];
+    return data as ClientInvitation[];
   },
 
   // Verify an invitation code
-  async verifyInviteCode(inviteCode: string): Promise<any> {
-    const { data, error } = await supabase
-      .rpc('verify_invite_code', {
-        invite_code_param: inviteCode
-      });
+  async verifyInviteCode(code: string): Promise<any> {
+    const { data, error } = await supabase.rpc(
+      'verify_invite_code',
+      {
+        invite_code_param: code
+      }
+    );
 
     if (error) {
-      console.error('Error verifying invitation code:', error);
       throw new Error(error.message);
     }
 
     return data;
   },
 
-  // Accept an invitation and link to user
-  async acceptInvitation(inviteCode: string, userId: string): Promise<any> {
-    const { data, error } = await supabase
-      .rpc('accept_client_invitation', {
-        invite_code_param: inviteCode,
+  // Accept an invitation and link it to a user account
+  async acceptInvitation(code: string, userId: string): Promise<any> {
+    const { data, error } = await supabase.rpc(
+      'accept_client_invitation',
+      {
+        invite_code_param: code,
         user_id_param: userId
-      });
+      }
+    );
 
     if (error) {
-      console.error('Error accepting invitation:', error);
       throw new Error(error.message);
     }
 

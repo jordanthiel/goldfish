@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { z } from 'zod';
@@ -22,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
-// Create a schema for the sign-up form
 const signUpSchema = z.object({
   fullName: z.string().min(1, { message: 'Full name is required' }),
   email: z.string().email({ message: 'Please enter a valid email' }),
@@ -45,7 +43,6 @@ const AcceptInvitation = () => {
   const [inviteData, setInviteData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Get the invite code from the URL query parameters
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
@@ -58,7 +55,6 @@ const AcceptInvitation = () => {
 
     setInviteCode(code);
     
-    // Verify the invite code
     const verifyCode = async () => {
       try {
         const data = await invitationService.verifyInviteCode(code);
@@ -79,7 +75,6 @@ const AcceptInvitation = () => {
     verifyCode();
   }, [location.search]);
 
-  // Create form with default values
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -90,7 +85,6 @@ const AcceptInvitation = () => {
     },
   });
 
-  // Update the email field when inviteData is loaded
   useEffect(() => {
     if (inviteData?.email) {
       form.setValue('email', inviteData.email);
@@ -106,17 +100,14 @@ const AcceptInvitation = () => {
     setIsSubmitting(true);
 
     try {
-      // Register the user
       await signUp(values.email, values.password, values.fullName);
       
-      // Get the new user
       const { data } = await supabase.auth.getUser();
       
       if (!data.user) {
         throw new Error('Failed to create user account');
       }
       
-      // Accept the invitation
       const result = await invitationService.acceptInvitation(inviteCode, data.user.id);
       
       if (!result.success) {
@@ -128,7 +119,6 @@ const AcceptInvitation = () => {
         description: 'Your account has been created and linked to your therapist.',
       });
       
-      // Redirect to patient dashboard
       navigate('/patient/dashboard');
     } catch (err: any) {
       toast({
