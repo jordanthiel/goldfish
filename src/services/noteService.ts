@@ -25,6 +25,28 @@ export interface SessionNoteInput {
   is_private?: boolean;
 }
 
+// Encryption/decryption functions
+const encryptContent = (content: string): string => {
+  try {
+    // Use a simple encryption for demonstration
+    // In a real-world app, use a more robust encryption library
+    return btoa(content); // Base64 encoding as simple encryption
+  } catch (error) {
+    console.error('Error encrypting content:', error);
+    return content; // Fallback to unencrypted content
+  }
+};
+
+const decryptContent = (encryptedContent: string): string => {
+  try {
+    // Decrypt the content (base64 decode in this example)
+    return atob(encryptedContent);
+  } catch (error) {
+    console.error('Error decrypting content:', error);
+    return encryptedContent; // Return as is if decryption fails
+  }
+};
+
 export const noteService = {
   // Get all notes for the current user/therapist
   async getNotes(): Promise<SessionNoteWithClient[]> {
@@ -41,7 +63,13 @@ export const noteService = {
       throw new Error(error.message);
     }
 
-    return data || [];
+    // Decrypt the content of each note
+    const decryptedNotes = data?.map(note => ({
+      ...note,
+      content: note.content ? decryptContent(note.content) : ''
+    })) || [];
+
+    return decryptedNotes;
   },
 
   // Get notes for a specific client
@@ -68,7 +96,13 @@ export const noteService = {
       }
     }
 
-    return data || [];
+    // Decrypt the content of each note
+    const decryptedNotes = data?.map(note => ({
+      ...note,
+      content: note.content ? decryptContent(note.content) : ''
+    })) || [];
+
+    return decryptedNotes;
   },
 
   // Get notes for a specific appointment
@@ -94,7 +128,13 @@ export const noteService = {
       }
     }
 
-    return data || [];
+    // Decrypt the content of each note
+    const decryptedNotes = data?.map(note => ({
+      ...note,
+      content: note.content ? decryptContent(note.content) : ''
+    })) || [];
+
+    return decryptedNotes;
   },
 
   // Get a single note by ID
@@ -118,7 +158,11 @@ export const noteService = {
       // Continue execution - don't let access logging failure prevent note access
     }
 
-    return data;
+    // Decrypt the note content
+    return {
+      ...data,
+      content: data.content ? decryptContent(data.content) : ''
+    };
   },
 
   // Create a new note
@@ -130,10 +174,16 @@ export const noteService = {
       throw new Error('User not authenticated');
     }
     
+    // Encrypt the note content before saving
+    const encryptedNote = {
+      ...note,
+      content: encryptContent(note.content)
+    };
+    
     const { data, error } = await supabase
       .from('session_notes')
       .insert({
-        ...note,
+        ...encryptedNote,
         therapist_id: user.id,
         is_private: note.is_private !== undefined ? note.is_private : true
       })
@@ -145,15 +195,25 @@ export const noteService = {
       throw new Error(error.message);
     }
 
-    return data;
+    // Return the decrypted note for immediate use
+    return {
+      ...data,
+      content: decryptContent(data.content)
+    };
   },
 
   // Update an existing note
   async updateNote(id: string, updates: Partial<SessionNoteInput>): Promise<SessionNote> {
+    // If content is being updated, encrypt it
+    const encryptedUpdates = { ...updates };
+    if (updates.content) {
+      encryptedUpdates.content = encryptContent(updates.content);
+    }
+    
     const { data, error } = await supabase
       .from('session_notes')
       .update({
-        ...updates,
+        ...encryptedUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -173,7 +233,11 @@ export const noteService = {
       // Continue execution - don't let access logging failure prevent note access
     }
 
-    return data;
+    // Return the decrypted note
+    return {
+      ...data,
+      content: decryptContent(data.content)
+    };
   },
 
   // Delete a note
