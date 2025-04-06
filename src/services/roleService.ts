@@ -44,29 +44,23 @@ export const roleService = {
   async assignRole(userId: string, roleName: string): Promise<UserRole> {
     // First try to use our new add_role_to_user function
     try {
+      // Use a direct function call with the appropriate parameters instead of rpc
       const { data, error } = await supabase
-        .rpc('add_role_to_user', { 
-          user_id_param: userId,
-          role_name: roleName 
-        });
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role: roleName
+        })
+        .select()
+        .single();
       
       if (error) throw error;
       
-      console.log('Role assignment result:', data);
-      
-      // Fetch the role that was just assigned
-      const roles = await this.getUserRoles(userId);
-      const assignedRole = roles.find(r => r.role === roleName);
-      
-      if (!assignedRole) {
-        throw new Error('Role was assigned but could not be retrieved');
-      }
-      
-      return assignedRole;
+      return data;
     } catch (rpError) {
-      console.error('Error using RPC function, falling back to direct insert:', rpError);
+      console.error('Error assigning role, falling back to direct insert:', rpError);
       
-      // Fallback to direct insert if RPC fails
+      // Fallback to direct insert if first attempt fails
       const { data, error } = await supabase
         .from('user_roles')
         .insert({
