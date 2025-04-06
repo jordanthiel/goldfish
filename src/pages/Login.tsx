@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -14,8 +15,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { 
+  RadioGroup,
+  RadioGroupItem
+} from '@/components/ui/radio-group';
 import { useAuth } from '@/context/AuthContext';
 import RootLayout from '@/components/layout/RootLayout';
+import { UserCircle2, Users } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -24,18 +30,33 @@ const loginSchema = z.object({
   password: z.string().min(1, {
     message: 'Password is required.',
   }),
+  role: z.enum(['therapist', 'client'], {
+    required_error: 'Please select a role.',
+  }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const { signIn, loading } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
+  
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      role: 'therapist',
+    },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    await signIn(data.email, data.password);
+    setAuthError(null);
+    try {
+      await signIn(data.email, data.password, data.role);
+    } catch (error: any) {
+      setAuthError(error.message);
+    }
   };
 
   return (
@@ -51,6 +72,43 @@ const Login = () => {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>I am a:</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-6"
+                      >
+                        <div className="flex items-center space-x-2 rounded-md border p-4 cursor-pointer hover:bg-muted transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                          <FormControl>
+                            <RadioGroupItem value="therapist" id="therapist" className="sr-only" />
+                          </FormControl>
+                          <UserCircle2 className="h-5 w-5 text-primary" />
+                          <label htmlFor="therapist" className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                            Therapist
+                          </label>
+                        </div>
+                        <div className="flex items-center space-x-2 rounded-md border p-4 cursor-pointer hover:bg-muted transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                          <FormControl>
+                            <RadioGroupItem value="client" id="client" className="sr-only" />
+                          </FormControl>
+                          <Users className="h-5 w-5 text-primary" />
+                          <label htmlFor="client" className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                            Client
+                          </label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"
@@ -78,6 +136,12 @@ const Login = () => {
                   </FormItem>
                 )}
               />
+              
+              {authError && (
+                <div className="text-sm font-medium text-destructive">
+                  {authError}
+                </div>
+              )}
               
               <div className="flex items-center justify-between">
                 <div className="text-sm">

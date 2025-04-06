@@ -4,14 +4,16 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { roleService } from '@/services/roleService';
 
 interface AuthContextProps {
   session: Session | null;
   user: User | null;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, role?: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
+  userRole: string | null;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -20,21 +22,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
-        if (event === 'SIGNED_IN' && currentSession) {
-          toast({
-            title: "Welcome back!",
-            description: "You have successfully signed in.",
-          });
+        // If signed in, fetch the user's role
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          try {
+            const roles = await roleService.getUserRoles(currentSession.user.id);
+            if (roles.length > 0) {
+              setUserRole(roles[0].role);
+            }
+            
+            toast({
+              title: "Welcome back!",
+              description: "You have successfully signed in.",
+            });
+          } catch (error) {
+            console.error("Error fetching user role:", error);
+          }
         } else if (event === 'SIGNED_OUT') {
+          setUserRole(null);
           toast({
             title: "Signed out",
             description: "You have been signed out successfully.",
@@ -44,9 +58,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
+      
+      // If session exists, fetch the user's role
+      if (currentSession?.user) {
+        try {
+          const roles = await roleService.getUserRoles(currentSession.user.id);
+          if (roles.length > 0) {
+            setUserRole(roles[0].role);
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+        }
+      }
+      
       setLoading(false);
     });
 
@@ -82,27 +109,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message,
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, role?: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-      navigate('/dashboard');
+
+      // If role is specified, verify that the user has this role
+      if (role && data.user) {
+        const hasRole = await roleService.hasRole(data.user.id, role);
+        if (!hasRole) {
+          // If user doesn't have the specified role, sign out and throw an error
+          await supabase.auth.signOut();
+          throw new Error(`You don't have access as a ${role}. Please sign in with the correct account or contact support.`);
+        }
+        setUserRole(role);
+      }
+
+      // Navigate based on role
+      if (role === 'client') {
+        navigate('/patient/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast({
         title: "Error signing in",
         description: error.message,
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -113,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setUserRole(null);
       navigate('/');
     } catch (error: any) {
       toast({
@@ -134,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signIn,
         signOut,
         loading,
+        userRole,
       }}
     >
       {children}
