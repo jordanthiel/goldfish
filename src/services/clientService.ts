@@ -1,4 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 export interface Client {
   id: string;
@@ -13,7 +15,6 @@ export interface Client {
   status: string;
   created_at: string;
   updated_at: string;
-  full_name?: string;
 }
 
 export interface ClientInput {
@@ -27,27 +28,6 @@ export interface ClientInput {
   status?: string;
 }
 
-export const getClientWithAppointments = async (id: string): Promise<Client & { appointments: any[] }> => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select(`
-      *,
-      appointments (*)
-    `)
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-  
-  if (data) {
-    data.full_name = `${data.first_name} ${data.last_name}`;
-  }
-
-  return data;
-};
-
 export const clientService = {
   // Get all clients for the current user
   async getClients(): Promise<Client[]> {
@@ -60,12 +40,7 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    const clientsWithFullName = (data || []).map(client => ({
-      ...client,
-      full_name: `${client.first_name} ${client.last_name}`
-    }));
-
-    return clientsWithFullName;
+    return data || [];
   },
 
   // Get a single client by ID
@@ -80,8 +55,6 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
-    
     return data;
   },
 
@@ -108,8 +81,6 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
-    
     return data;
   },
 
@@ -129,8 +100,6 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
-    
     return data;
   },
 
@@ -146,6 +115,21 @@ export const clientService = {
     }
   },
 
-  // Also keep the method on the service object for backward compatibility
-  getClientWithAppointments
+  // Get client with their appointments
+  async getClientWithAppointments(id: string): Promise<Client & { appointments: any[] }> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select(`
+        *,
+        appointments (*)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  }
 };
