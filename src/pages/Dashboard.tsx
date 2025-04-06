@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -71,6 +72,41 @@ const Dashboard = () => {
     return null;
   }
 
+  // Move renderContent inside the component to access component variables
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'clients':
+        return <ClientList />;
+      case 'calendar':
+        return <AppointmentCalendar />;
+      case 'notes':
+        return <SessionNotes />;
+      case 'video':
+        return <VideoConsultation />;
+      case 'claims':
+        return <InsuranceClaims />;
+      default:
+        return (
+          <>
+            <DashboardOverview />
+            <div className="mt-8 p-4 bg-muted rounded-lg">
+              <h3 className="text-lg font-medium mb-2">Development Tools</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Use this button to add test data to your account for testing purposes.
+              </p>
+              <Button 
+                onClick={handleBackfill} 
+                disabled={isBackfilling}
+                variant="outline"
+              >
+                {isBackfilling ? 'Adding test data...' : 'Backfill Test Data For My Account'}
+              </Button>
+            </div>
+          </>
+        );
+    }
+  };
+
   return (
     <RootLayout>
       <SidebarProvider>
@@ -86,40 +122,6 @@ const Dashboard = () => {
       </SidebarProvider>
     </RootLayout>
   );
-};
-
-const renderContent = () => {
-  switch (activeTab) {
-    case 'clients':
-      return <ClientList />;
-    case 'calendar':
-      return <AppointmentCalendar />;
-    case 'notes':
-      return <SessionNotes />;
-    case 'video':
-      return <VideoConsultation />;
-    case 'claims':
-      return <InsuranceClaims />;
-    default:
-      return (
-        <>
-          <DashboardOverview />
-          <div className="mt-8 p-4 bg-muted rounded-lg">
-            <h3 className="text-lg font-medium mb-2">Development Tools</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Use this button to add test data to your account for testing purposes.
-            </p>
-            <Button 
-              onClick={handleBackfill} 
-              disabled={isBackfilling}
-              variant="outline"
-            >
-              {isBackfilling ? 'Adding test data...' : 'Backfill Test Data For My Account'}
-            </Button>
-          </div>
-        </>
-      );
-  }
 };
 
 export default Dashboard;
