@@ -12,10 +12,15 @@ import ClientNotesList from '@/components/notes/ClientNotesList';
 import { toast } from '@/hooks/use-toast';
 import ClientInvite from '@/components/clients/ClientInvite';
 
+// Extend the Client type to include appointments
+interface ClientWithAppointments extends Client {
+  appointments?: any[];
+}
+
 const ClientDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [client, setClient] = useState<Client | null>(null);
+  const [client, setClient] = useState<ClientWithAppointments | null>(null);
   const [loading, setLoading] = useState(true);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [inviteFormOpen, setInviteFormOpen] = useState(false);
@@ -210,7 +215,10 @@ const ClientDetails = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ClientNotesList clientId={client.id} />
+              <ClientNotesList 
+                clientId={client.id} 
+                clientName={`${client.first_name} ${client.last_name}`}
+              />
             </CardContent>
           </Card>
         </TabsContent>
