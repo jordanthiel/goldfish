@@ -10,12 +10,11 @@ export interface UserRole {
 }
 
 export const roleService = {
-  // Get current user's roles
+  // Get current user's roles using our security definer function
   async getUserRoles(userId: string): Promise<UserRole[]> {
+    // Use the RPC endpoint to call our security definer function
     const { data, error } = await supabase
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', userId);
+      .rpc('get_user_roles', { user_id_param: userId });
 
     if (error) {
       console.error('Error fetching user roles:', error);
@@ -25,21 +24,20 @@ export const roleService = {
     return data || [];
   },
 
-  // Check if the user has a specific role
+  // Check if the user has a specific role using our security definer function
   async hasRole(userId: string, roleName: string): Promise<boolean> {
     const { data, error } = await supabase
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('role', roleName)
-      .limit(1);
+      .rpc('user_has_role', { 
+        user_id_param: userId,
+        role_name: roleName
+      });
 
     if (error) {
       console.error('Error checking user role:', error);
       throw new Error(error.message);
     }
 
-    return data && data.length > 0;
+    return data || false;
   },
 
   // Assign a role to a user

@@ -25,10 +25,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Separate function to fetch user role to avoid recursion issues
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const roles = await roleService.getUserRoles(userId);
+      console.log('Fetched roles:', roles);
+      if (roles.length > 0) {
+        setUserRole(roles[0].role);
+      }
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log('Auth state changed:', event);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
@@ -37,10 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Use setTimeout to prevent recursion issues with Supabase
           setTimeout(async () => {
             try {
-              const roles = await roleService.getUserRoles(currentSession.user.id);
-              if (roles.length > 0) {
-                setUserRole(roles[0].role);
-              }
+              await fetchUserRole(currentSession.user.id);
               
               toast({
                 title: "Welcome back!",
@@ -49,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (error) {
               console.error("Error fetching user role:", error);
             }
-          }, 0);
+          }, 100);
         } else if (event === 'SIGNED_OUT') {
           setUserRole(null);
           toast({
@@ -62,16 +73,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      console.log('Getting existing session:', currentSession?.user?.id);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
       // If session exists, fetch the user's role
       if (currentSession?.user) {
         try {
-          const roles = await roleService.getUserRoles(currentSession.user.id);
-          if (roles.length > 0) {
-            setUserRole(roles[0].role);
-          }
+          await fetchUserRole(currentSession.user.id);
         } catch (error) {
           console.error("Error fetching user role:", error);
         }
