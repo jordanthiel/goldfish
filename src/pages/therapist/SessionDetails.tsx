@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
@@ -43,14 +44,25 @@ const SessionDetails = () => {
         const appointmentData = await appointmentService.getAppointment(id);
         setAppointment(appointmentData);
         
-        // Fetch notes for this appointment
-        const notes = await noteService.getAppointmentNotes(id);
-        if (notes.length > 0) {
-          setNote(notes[0]);
-          
-          // Fetch access logs for this note
-          const logs = await auditService.getNoteAccessLogs(notes[0].id);
-          setAccessLogs(logs);
+        try {
+          // Fetch notes for this appointment
+          const notes = await noteService.getAppointmentNotes(id);
+          if (notes.length > 0) {
+            setNote(notes[0]);
+            
+            try {
+              // Fetch access logs for this note
+              const logs = await auditService.getNoteAccessLogs(notes[0].id);
+              setAccessLogs(logs);
+            } catch (error) {
+              console.error("Error fetching access logs:", error);
+              // Continue without access logs
+              setAccessLogs([]);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching session notes:", error);
+          // Continue without notes
         }
         
         setIsLoading(false);
@@ -58,7 +70,7 @@ const SessionDetails = () => {
         console.error("Error fetching session data:", error);
         toast({
           title: "Error",
-          description: "Failed to load session data",
+          description: "Failed to load appointment details. Please try again.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -79,9 +91,14 @@ const SessionDetails = () => {
         const updatedNote = await noteService.updateNote(note.id, { content });
         setNote(updatedNote);
         
-        // Refresh access logs
-        const logs = await auditService.getNoteAccessLogs(note.id);
-        setAccessLogs(logs);
+        try {
+          // Refresh access logs
+          const logs = await auditService.getNoteAccessLogs(note.id);
+          setAccessLogs(logs);
+        } catch (error) {
+          console.error("Error fetching access logs:", error);
+          // Continue without updating access logs
+        }
       } else {
         // Create new note
         const newNote = await noteService.createNote({
@@ -92,9 +109,14 @@ const SessionDetails = () => {
         });
         setNote(newNote);
         
-        // Refresh access logs
-        const logs = await auditService.getNoteAccessLogs(newNote.id);
-        setAccessLogs(logs);
+        try {
+          // Refresh access logs
+          const logs = await auditService.getNoteAccessLogs(newNote.id);
+          setAccessLogs(logs);
+        } catch (error) {
+          console.error("Error fetching access logs:", error);
+          // Continue without access logs
+        }
       }
       
       toast({
@@ -209,7 +231,7 @@ const SessionDetails = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">No access logs recorded yet</p>
+                  <p className="text-muted-foreground">No access logs recorded yet or you don't have permission to view them.</p>
                 )}
               </CardContent>
             </Card>

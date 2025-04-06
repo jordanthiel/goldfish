@@ -60,7 +60,12 @@ export const noteService = {
     // Log access to the notes for HIPAA compliance
     if (data && data.length > 0) {
       // We only log once for the batch access
-      await auditService.logNoteAccess(data[0].id, 'View Client Notes');
+      try {
+        await auditService.logNoteAccess(data[0].id, 'View Client Notes');
+      } catch (error) {
+        console.error('Error logging note access:', error);
+        // Continue execution - don't let access logging failure prevent note access
+      }
     }
 
     return data || [];
@@ -81,7 +86,12 @@ export const noteService = {
 
     // Log access to the notes for HIPAA compliance
     if (data && data.length > 0) {
-      await auditService.logNoteAccess(data[0].id, 'View Appointment Notes');
+      try {
+        await auditService.logNoteAccess(data[0].id, 'View Appointment Notes');
+      } catch (error) {
+        console.error('Error logging note access:', error);
+        // Continue execution - don't let access logging failure prevent note access
+      }
     }
 
     return data || [];
@@ -101,7 +111,12 @@ export const noteService = {
     }
 
     // Log access to the note for HIPAA compliance
-    await auditService.logNoteAccess(id, 'View Note');
+    try {
+      await auditService.logNoteAccess(id, 'View Note');
+    } catch (error) {
+      console.error('Error logging note access:', error);
+      // Continue execution - don't let access logging failure prevent note access
+    }
 
     return data;
   },
@@ -151,7 +166,12 @@ export const noteService = {
     }
 
     // Log the edit for HIPAA compliance
-    await auditService.logNoteAccess(id, 'Edit Note');
+    try {
+      await auditService.logNoteAccess(id, 'Edit Note');
+    } catch (error) {
+      console.error('Error logging note access:', error);
+      // Continue execution - don't let access logging failure prevent note access
+    }
 
     return data;
   },
@@ -159,7 +179,12 @@ export const noteService = {
   // Delete a note
   async deleteNote(id: string): Promise<void> {
     // Log the deletion for HIPAA compliance
-    await auditService.logNoteAccess(id, 'Delete Note');
+    try {
+      await auditService.logNoteAccess(id, 'Delete Note');
+    } catch (error) {
+      console.error('Error logging note access:', error);
+      // Continue execution - don't let access logging failure prevent note deletion
+    }
 
     const { error } = await supabase
       .from('session_notes')
