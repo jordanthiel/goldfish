@@ -34,11 +34,13 @@ import { useToast } from '@/hooks/use-toast';
 import ClientForm from './ClientForm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clientService } from '@/services/clientService';
+import { useNavigate } from 'react-router-dom';
 
 const ClientList = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [clientFormOpen, setClientFormOpen] = useState(false);
@@ -121,6 +123,10 @@ const ClientList = () => {
     queryClient.invalidateQueries({ queryKey: ['clients'] });
   };
 
+  const handleClientClick = (client: any) => {
+    navigate(`/therapist/client/${client.id}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -182,7 +188,11 @@ const ClientList = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredClients.map((client) => (
-                        <TableRow key={client.id}>
+                        <TableRow 
+                          key={client.id} 
+                          onClick={() => handleClientClick(client)}
+                          className="cursor-pointer"
+                        >
                           <TableCell className="font-medium">{`${client.first_name} ${client.last_name}`}</TableCell>
                           <TableCell className="hidden md:table-cell">{client.email || 'N/A'}</TableCell>
                           <TableCell className="hidden lg:table-cell">{client.phone || 'N/A'}</TableCell>
@@ -197,7 +207,7 @@ const ClientList = () => {
                               {client.status}
                             </span>
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
