@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Client {
@@ -41,11 +42,11 @@ export const getClientWithAppointments = async (id: string): Promise<Client & { 
     throw new Error(error.message);
   }
   
-  if (data) {
-    data.full_name = `${data.first_name} ${data.last_name}`;
-  }
+  // Add full_name property
+  const result = data as Client & { appointments: any[] };
+  result.full_name = `${result.first_name} ${result.last_name}`;
 
-  return data;
+  return result;
 };
 
 export const clientService = {
@@ -80,9 +81,11 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
+    // Add full_name property
+    const result = data as Client;
+    result.full_name = `${result.first_name} ${result.last_name}`;
     
-    return data;
+    return result;
   },
 
   // Create a new client
@@ -108,9 +111,11 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
+    // Add full_name property
+    const result = data as Client;
+    result.full_name = `${result.first_name} ${result.last_name}`;
     
-    return data;
+    return result;
   },
 
   // Update an existing client
@@ -129,9 +134,11 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    data.full_name = `${data.first_name} ${data.last_name}`;
+    // Add full_name property
+    const result = data as Client;
+    result.full_name = `${result.first_name} ${result.last_name}`;
     
-    return data;
+    return result;
   },
 
   // Delete a client
