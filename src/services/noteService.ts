@@ -76,6 +76,28 @@ export const noteService = {
     return data || [];
   },
 
+  // Get notes for a specific appointment
+  async getAppointmentNotes(appointmentId: string): Promise<SessionNote[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    const { data, error } = await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('therapist_id', user.id)
+      .eq('appointment_id', appointmentId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data || [];
+  },
+
   // Get a single note by ID
   async getNote(id: string): Promise<SessionNote> {
     const { data: { user } } = await supabase.auth.getUser();
