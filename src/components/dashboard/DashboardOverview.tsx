@@ -301,7 +301,7 @@ const DashboardOverview = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between">
-                          <h4 className="font-semibold">{apt.client?.first_name} {apt.client?.last_name || 'Client'}</h4>
+                          <h4 className="font-semibold">{apt.clients?.first_name} {apt.clients?.last_name || 'Client'}</h4>
                           <span className="text-sm text-muted-foreground">
                             {format(new Date(apt.start_time), 'EEEE')}
                           </span>
