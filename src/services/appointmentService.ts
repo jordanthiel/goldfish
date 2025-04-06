@@ -101,10 +101,18 @@ export const appointmentService = {
 
   // Create a new appointment
   async createAppointment(appointment: AppointmentInput): Promise<Appointment> {
+    // Get current user id
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
     const { data, error } = await supabase
       .from('appointments')
       .insert({
         ...appointment,
+        therapist_id: user.id,
         status: appointment.status || 'Scheduled'
       })
       .select()

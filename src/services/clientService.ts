@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 export interface Client {
   id: string;
@@ -59,11 +60,19 @@ export const clientService = {
 
   // Create a new client
   async createClient(client: ClientInput): Promise<Client> {
+    // Get current user id
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
     const { data, error } = await supabase
       .from('clients')
       .insert({
         ...client,
-        status: client.status || 'Active'
+        status: client.status || 'Active',
+        therapist_id: user.id
       })
       .select()
       .single();

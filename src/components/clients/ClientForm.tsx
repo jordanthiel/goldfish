@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -94,8 +93,14 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
           description: `${values.first_name} ${values.last_name}'s information has been updated.`,
         });
       } else {
-        // Add new client
-        await clientService.createClient(values);
+        // Add new client - ensure first_name and last_name are set
+        const clientData = {
+          ...values,
+          first_name: values.first_name,
+          last_name: values.last_name
+        };
+        
+        await clientService.createClient(clientData);
         
         toast({
           title: 'Client added',
