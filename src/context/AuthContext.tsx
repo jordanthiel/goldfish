@@ -139,13 +139,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If role is specified, verify that the user has this role
       if (role && data.user) {
-        const hasRole = await roleService.hasRole(data.user.id, role);
-        if (!hasRole) {
-          // If user doesn't have the specified role, sign out and throw an error
+        try {
+          // Fetch user roles first
+          const userRoles = await roleService.getUserRoles(data.user.id);
+          console.log('User roles during login:', userRoles);
+          
+          // Check if the user has the required role
+          const hasRole = userRoles.some(userRole => userRole.role === role);
+          
+          if (!hasRole) {
+            // If user doesn't have the specified role, sign out and throw an error
+            await supabase.auth.signOut();
+            setUserRole(null);
+            throw new Error(`You don't have access as a ${role}. Please sign in with the correct account or contact support.`);
+          }
+          
+          setUserRole(role);
+        } catch (roleError: any) {
+          // If there's an error checking roles, sign out and throw the error
           await supabase.auth.signOut();
-          throw new Error(`You don't have access as a ${role}. Please sign in with the correct account or contact support.`);
+          console.error("Error checking user role during login:", roleError);
+          throw roleError;
         }
-        setUserRole(role);
       }
 
       // Navigate based on role

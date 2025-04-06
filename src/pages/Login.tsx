@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import RootLayout from '@/components/layout/RootLayout';
 import { UserCircle2, Users } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -38,8 +39,16 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { signIn, loading } = useAuth();
+  const { signIn, loading, user } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -55,7 +64,17 @@ const Login = () => {
     try {
       await signIn(data.email, data.password, data.role);
     } catch (error: any) {
+      console.error("Login error:", error);
       setAuthError(error.message);
+      
+      // Show a more user-friendly toast for role errors
+      if (error.message.includes("don't have access")) {
+        toast({
+          title: "Role access error",
+          description: "Your account doesn't have the selected role. Please try a different role or contact support.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
