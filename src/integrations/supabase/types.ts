@@ -166,6 +166,47 @@ export type Database = {
           },
         ]
       }
+      client_invitations: {
+        Row: {
+          client_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invite_code: string
+          status: string
+          therapist_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invite_code: string
+          status?: string
+          therapist_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_code?: string
+          status?: string
+          therapist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -383,11 +424,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_client_invitation: {
+        Args: {
+          invite_code_param: string
+          user_id_param: string
+        }
+        Returns: Json
+      }
       add_role_to_user: {
         Args: {
           user_id_param: string
           role_name: string
         }
+        Returns: string
+      }
+      create_client_invitation: {
+        Args: {
+          therapist_id_param: string
+          client_id_param: string
+          email_param: string
+        }
+        Returns: Json
+      }
+      generate_invite_code: {
+        Args: Record<PropertyKey, never>
         Returns: string
       }
       get_user_roles: {
@@ -402,12 +462,24 @@ export type Database = {
           user_id: string
         }[]
       }
+      send_client_invitation_email: {
+        Args: {
+          invite_id: string
+        }
+        Returns: Json
+      }
       user_has_role: {
         Args: {
           user_id_param: string
           role_name: string
         }
         Returns: boolean
+      }
+      verify_invite_code: {
+        Args: {
+          invite_code_param: string
+        }
+        Returns: Json
       }
     }
     Enums: {
