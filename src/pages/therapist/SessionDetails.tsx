@@ -33,6 +33,7 @@ const SessionDetails = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [showAccessLogs, setShowAccessLogs] = useState(false);
+  const [allClientNotes, setAllClientNotes] = useState<SessionNote[]>([]);
   
   useEffect(() => {
     if (!id) return;
@@ -44,20 +45,34 @@ const SessionDetails = () => {
         const appointmentData = await appointmentService.getAppointment(id);
         setAppointment(appointmentData);
         
+        // Fetch notes for this specific appointment
         try {
-          // Fetch notes for this appointment
-          const notes = await noteService.getAppointmentNotes(id);
-          if (notes.length > 0) {
-            setNote(notes[0]);
+          // First check if there's a note specifically for this appointment
+          const appointmentNotes = await noteService.getAppointmentNotes(id);
+          
+          if (appointmentNotes.length > 0) {
+            setNote(appointmentNotes[0]);
             
             try {
               // Fetch access logs for this note
-              const logs = await auditService.getNoteAccessLogs(notes[0].id);
+              const logs = await auditService.getNoteAccessLogs(appointmentNotes[0].id);
               setAccessLogs(logs);
             } catch (error) {
               console.error("Error fetching access logs:", error);
               // Continue without access logs
               setAccessLogs([]);
+            }
+          } 
+          
+          // Also fetch all notes for this client for reference
+          if (appointmentData && appointmentData.client_id) {
+            const clientNotes = await noteService.getClientNotes(appointmentData.client_id);
+            setAllClientNotes(clientNotes);
+            
+            // If no appointment-specific note was found, but there are client notes,
+            // we can still show an empty editor but let the user know about other notes
+            if (appointmentNotes.length === 0 && clientNotes.length > 0) {
+              console.log(`No appointment-specific notes found, but found ${clientNotes.length} client notes`);
             }
           }
         } catch (error) {
@@ -91,6 +106,11 @@ const SessionDetails = () => {
         const updatedNote = await noteService.updateNote(note.id, { content });
         setNote(updatedNote);
         
+        // Also update the note in allClientNotes
+        setAllClientNotes(prevNotes => 
+          prevNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
+        );
+        
         try {
           // Refresh access logs
           const logs = await auditService.getNoteAccessLogs(note.id);
@@ -108,6 +128,9 @@ const SessionDetails = () => {
           is_private: true
         });
         setNote(newNote);
+        
+        // Add the new note to allClientNotes
+        setAllClientNotes(prevNotes => [newNote, ...prevNotes]);
         
         try {
           // Refresh access logs
@@ -170,6 +193,10 @@ const SessionDetails = () => {
     const start = parseISO(startTime);
     const end = parseISO(endTime);
     return `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
+  };
+  
+  const formatNoteDate = (date: string) => {
+    return format(parseISO(date), 'MMM d, yyyy');
   };
   
   return (
@@ -292,6 +319,28 @@ const SessionDetails = () => {
                   </Badge>
                 </div>
                 
+                {/* Display all client notes */}
+                {allClientNotes.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="font-medium mb-2">All Patient Notes</h3>
+                      <div className="max-h-60 overflow-y-auto">
+                        {allClientNotes.map((clientNote) => (
+                          <div key={clientNote.id} className="mb-2 text-sm border-b pb-2">
+                            <p className="font-medium">{formatNoteDate(clientNote.created_at)}</p>
+                            <p className="line-clamp-2 text-muted-foreground">
+                              {clientNote.content.length > 60 
+                                ? `${clientNote.content.substring(0, 60)}...` 
+                                : clientNote.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                
                 <div className="mt-4">
                   <Button 
                     className="w-full" 
@@ -330,8 +379,13 @@ const SessionDetails = () => {
               <CardFooter className="text-sm text-muted-foreground">
                 {note ? 
                   `Last updated: ${format(parseISO(note.updated_at), 'MMMM d, yyyy h:mm a')}` : 
-                  "No notes saved yet"
+                  "No notes saved yet for this appointment"
                 }
+                {allClientNotes.length > 0 && !note && (
+                  <span className="ml-2">
+                    (Patient has {allClientNotes.length} {allClientNotes.length === 1 ? 'note' : 'notes'} in total)
+                  </span>
+                )}
               </CardFooter>
             </Card>
           </div>
