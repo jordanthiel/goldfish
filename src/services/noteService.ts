@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Client } from '@/services/clientService';
 import { auditService } from '@/services/auditService';
+import { encryptAES, decryptAES } from '@/lib/utils';
 
 export interface SessionNote {
   id: string;
@@ -28,9 +29,8 @@ export interface SessionNoteInput {
 // Encryption/decryption functions
 const encryptContent = (content: string): string => {
   try {
-    // Use a simple encryption for demonstration
-    // In a real-world app, use a more robust encryption library
-    return btoa(content); // Base64 encoding as simple encryption
+    // Use AES encryption from utils
+    return encryptAES(content);
   } catch (error) {
     console.error('Error encrypting content:', error);
     return content; // Fallback to unencrypted content
@@ -39,8 +39,8 @@ const encryptContent = (content: string): string => {
 
 const decryptContent = (encryptedContent: string): string => {
   try {
-    // Decrypt the content (base64 decode in this example)
-    return atob(encryptedContent);
+    // Use AES decryption from utils
+    return decryptAES(encryptedContent);
   } catch (error) {
     console.error('Error decrypting content:', error);
     return encryptedContent; // Return as is if decryption fails
