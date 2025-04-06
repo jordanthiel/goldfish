@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { clientService, Client } from '@/services/clientService';
-import { noteService } from '@/services/noteService';
+import { noteService, SessionNote } from '@/services/noteService';
 import { useQuery } from '@tanstack/react-query';
 
 const ClientDetails = () => {
@@ -38,6 +38,7 @@ const ClientDetails = () => {
   const [clientTab, setClientTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [noteContent, setNoteContent] = useState("");
+  const [latestNote, setLatestNote] = useState<SessionNote | null>(null);
   const { toast } = useToast();
   
   // Fetch client data with appointments
@@ -50,6 +51,28 @@ const ClientDetails = () => {
     queryFn: () => id ? clientService.getClientWithAppointments(id) : Promise.reject('No client ID provided'),
     enabled: !!id
   });
+
+  // Fetch latest note
+  useEffect(() => {
+    const fetchLatestNote = async () => {
+      if (!id) return;
+      try {
+        const notes = await noteService.getClientNotes(id);
+        if (notes.length > 0) {
+          setLatestNote(notes[0]); // Notes are already sorted by created_at desc
+        }
+      } catch (error) {
+        console.error('Error fetching latest note:', error);
+      }
+    };
+
+    fetchLatestNote();
+  }, [id]);
+
+  // Create markup for HTML content
+  const createMarkup = (htmlContent: string) => {
+    return { __html: htmlContent };
+  };
 
   useEffect(() => {
     if (error) {
@@ -72,7 +95,7 @@ const ClientDetails = () => {
     }
     
     try {
-      await noteService.createNote({
+      const newNote = await noteService.createNote({
         client_id: id,
         content: noteContent,
         is_private: true
@@ -83,6 +106,9 @@ const ClientDetails = () => {
         description: "Your note has been saved successfully."
       });
       setNoteContent("");
+      
+      // Update the latest note
+      setLatestNote(newNote);
     } catch (error) {
       console.error('Error saving note:', error);
       toast({
@@ -110,7 +136,6 @@ const ClientDetails = () => {
     });
   };
 
-  // If loading, show loading indicator
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -127,7 +152,6 @@ const ClientDetails = () => {
     );
   }
 
-  // If no client data found, show error message
   if (!clientData) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -150,21 +174,17 @@ const ClientDetails = () => {
     );
   }
 
-  // Format client data for display
   const clientName = `${clientData.first_name} ${clientData.last_name}`;
   const clientInitials = `${clientData.first_name[0]}${clientData.last_name[0]}`.toUpperCase();
   
-  // Sort appointments by date - upcoming first
   const sortedAppointments = [...(clientData.appointments || [])].sort((a, b) => 
     new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
   
-  // Find next upcoming appointment
   const nextAppointment = sortedAppointments.find(apt => 
     new Date(apt.start_time) > new Date()
   );
   
-  // Find most recent past appointment
   const pastAppointments = sortedAppointments.filter(apt => 
     new Date(apt.end_time) < new Date()
   ).sort((a, b) => 
@@ -341,14 +361,29 @@ const ClientDetails = () => {
                               </CardTitle>
                             </CardHeader>
                             <CardContent>
-                              <div className="text-center py-4">
-                                <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                                <p className="text-muted-foreground">No notes yet for this client</p>
-                              </div>
+                              {latestNote ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(latestNote.created_at), 'MMM d, yyyy • h:mm a')}
+                                  </p>
+                                  <div className="prose max-w-none line-clamp-3">
+                                    <div dangerouslySetInnerHTML={createMarkup(latestNote.content)} />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                                  <p className="text-muted-foreground">No notes yet for this client</p>
+                                </div>
+                              )}
                             </CardContent>
                             <CardFooter>
-                              <Button variant="outline" className="w-full" onClick={() => setClientTab('notes')}>
-                                Add First Note
+                              <Button 
+                                variant="outline" 
+                                className="w-full" 
+                                onClick={() => setClientTab('notes')}
+                              >
+                                {latestNote ? 'View All Notes' : 'Add First Note'}
                               </Button>
                             </CardFooter>
                           </Card>
