@@ -63,6 +63,45 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       billing: {
         Row: {
           amount: number
@@ -130,13 +169,17 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          consent_date: string | null
+          consent_version: string | null
           created_at: string
           date_of_birth: string | null
           email: string | null
           emergency_contact: string | null
+          encryption_key_id: string | null
           first_name: string
           id: string
           last_name: string
+          phi_data: Json | null
           phone: string | null
           status: string | null
           therapist_id: string
@@ -144,13 +187,17 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          consent_date?: string | null
+          consent_version?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
           emergency_contact?: string | null
+          encryption_key_id?: string | null
           first_name: string
           id?: string
           last_name: string
+          phi_data?: Json | null
           phone?: string | null
           status?: string | null
           therapist_id: string
@@ -158,13 +205,17 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          consent_date?: string | null
+          consent_version?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
           emergency_contact?: string | null
+          encryption_key_id?: string | null
           first_name?: string
           id?: string
           last_name?: string
+          phi_data?: Json | null
           phone?: string | null
           status?: string | null
           therapist_id?: string
@@ -176,6 +227,38 @@ export type Database = {
             columns: ["therapist_id"]
             isOneToOne: false
             referencedRelation: "therapist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_access_logs: {
+        Row: {
+          access_type: string
+          accessed_at: string
+          id: string
+          note_id: string
+          user_id: string
+        }
+        Insert: {
+          access_type: string
+          accessed_at?: string
+          id?: string
+          note_id: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          accessed_at?: string
+          id?: string
+          note_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_access_logs_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "session_notes"
             referencedColumns: ["id"]
           },
         ]
@@ -268,6 +351,30 @@ export type Database = {
           specialty?: string | null
           updated_at?: string
           years_experience?: number | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

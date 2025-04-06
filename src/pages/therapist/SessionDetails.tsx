@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
@@ -13,11 +12,13 @@ import {
   CalendarIcon,  
   Clock, 
   ArrowLeft,
-  User
+  User,
+  Shield
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { appointmentService, Appointment } from '@/services/appointmentService';
 import { noteService, SessionNote } from '@/services/noteService';
+import { auditService } from '@/services/auditService';
 import RichTextEditor from '@/components/notes/RichTextEditor';
 
 const SessionDetails = () => {
@@ -29,6 +30,8 @@ const SessionDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [note, setNote] = useState<SessionNote | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
+  const [showAccessLogs, setShowAccessLogs] = useState(false);
   
   useEffect(() => {
     if (!id) return;
@@ -44,6 +47,10 @@ const SessionDetails = () => {
         const notes = await noteService.getAppointmentNotes(id);
         if (notes.length > 0) {
           setNote(notes[0]);
+          
+          // Fetch access logs for this note
+          const logs = await auditService.getNoteAccessLogs(notes[0].id);
+          setAccessLogs(logs);
         }
         
         setIsLoading(false);
@@ -71,6 +78,10 @@ const SessionDetails = () => {
         // Update existing note
         const updatedNote = await noteService.updateNote(note.id, { content });
         setNote(updatedNote);
+        
+        // Refresh access logs
+        const logs = await auditService.getNoteAccessLogs(note.id);
+        setAccessLogs(logs);
       } else {
         // Create new note
         const newNote = await noteService.createNote({
@@ -80,6 +91,10 @@ const SessionDetails = () => {
           is_private: true
         });
         setNote(newNote);
+        
+        // Refresh access logs
+        const logs = await auditService.getNoteAccessLogs(newNote.id);
+        setAccessLogs(logs);
       }
       
       toast({
@@ -141,19 +156,64 @@ const SessionDetails = () => {
       
       <main className="flex-1 p-6">
         <div className="max-w-5xl mx-auto space-y-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{appointment.title}</h1>
-              <p className="text-muted-foreground">
-                Session with {appointment.client?.first_name} {appointment.client?.last_name}
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">{appointment?.title}</h1>
+                <p className="text-muted-foreground">
+                  Session with {appointment?.client?.first_name} {appointment?.client?.last_name}
+                </p>
+              </div>
             </div>
+            
+            {note && (
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => setShowAccessLogs(!showAccessLogs)}
+              >
+                <Shield className="h-4 w-4" />
+                {showAccessLogs ? "Hide Access Logs" : "View Access Logs"}
+              </Button>
+            )}
           </div>
           
           <Separator />
+          
+          {showAccessLogs && note && (
+            <Card>
+              <CardHeader>
+                <CardTitle>HIPAA Access Logs</CardTitle>
+                <CardDescription>
+                  Record of all access to this patient's session notes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {accessLogs.length > 0 ? (
+                  <div className="space-y-4">
+                    {accessLogs.map((log, index) => (
+                      <div key={index} className="flex justify-between border-b pb-2">
+                        <div>
+                          <p className="font-medium">{log.access_type}</p>
+                          <p className="text-sm text-muted-foreground">
+                            User: {log.user?.email || log.user_id}
+                          </p>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {format(parseISO(log.accessed_at), 'MMM d, yyyy h:mm a')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No access logs recorded yet</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Session info sidebar */}
@@ -225,10 +285,19 @@ const SessionDetails = () => {
               <CardHeader>
                 <CardTitle>Session Notes</CardTitle>
                 <CardDescription>
-                  Take detailed notes during your session with {appointment.client?.first_name}
+                  Take detailed notes during your session with {appointment?.client?.first_name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="bg-yellow-50 p-3 mb-4 rounded-md text-sm">
+                  <p className="font-medium text-yellow-800 flex items-center">
+                    <Shield className="h-4 w-4 mr-2" /> HIPAA Compliance Notice
+                  </p>
+                  <p className="text-yellow-700 mt-1">
+                    All access to this patient's health information is being logged in accordance with HIPAA requirements.
+                  </p>
+                </div>
+                
                 <RichTextEditor 
                   initialContent={note?.content || ""}
                   onSave={handleSaveNote}

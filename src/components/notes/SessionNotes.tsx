@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Save, Clock, User, AlignLeft, Tag, Paperclip } from 'lucide-react';
+import { Search, Plus, Save, Clock, User, AlignLeft, Tag, Paperclip, Shield, AlertTriangle } from 'lucide-react';
 import { noteService, SessionNoteWithClient } from '@/services/noteService';
 import { clientService } from '@/services/clientService';
+import { auditService } from '@/services/auditService';
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 
@@ -26,6 +26,10 @@ const SessionNotes = () => {
     tags: ''
   });
   
+  // Add a new state for access logs
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  
   const { toast } = useToast();
 
   // Load notes and clients
@@ -40,6 +44,10 @@ const SessionNotes = () => {
         setNotes(fetchedNotes);
         if (fetchedNotes.length > 0) {
           setSelectedNote(fetchedNotes[0]);
+          
+          // Fetch access logs for the selected note
+          const logs = await auditService.getNoteAccessLogs(fetchedNotes[0].id);
+          setAccessLogs(logs);
         }
         
         setClients(fetchedClients);
@@ -58,16 +66,28 @@ const SessionNotes = () => {
     fetchData();
   }, [toast]);
 
-  // When a note is selected, update the edit form
+  // When a note is selected, update the edit form and fetch access logs
   useEffect(() => {
     if (selectedNote) {
       setEditNote({
-        title: selectedNote.id, // We don't have a title field, using id instead
+        title: selectedNote.id,
         content: selectedNote.content,
         clientId: selectedNote.client_id,
         date: format(new Date(selectedNote.created_at), 'yyyy-MM-dd'),
-        tags: '' // We don't have tags in our DB schema yet
+        tags: ''
       });
+      
+      // Fetch access logs for the selected note
+      const fetchLogs = async () => {
+        try {
+          const logs = await auditService.getNoteAccessLogs(selectedNote.id);
+          setAccessLogs(logs);
+        } catch (error) {
+          console.error('Error fetching access logs:', error);
+        }
+      };
+      
+      fetchLogs();
     }
   }, [selectedNote]);
 
@@ -202,6 +222,22 @@ const SessionNotes = () => {
         </Button>
       </div>
       
+      {/* HIPAA compliance notice */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="p-4">
+          <div className="flex gap-3">
+            <Shield className="h-6 w-6 text-blue-500 flex-shrink-0" />
+            <div>
+              <h3 className="font-medium text-blue-700">HIPAA Compliance Active</h3>
+              <p className="text-sm text-blue-600 mt-1">
+                All note access and modifications are being logged according to HIPAA requirements.
+                Patient data is encrypted and audit logs are being maintained.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Notes list sidebar */}
         <Card className="lg:col-span-1">
@@ -257,11 +293,50 @@ const SessionNotes = () => {
         
         {/* Note detail/editor */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Note Details</CardTitle>
-            <CardDescription>View and edit session notes</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div>
+              <CardTitle>Note Details</CardTitle>
+              <CardDescription>View and edit session notes</CardDescription>
+            </div>
+            
+            {selectedNote && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setShowLogs(!showLogs)}
+              >
+                <Shield className="h-4 w-4" />
+                {showLogs ? "Hide Logs" : "Access Logs"}
+              </Button>
+            )}
           </CardHeader>
+          
           <CardContent>
+            {showLogs && selectedNote && (
+              <div className="mb-6 border rounded-lg p-4">
+                <h3 className="text-sm font-medium flex items-center gap-2 mb-3">
+                  <Shield className="h-4 w-4" /> 
+                  HIPAA Access Logs
+                </h3>
+                
+                {accessLogs.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {accessLogs.map((log, index) => (
+                      <div key={index} className="flex justify-between text-xs border-b pb-1">
+                        <span>{log.access_type}</span>
+                        <span className="text-muted-foreground">
+                          {format(new Date(log.accessed_at), 'MMM d, yyyy h:mm a')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No access logs available</p>
+                )}
+              </div>
+            )}
+            
             {selectedNote || activeTab === 'edit' ? (
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="mb-4">

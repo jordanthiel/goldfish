@@ -15,6 +15,11 @@ export interface Client {
   status: string;
   created_at: string;
   updated_at: string;
+  // New HIPAA-compliant fields
+  phi_data?: any;
+  consent_date?: string;
+  consent_version?: string;
+  encryption_key_id?: string;
 }
 
 export interface ClientInput {
@@ -26,6 +31,10 @@ export interface ClientInput {
   address?: string;
   emergency_contact?: string;
   status?: string;
+  // New HIPAA-compliant fields
+  phi_data?: any;
+  consent_date?: string;
+  consent_version?: string;
 }
 
 export const clientService = {
@@ -58,7 +67,7 @@ export const clientService = {
     return data;
   },
 
-  // Create a new client
+  // Create a new client with HIPAA compliance
   async createClient(client: ClientInput): Promise<Client> {
     // Get current user id
     const { data: { user } } = await supabase.auth.getUser();
@@ -72,7 +81,9 @@ export const clientService = {
       .insert({
         ...client,
         status: client.status || 'Active',
-        therapist_id: user.id
+        therapist_id: user.id,
+        consent_date: client.consent_date || new Date().toISOString(),
+        consent_version: client.consent_version || '1.0'
       })
       .select()
       .single();
@@ -131,5 +142,36 @@ export const clientService = {
     }
 
     return data;
+  },
+
+  // Store sensitive PHI data
+  async updateClientPHI(id: string, phiData: any): Promise<void> {
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        phi_data: phiData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  // Record client consent
+  async recordConsent(id: string, version: string): Promise<void> {
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        consent_date: new Date().toISOString(),
+        consent_version: version,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
   }
 };

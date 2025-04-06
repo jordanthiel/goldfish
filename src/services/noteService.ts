@@ -1,15 +1,21 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Client } from '@/services/clientService';
+import { auditService } from '@/services/auditService';
 
 export interface SessionNote {
   id: string;
   therapist_id: string;
   client_id: string;
   content: string;
-  appointment_id?: string;
-  is_private: boolean;
   created_at: string;
   updated_at: string;
+  appointment_id?: string;
+  is_private?: boolean;
+}
+
+export interface SessionNoteWithClient extends SessionNote {
+  client?: Client;
 }
 
 export interface SessionNoteInput {
@@ -19,35 +25,19 @@ export interface SessionNoteInput {
   is_private?: boolean;
 }
 
-export interface SessionNoteWithClient extends SessionNote {
-  client?: {
-    first_name: string;
-    last_name: string;
-  };
-}
-
 export const noteService = {
-  // Get all notes for the current therapist
+  // Get all notes for the current user/therapist
   async getNotes(): Promise<SessionNoteWithClient[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     const { data, error } = await supabase
       .from('session_notes')
       .select(`
         *,
-        clients (
-          first_name,
-          last_name
-        )
+        client:clients(*)
       `)
-      .eq('therapist_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching notes:', error);
       throw new Error(error.message);
     }
 
@@ -56,21 +46,21 @@ export const noteService = {
 
   // Get notes for a specific client
   async getClientNotes(clientId: string): Promise<SessionNote[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     const { data, error } = await supabase
       .from('session_notes')
       .select('*')
-      .eq('therapist_id', user.id)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching client notes:', error);
       throw new Error(error.message);
+    }
+
+    // Log access to the notes for HIPAA compliance
+    if (data && data.length > 0) {
+      // We only log once for the batch access
+      await auditService.logNoteAccess(data[0].id, 'View Client Notes');
     }
 
     return data || [];
@@ -78,21 +68,20 @@ export const noteService = {
 
   // Get notes for a specific appointment
   async getAppointmentNotes(appointmentId: string): Promise<SessionNote[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     const { data, error } = await supabase
       .from('session_notes')
       .select('*')
-      .eq('therapist_id', user.id)
       .eq('appointment_id', appointmentId)
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Error fetching appointment notes:', error);
       throw new Error(error.message);
+    }
+
+    // Log access to the notes for HIPAA compliance
+    if (data && data.length > 0) {
+      await auditService.logNoteAccess(data[0].id, 'View Appointment Notes');
     }
 
     return data || [];
@@ -100,28 +89,26 @@ export const noteService = {
 
   // Get a single note by ID
   async getNote(id: string): Promise<SessionNote> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     const { data, error } = await supabase
       .from('session_notes')
       .select('*')
       .eq('id', id)
-      .eq('therapist_id', user.id)
       .single();
 
     if (error) {
+      console.error('Error fetching note:', error);
       throw new Error(error.message);
     }
+
+    // Log access to the note for HIPAA compliance
+    await auditService.logNoteAccess(id, 'View Note');
 
     return data;
   },
 
   // Create a new note
   async createNote(note: SessionNoteInput): Promise<SessionNote> {
+    // Get current user id
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -133,12 +120,13 @@ export const noteService = {
       .insert({
         ...note,
         therapist_id: user.id,
-        is_private: note.is_private ?? true
+        is_private: note.is_private !== undefined ? note.is_private : true
       })
       .select()
       .single();
 
     if (error) {
+      console.error('Error creating note:', error);
       throw new Error(error.message);
     }
 
@@ -147,12 +135,6 @@ export const noteService = {
 
   // Update an existing note
   async updateNote(id: string, updates: Partial<SessionNoteInput>): Promise<SessionNote> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     const { data, error } = await supabase
       .from('session_notes')
       .update({
@@ -160,32 +142,32 @@ export const noteService = {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('therapist_id', user.id)
       .select()
       .single();
 
     if (error) {
+      console.error('Error updating note:', error);
       throw new Error(error.message);
     }
+
+    // Log the edit for HIPAA compliance
+    await auditService.logNoteAccess(id, 'Edit Note');
 
     return data;
   },
 
   // Delete a note
   async deleteNote(id: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+    // Log the deletion for HIPAA compliance
+    await auditService.logNoteAccess(id, 'Delete Note');
+
     const { error } = await supabase
       .from('session_notes')
       .delete()
-      .eq('id', id)
-      .eq('therapist_id', user.id);
+      .eq('id', id);
 
     if (error) {
+      console.error('Error deleting note:', error);
       throw new Error(error.message);
     }
   }
