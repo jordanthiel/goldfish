@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -8,75 +8,37 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { Search, FileText, BookOpen, Download, ExternalLink } from 'lucide-react';
+import { Search, FileText, BookOpen, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { patientService, ResourceItem } from '@/services/patientService';
+import { useToast } from '@/hooks/use-toast';
 
 const PatientResources = () => {
   const [resourcesTab, setResourcesTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [resources, setResources] = useState<ResourceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   
-  // Mock resources data
-  const resources = [
-    {
-      id: 1,
-      title: 'Understanding Anxiety Disorders',
-      description: 'A comprehensive guide to recognizing and managing anxiety symptoms.',
-      type: 'guide',
-      category: 'anxiety',
-      date: '2023-07-12',
-      fileType: 'PDF',
-      url: '#'
-    },
-    {
-      id: 2,
-      title: 'Mindfulness Meditation Practice',
-      description: 'Audio guide to mindfulness meditation techniques for stress reduction.',
-      type: 'audio',
-      category: 'stress',
-      date: '2023-06-23',
-      fileType: 'MP3',
-      url: '#'
-    },
-    {
-      id: 3,
-      title: 'Sleep Hygiene Checklist',
-      description: 'Practical tips to improve your sleep routine and quality.',
-      type: 'worksheet',
-      category: 'sleep',
-      date: '2023-08-05',
-      fileType: 'PDF',
-      url: '#'
-    },
-    {
-      id: 4,
-      title: 'Depression: Signs, Symptoms and Treatment Options',
-      description: 'Educational resource explaining depression and available treatments.',
-      type: 'guide',
-      category: 'depression',
-      date: '2023-05-14',
-      fileType: 'PDF',
-      url: '#'
-    },
-    {
-      id: 5,
-      title: 'Cognitive Behavioral Therapy Workbook',
-      description: 'Interactive exercises to challenge negative thought patterns.',
-      type: 'worksheet',
-      category: 'cbt',
-      date: '2023-09-01',
-      fileType: 'PDF',
-      url: '#'
-    },
-    {
-      id: 6,
-      title: 'Guided Progressive Muscle Relaxation',
-      description: 'Audio guide for releasing physical tension and promoting relaxation.',
-      type: 'audio',
-      category: 'stress',
-      date: '2023-07-30',
-      fileType: 'MP3',
-      url: '#'
-    }
-  ];
+  useEffect(() => {
+    const fetchResources = async () => {
+      setLoading(true);
+      try {
+        const data = await patientService.getPatientResources();
+        setResources(data);
+      } catch (error) {
+        console.error('Error fetching resources:', error);
+        toast({
+          title: "Failed to load resources",
+          description: "Please try again later",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchResources();
+  }, [toast]);
   
   // Filter resources based on search query and selected tab
   const filteredResources = resources.filter(resource => {
@@ -99,6 +61,22 @@ const PatientResources = () => {
         return <FileText className="h-5 w-5 text-therapy-purple" />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 p-6 overflow-auto bg-gray-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-therapy-purple" />
+            <p className="text-muted-foreground">Loading resources...</p>
+          </div>
+        </main>
+        <Separator />
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -134,34 +112,74 @@ const PatientResources = () => {
             </TabsList>
             
             <TabsContent value="all" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.map(resource => (
-                  <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
-                ))}
-              </div>
+              {filteredResources.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredResources.map(resource => (
+                    <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="font-semibold text-lg mb-2">No resources found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Try adjusting your search or filter criteria.
+                  </p>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="guide" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.filter(r => r.type === 'guide').map(resource => (
-                  <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
-                ))}
+                {filteredResources.filter(r => r.type === 'guide').length > 0 ? (
+                  filteredResources.filter(r => r.type === 'guide').map(resource => (
+                    <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-lg mb-2">No guides found</h3>
+                    <p className="text-muted-foreground">
+                      No guide resources match your criteria.
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
             
             <TabsContent value="worksheet" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.filter(r => r.type === 'worksheet').map(resource => (
-                  <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
-                ))}
+                {filteredResources.filter(r => r.type === 'worksheet').length > 0 ? (
+                  filteredResources.filter(r => r.type === 'worksheet').map(resource => (
+                    <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-lg mb-2">No worksheets found</h3>
+                    <p className="text-muted-foreground">
+                      No worksheet resources match your criteria.
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
             
             <TabsContent value="audio" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResources.filter(r => r.type === 'audio').map(resource => (
-                  <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
-                ))}
+                {filteredResources.filter(r => r.type === 'audio').length > 0 ? (
+                  filteredResources.filter(r => r.type === 'audio').map(resource => (
+                    <ResourceCard key={resource.id} resource={resource} icon={getResourceIcon(resource.type)} />
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-lg mb-2">No audio resources found</h3>
+                    <p className="text-muted-foreground">
+                      No audio resources match your criteria.
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
@@ -176,6 +194,22 @@ const PatientResources = () => {
 
 // Resource Card Component
 const ResourceCard = ({ resource, icon }) => {
+  const { toast } = useToast();
+  
+  const handleDownload = () => {
+    toast({
+      title: "Download started",
+      description: `Downloading ${resource.title}`
+    });
+  };
+  
+  const handleView = () => {
+    toast({
+      title: "Opening resource",
+      description: `Opening ${resource.title}`
+    });
+  };
+
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="pb-2">
@@ -202,11 +236,11 @@ const ResourceCard = ({ resource, icon }) => {
         <p className="text-xs text-muted-foreground">Added on {resource.date}</p>
       </CardContent>
       <CardFooter className="flex justify-between pt-2">
-        <Button variant="outline" size="sm" className="w-1/2 mr-1">
+        <Button variant="outline" size="sm" className="w-1/2 mr-1" onClick={handleView}>
           <ExternalLink className="h-4 w-4 mr-1" />
           View
         </Button>
-        <Button size="sm" className="w-1/2 ml-1">
+        <Button size="sm" className="w-1/2 ml-1" onClick={handleDownload}>
           <Download className="h-4 w-4 mr-1" />
           Download
         </Button>

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -15,41 +15,63 @@ import {
   Clock,
   ArrowRight,
   BookOpen,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-// Demo patient data
-const patientData = {
-  name: "Michael Davis",
-  therapistName: "Dr. Amy Johnson",
-  nextAppointment: new Date("2023-10-10T14:00:00"),
-  upcomingAppointments: [
-    {
-      id: 1,
-      date: new Date("2023-10-10T14:00:00"),
-      duration: 50,
-      type: "Video Session"
-    },
-    {
-      id: 2,
-      date: new Date("2023-10-24T14:00:00"),
-      duration: 50,
-      type: "Video Session"
-    }
-  ],
-  recentAppointments: [
-    {
-      id: 3,
-      date: new Date("2023-09-26T14:00:00"),
-      duration: 50,
-      type: "Video Session",
-      notes: "We discussed stress management techniques and set goals for the upcoming week."
-    }
-  ],
-  unreadMessages: 2
-};
+import { useNavigate } from 'react-router-dom';
+import { patientService } from '@/services/patientService';
+import { useToast } from '@/hooks/use-toast';
 
 const PatientDashboard = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    therapist: null,
+    upcomingAppointments: [],
+    recentAppointments: []
+  });
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const data = await patientService.getPatientDashboardData();
+        setDashboardData(data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast({
+          title: "Error loading dashboard data",
+          description: "Please try again later",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 p-6 overflow-auto bg-gray-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-therapy-purple" />
+            <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </main>
+        <Separator />
+        <Footer />
+      </div>
+    );
+  }
+
+  const { therapist, upcomingAppointments, recentAppointments } = dashboardData;
+  const nextAppointment = upcomingAppointments.length > 0 ? upcomingAppointments[0] : null;
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -58,13 +80,13 @@ const PatientDashboard = () => {
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Welcome back, {patientData.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
               <p className="text-muted-foreground">
                 Here's an overview of your therapy journey and upcoming appointments.
               </p>
             </div>
             
-            {patientData.nextAppointment && (
+            {nextAppointment && (
               <div className="rounded-lg bg-white p-4 border shadow-sm">
                 <p className="text-sm font-medium text-muted-foreground mb-1">Your next appointment</p>
                 <div className="flex items-center gap-3">
@@ -72,10 +94,18 @@ const PatientDashboard = () => {
                     <CalendarIcon className="h-5 w-5 text-therapy-purple" />
                   </div>
                   <div>
-                    <p className="font-semibold">{format(patientData.nextAppointment, 'PPP')}</p>
-                    <p className="text-sm">{format(patientData.nextAppointment, 'h:mm a')} with {patientData.therapistName}</p>
+                    <p className="font-semibold">{format(new Date(nextAppointment.start_time), 'PPP')}</p>
+                    <p className="text-sm">
+                      {format(new Date(nextAppointment.start_time), 'h:mm a')} 
+                      {therapist && ` with ${therapist.full_name || 'Your Therapist'}`}
+                    </p>
                   </div>
-                  <Button variant="default" size="sm" className="ml-2">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="ml-2"
+                    onClick={() => navigate(`/patient/appointments/${nextAppointment.id}`)}
+                  >
                     Join
                   </Button>
                 </div>
@@ -92,9 +122,9 @@ const PatientDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {patientData.upcomingAppointments.length > 0 ? (
+                {upcomingAppointments.length > 0 ? (
                   <div className="space-y-4">
-                    {patientData.upcomingAppointments.map((appointment) => (
+                    {upcomingAppointments.map((appointment) => (
                       <div key={appointment.id} className="flex items-start gap-3 p-4 border rounded-lg">
                         <div className="w-10 h-10 rounded-full bg-therapy-light-purple flex items-center justify-center">
                           <CalendarIcon className="h-5 w-5 text-therapy-purple" />
@@ -102,15 +132,33 @@ const PatientDashboard = () => {
                         <div className="flex-1">
                           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
                             <div>
-                              <p className="font-semibold">{format(appointment.date, 'EEEE, MMMM d, yyyy')}</p>
+                              <p className="font-semibold">{format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy')}</p>
                               <p className="text-sm text-muted-foreground">
-                                {format(appointment.date, 'h:mm a')} • {appointment.duration} minutes • {appointment.type}
+                                {format(new Date(appointment.start_time), 'h:mm a')} • {appointment.duration} minutes • {appointment.type}
                               </p>
                             </div>
                             <div className="flex gap-2">
                               <Button variant="outline" size="sm">Reschedule</Button>
-                              <Button variant="default" size="sm">
-                                {new Date() >= appointment.date ? 'Join Now' : 'Add to Calendar'}
+                              <Button 
+                                variant="default" 
+                                size="sm"
+                                onClick={() => {
+                                  const now = new Date();
+                                  const appointmentStart = new Date(appointment.start_time);
+                                  const diffMinutes = Math.round((appointmentStart.getTime() - now.getTime()) / (1000 * 60));
+                                  
+                                  if (diffMinutes <= 10 && diffMinutes >= -30) {
+                                    navigate(`/patient/appointments/${appointment.id}`);
+                                  } else {
+                                    // Add to calendar logic would go here
+                                    toast({
+                                      title: "Added to calendar",
+                                      description: "The appointment has been added to your calendar"
+                                    });
+                                  }
+                                }}
+                              >
+                                {new Date() >= new Date(appointment.start_time) ? 'Join Now' : 'Add to Calendar'}
                               </Button>
                             </div>
                           </div>
@@ -130,7 +178,11 @@ const PatientDashboard = () => {
                 )}
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => navigate('/patient/appointments')}
+                >
                   View All Appointments
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -142,25 +194,49 @@ const PatientDashboard = () => {
                 <CardTitle>Your Therapist</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center text-center">
-                  <Avatar className="h-24 w-24 mb-4">
-                    <AvatarImage src="/placeholder.svg" />
-                    <AvatarFallback className="bg-therapy-purple text-white text-xl">AJ</AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-semibold text-lg">{patientData.therapistName}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Licensed Clinical Psychologist</p>
-                  
-                  <div className="grid grid-cols-2 gap-2 w-full mt-2">
-                    <Button variant="outline" className="w-full">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Message
-                    </Button>
-                    <Button className="w-full">
-                      <Video className="h-4 w-4 mr-2" />
-                      Call
-                    </Button>
+                {therapist ? (
+                  <div className="flex flex-col items-center text-center">
+                    <Avatar className="h-24 w-24 mb-4">
+                      <AvatarImage src={therapist.profile_image_url || "/placeholder.svg"} />
+                      <AvatarFallback className="bg-therapy-purple text-white text-xl">
+                        {therapist.full_name ? therapist.full_name.split(' ').map(n => n[0]).join('') : "T"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <h3 className="font-semibold text-lg">{therapist.full_name || "Your Therapist"}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{therapist.specialty || "Licensed Clinical Psychologist"}</p>
+                    
+                    <div className="grid grid-cols-2 gap-2 w-full mt-2">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => navigate('/patient/messages')}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Message
+                      </Button>
+                      <Button 
+                        className="w-full"
+                        onClick={() => {
+                          if (nextAppointment) {
+                            navigate(`/patient/appointments/${nextAppointment.id}`);
+                          } else {
+                            toast({
+                              title: "No upcoming appointments",
+                              description: "Please schedule an appointment first"
+                            });
+                          }
+                        }}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        Call
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center py-4">
+                    <p className="text-muted-foreground">No therapist assigned yet.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -174,25 +250,30 @@ const PatientDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {patientData.recentAppointments.length > 0 ? (
+                {recentAppointments.length > 0 ? (
                   <div className="space-y-4">
-                    {patientData.recentAppointments.map((appointment) => (
+                    {recentAppointments.map((appointment) => (
                       <div key={appointment.id} className="border rounded-lg overflow-hidden">
                         <div className="flex items-center gap-3 p-4 bg-muted/30">
                           <div className="w-10 h-10 rounded-full bg-therapy-soft-pink flex items-center justify-center">
                             <Video className="h-5 w-5 text-therapy-pink" />
                           </div>
                           <div>
-                            <p className="font-semibold">{format(appointment.date, 'EEEE, MMMM d, yyyy')}</p>
+                            <p className="font-semibold">{format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy')}</p>
                             <p className="text-sm text-muted-foreground">
-                              {format(appointment.date, 'h:mm a')} • {appointment.duration} minutes • {appointment.type}
+                              {format(new Date(appointment.start_time), 'h:mm a')} • {appointment.duration} minutes • {appointment.type}
                             </p>
                           </div>
                         </div>
-                        {appointment.notes && (
+                        {(appointment.notes || (appointment.session_notes && appointment.session_notes.length > 0)) && (
                           <div className="p-4 border-t">
                             <p className="text-sm font-medium text-muted-foreground mb-2">Session Notes:</p>
-                            <p>{appointment.notes}</p>
+                            <p>
+                              {appointment.notes || 
+                               (appointment.session_notes && appointment.session_notes.length > 0 
+                                ? appointment.session_notes[0].content 
+                                : "No notes available.")}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -209,7 +290,11 @@ const PatientDashboard = () => {
                 )}
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => navigate('/patient/appointments')}
+                >
                   View All Sessions
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -228,13 +313,17 @@ const PatientDashboard = () => {
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <p className="font-medium">Sessions completed</p>
-                      <p className="text-3xl font-bold">{patientData.recentAppointments.length}</p>
+                      <p className="text-3xl font-bold">{recentAppointments.length}</p>
                     </div>
                     <div className="w-12 h-12 rounded-full bg-therapy-light-purple flex items-center justify-center">
                       <FileText className="h-6 w-6 text-therapy-purple" />
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => navigate('/patient/appointments')}
+                  >
                     View Therapy Journey
                   </Button>
                 </CardContent>
@@ -252,7 +341,11 @@ const PatientDashboard = () => {
                     <p className="text-sm text-muted-foreground">
                       Recommended materials from your therapist
                     </p>
-                    <Button variant="outline" className="w-full">
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => navigate('/patient/resources')}
+                    >
                       View Resources
                     </Button>
                   </div>
