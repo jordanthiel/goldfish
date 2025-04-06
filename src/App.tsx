@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -52,8 +51,17 @@ const App = () => (
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
-              {/* Therapist Routes */}
+              {/* Therapist Dashboard Routes */}
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/clients" element={<Dashboard />} />
+              <Route path="/dashboard/calendar" element={<Dashboard />} />
+              <Route path="/dashboard/notes" element={<Dashboard />} />
+              <Route path="/dashboard/video" element={<Dashboard />} />
+              <Route path="/dashboard/claims" element={<Dashboard />} />
+              <Route path="/dashboard/messages" element={<Dashboard />} />
+              <Route path="/dashboard/settings" element={<Dashboard />} />
+              
+              {/* Other Therapist Routes */}
               <Route path="/therapist/profile" element={<TherapistProfile />} />
               <Route path="/therapist/settings" element={<TherapistSettings />} />
               <Route path="/therapist/billing" element={<TherapistBilling />} />

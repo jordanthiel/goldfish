@@ -68,41 +68,49 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
       name: 'Overview',
       icon: <LayoutDashboard className="h-5 w-5" />,
       value: 'overview',
+      path: '/dashboard',
     },
     {
       name: 'Clients',
       icon: <Users className="h-5 w-5" />,
       value: 'clients',
+      path: '/dashboard/clients',
     },
     {
       name: 'Calendar',
       icon: <Calendar className="h-5 w-5" />,
       value: 'calendar',
+      path: '/dashboard/calendar',
     },
     {
       name: 'Session Notes',
       icon: <FileText className="h-5 w-5" />,
       value: 'notes',
+      path: '/dashboard/notes',
     },
     {
       name: 'Video Consultations',
       icon: <Video className="h-5 w-5" />,
       value: 'video',
+      path: '/dashboard/video',
     },
     {
       name: 'Insurance Claims',
       icon: <FileCheck className="h-5 w-5" />,
       value: 'claims',
+      path: '/dashboard/claims',
     },
     {
       name: 'Messages',
       icon: <MessageSquare className="h-5 w-5" />,
       value: 'messages',
+      path: '/dashboard/messages',
     },
     {
       name: 'Settings',
       icon: <Settings className="h-5 w-5" />,
       value: 'settings',
+      path: '/dashboard/settings',
     },
   ];
 
@@ -131,9 +139,12 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
                   activeTab === item.value ? '' : 'text-muted-foreground'
                 }`}
                 onClick={() => setActiveTab(item.value)}
+                asChild
               >
-                {item.icon}
-                <span className="ml-3">{item.name}</span>
+                <Link to={item.path}>
+                  {item.icon}
+                  <span className="ml-3">{item.name}</span>
+                </Link>
               </Button>
             ))}
           </div>

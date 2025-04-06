@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -14,7 +14,54 @@ import VideoConsultation from '@/components/video/VideoConsultation';
 import InsuranceClaims from '@/components/claims/InsuranceClaims';
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Extract the current section from the URL path
+  const getActiveTabFromPath = () => {
+    const path = location.pathname;
+    if (path.includes('/dashboard/clients')) return 'clients';
+    if (path.includes('/dashboard/calendar')) return 'calendar';
+    if (path.includes('/dashboard/notes')) return 'notes';
+    if (path.includes('/dashboard/video')) return 'video';
+    if (path.includes('/dashboard/claims')) return 'claims';
+    return 'overview'; // Default tab
+  };
+  
+  const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
+  
+  // Update the state when the URL changes
+  useEffect(() => {
+    setActiveTab(getActiveTabFromPath());
+  }, [location]);
+  
+  // Handle tab changes by navigating to the appropriate route
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === 'overview') {
+      navigate('/dashboard');
+    } else {
+      navigate(`/dashboard/${tab}`);
+    }
+  };
+
+  // Render the appropriate content based on the active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'clients':
+        return <ClientList />;
+      case 'calendar':
+        return <AppointmentCalendar />;
+      case 'notes':
+        return <SessionNotes />;
+      case 'video':
+        return <VideoConsultation />;
+      case 'claims':
+        return <InsuranceClaims />;
+      default:
+        return <DashboardOverview />;
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -23,43 +70,12 @@ const Dashboard = () => {
       <div className="flex-1">
         <SidebarProvider>
           <div className="flex min-h-[calc(100vh-64px)] w-full">
-            <DashboardSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+            <DashboardSidebar activeTab={activeTab} setActiveTab={handleTabChange} />
             
             <main className="flex-1 p-6 overflow-auto">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto">
-                <TabsList className="hidden">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="clients">Clients</TabsTrigger>
-                  <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                  <TabsTrigger value="notes">Notes</TabsTrigger>
-                  <TabsTrigger value="video">Video</TabsTrigger>
-                  <TabsTrigger value="claims">Claims</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="overview" className="mt-0">
-                  <DashboardOverview />
-                </TabsContent>
-                
-                <TabsContent value="clients" className="mt-0">
-                  <ClientList />
-                </TabsContent>
-                
-                <TabsContent value="calendar" className="mt-0">
-                  <AppointmentCalendar />
-                </TabsContent>
-                
-                <TabsContent value="notes" className="mt-0">
-                  <SessionNotes />
-                </TabsContent>
-                
-                <TabsContent value="video" className="mt-0">
-                  <VideoConsultation />
-                </TabsContent>
-                
-                <TabsContent value="claims" className="mt-0">
-                  <InsuranceClaims />
-                </TabsContent>
-              </Tabs>
+              <div className="max-w-6xl mx-auto">
+                {renderContent()}
+              </div>
             </main>
           </div>
         </SidebarProvider>
