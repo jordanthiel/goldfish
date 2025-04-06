@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -25,7 +25,6 @@ import PatientProfile from "./pages/patient/PatientProfile";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientMessages from "./pages/patient/PatientMessages";
 import PatientResources from "./pages/patient/PatientResources";
-import Navbar from "./components/layout/Navbar";
 
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
@@ -38,19 +37,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Helper component to conditionally render Navbar
-const ConditionalNavbar = () => {
-  const location = useLocation();
-  
-  // Check if the current path is a dashboard or protected route
-  const isDashboardRoute = location.pathname.includes('/dashboard') || 
-                          location.pathname.includes('/therapist') || 
-                          location.pathname.includes('/patient');
-  
-  // Only render Navbar on public routes
-  return isDashboardRoute ? null : <Navbar />;
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -60,24 +46,9 @@ const App = () => (
           <Sonner />
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={
-              <>
-                <Navbar />
-                <Index />
-              </>
-            } />
-            <Route path="/signup" element={
-              <>
-                <Navbar />
-                <SignUp />
-              </>
-            } />
-            <Route path="/login" element={
-              <>
-                <Navbar />
-                <Login />
-              </>
-            } />
+            <Route path="/" element={<Index />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/login" element={<Login />} />
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
@@ -89,7 +60,7 @@ const App = () => (
               <Route path="/therapist/client/:id" element={<ClientDetails />} />
               <Route path="/therapist/session/:id" element={<SessionDetails />} />
               
-              {/* Add additional routes for calendar, notes, video, messages */}
+              {/* Add routes for calendar, notes, video, messages */}
               <Route path="/therapist/calendar" element={<Dashboard />} />
               <Route path="/therapist/notes" element={<Dashboard />} />
               <Route path="/therapist/video" element={<Dashboard />} />
@@ -104,12 +75,7 @@ const App = () => (
             </Route>
             
             {/* Catch-all route */}
-            <Route path="*" element={
-              <>
-                <Navbar />
-                <NotFound />
-              </>
-            } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
