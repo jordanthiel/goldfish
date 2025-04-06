@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -33,6 +33,7 @@ interface DashboardSidebarProps {
 const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   // Get first and last initial for avatar
@@ -63,52 +64,82 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
     }
   };
 
-  const handleTabClick = (tabValue: string) => {
-    setActiveTab(tabValue);
-  };
-
   const sidebarItems = [
     {
       name: 'Overview',
       icon: <LayoutDashboard className="h-5 w-5" />,
       value: 'overview',
+      path: '/dashboard',
     },
     {
       name: 'Clients',
       icon: <Users className="h-5 w-5" />,
       value: 'clients',
+      path: '/dashboard',
     },
     {
       name: 'Calendar',
       icon: <Calendar className="h-5 w-5" />,
       value: 'calendar',
+      path: '/therapist/calendar',
     },
     {
       name: 'Session Notes',
       icon: <FileText className="h-5 w-5" />,
       value: 'notes',
+      path: '/therapist/notes',
     },
     {
       name: 'Video Consultations',
       icon: <Video className="h-5 w-5" />,
       value: 'video',
+      path: '/therapist/video',
     },
     {
       name: 'Insurance Claims',
       icon: <FileCheck className="h-5 w-5" />,
       value: 'claims',
+      path: '/therapist/billing',
     },
     {
       name: 'Messages',
       icon: <MessageSquare className="h-5 w-5" />,
       value: 'messages',
+      path: '/therapist/messages',
     },
     {
       name: 'Settings',
       icon: <Settings className="h-5 w-5" />,
       value: 'settings',
+      path: '/therapist/settings',
     },
   ];
+
+  const handleTabClick = (item: typeof sidebarItems[0]) => {
+    setActiveTab(item.value);
+    navigate(item.path);
+  };
+
+  // Determine active tab based on current path
+  React.useEffect(() => {
+    const currentPath = location.pathname;
+    
+    // Special case for client details page
+    if (currentPath.includes('/therapist/client/')) {
+      setActiveTab('clients');
+      return;
+    }
+    
+    // Find the matching sidebar item based on path
+    const matchingItem = sidebarItems.find(item => 
+      currentPath === item.path || 
+      (item.path !== '/dashboard' && currentPath.includes(item.path))
+    );
+    
+    if (matchingItem) {
+      setActiveTab(matchingItem.value);
+    }
+  }, [location.pathname, setActiveTab]);
 
   return (
     <Sidebar className="border-r">
@@ -134,7 +165,7 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
                 className={`w-full justify-start text-base font-medium mb-1 ${
                   activeTab === item.value ? '' : 'text-muted-foreground'
                 }`}
-                onClick={() => handleTabClick(item.value)}
+                onClick={() => handleTabClick(item)}
               >
                 {item.icon}
                 <span className="ml-3">{item.name}</span>

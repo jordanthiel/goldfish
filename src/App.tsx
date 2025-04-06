@@ -60,7 +60,7 @@ const App = () => (
               <Route path="/therapist/client/:id" element={<ClientDetails />} />
               <Route path="/therapist/session/:id" element={<SessionDetails />} />
               
-              {/* Add additional routes for calendar, notes, video, messages */}
+              {/* Add routes for calendar, notes, video, messages */}
               <Route path="/therapist/calendar" element={<Dashboard />} />
               <Route path="/therapist/notes" element={<Dashboard />} />
               <Route path="/therapist/video" element={<Dashboard />} />
