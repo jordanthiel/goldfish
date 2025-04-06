@@ -63,6 +63,10 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
     }
   };
 
+  const handleTabClick = (tabValue: string) => {
+    setActiveTab(tabValue);
+  };
+
   const sidebarItems = [
     {
       name: 'Overview',
@@ -130,7 +134,7 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
                 className={`w-full justify-start text-base font-medium mb-1 ${
                   activeTab === item.value ? '' : 'text-muted-foreground'
                 }`}
-                onClick={() => setActiveTab(item.value)}
+                onClick={() => handleTabClick(item.value)}
               >
                 {item.icon}
                 <span className="ml-3">{item.name}</span>

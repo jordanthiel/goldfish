@@ -33,11 +33,33 @@ import { useQuery } from '@tanstack/react-query';
 const ClientDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = React.useState('clients');
+  const [activeTab, setActiveTab] = useState('clients');
   const [clientTab, setClientTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [noteContent, setNoteContent] = useState("");
   const { toast } = useToast();
+  
+  // Handler for sidebar navigation
+  const handleNavigation = (tab: string) => {
+    setActiveTab(tab);
+    
+    // Map sidebar tabs to their respective routes
+    const routes: {[key: string]: string} = {
+      'overview': '/dashboard',
+      'clients': '/dashboard', // Keep on client page when clicking clients
+      'calendar': '/therapist/calendar',
+      'notes': '/therapist/notes',
+      'video': '/therapist/video',
+      'claims': '/therapist/billing',
+      'messages': '/therapist/messages',
+      'settings': '/therapist/settings'
+    };
+    
+    // Navigate if it's not the clients tab
+    if (tab !== 'clients' && routes[tab]) {
+      navigate(routes[tab]);
+    }
+  };
   
   // Fetch client data with appointments
   const {
@@ -165,7 +187,7 @@ const ClientDetails = () => {
       <div className="flex-1">
         <SidebarProvider>
           <div className="flex min-h-[calc(100vh-64px)] w-full">
-            <DashboardSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+            <DashboardSidebar activeTab={activeTab} setActiveTab={handleNavigation} />
             
             <main className="flex-1 p-6 overflow-auto">
               <div className="max-w-5xl mx-auto space-y-6">
