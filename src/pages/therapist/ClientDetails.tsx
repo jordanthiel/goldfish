@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
@@ -14,6 +13,7 @@ import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import ClientNotesList from '@/components/notes/ClientNotesList';
 import { 
   Calendar as CalendarIcon, 
   Send, 
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { clientService, Client } from '@/services/clientService';
+import { noteService } from '@/services/noteService';
 import { useQuery } from '@tanstack/react-query';
 
 const ClientDetails = () => {
@@ -60,8 +61,8 @@ const ClientDetails = () => {
     }
   }, [error, toast]);
 
-  const handleSaveNote = () => {
-    if (noteContent.trim().length === 0) {
+  const handleSaveNote = async () => {
+    if (!id || noteContent.trim().length === 0) {
       toast({
         title: "Error",
         description: "Note content cannot be empty.",
@@ -70,12 +71,26 @@ const ClientDetails = () => {
       return;
     }
     
-    console.log("Saving note:", noteContent);
-    toast({
-      title: "Note saved",
-      description: "Your note has been saved successfully."
-    });
-    setNoteContent("");
+    try {
+      await noteService.createNote({
+        client_id: id,
+        content: noteContent,
+        is_private: true
+      });
+      
+      toast({
+        title: "Note saved",
+        description: "Your note has been saved successfully."
+      });
+      setNoteContent("");
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save note. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleScheduleAppointment = () => {
@@ -318,7 +333,6 @@ const ClientDetails = () => {
                         </Card>
                         
                         <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                          {/* Latest Note section - we'll add this once notes are implemented */}
                           <Card>
                             <CardHeader>
                               <CardTitle className="flex items-center">
@@ -408,31 +422,7 @@ const ClientDetails = () => {
                       </TabsContent>
                       
                       <TabsContent value="notes" className="space-y-6">
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                              <CardTitle>Session Notes</CardTitle>
-                              <CardDescription>View and manage your notes for this client.</CardDescription>
-                            </div>
-                            <Button>
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Note
-                            </Button>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="text-center py-10">
-                              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                              <h3 className="font-semibold text-lg mb-2">No notes yet</h3>
-                              <p className="text-muted-foreground mb-4">
-                                You haven't created any notes for this client yet.
-                              </p>
-                              <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Create Your First Note
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        {id && <ClientNotesList clientId={id} clientName={clientName} />}
                       </TabsContent>
                       
                       <TabsContent value="appointments" className="space-y-6">
