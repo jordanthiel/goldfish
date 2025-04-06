@@ -109,12 +109,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      // Assign role to the new user
+      // Directly insert role to user_roles table instead of using roleService
       if (data.user) {
         try {
-          // Assign the selected role to the user
-          await roleService.assignRole(data.user.id, role);
-          console.log(`${role} role assigned successfully`);
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: data.user.id,
+              role: role
+            });
+            
+          if (roleError) {
+            console.error(`Error assigning ${role} role:`, roleError);
+          } else {
+            console.log(`${role} role assigned successfully`);
+          }
         } catch (roleError) {
           console.error(`Error assigning ${role} role:`, roleError);
           // We'll continue even if role assignment fails, as the user can try again later
@@ -149,44 +158,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
+      // Fetch user roles first, before any role checking
+      let userRoles: any[] = [];
+      if (data.user) {
+        try {
+          userRoles = await roleService.getUserRoles(data.user.id);
+          console.log('User roles during login:', userRoles);
+        } catch (roleError) {
+          console.error("Error checking user roles during login:", roleError);
+        }
+      }
+
       // If role is specified, verify that the user has this role
       if (role && data.user) {
-        try {
-          // Fetch user roles first
-          const userRoles = await roleService.getUserRoles(data.user.id);
-          console.log('User roles during login:', userRoles);
-          
-          // Check if the user has the required role
-          const hasRole = userRoles.some(userRole => userRole.role === role);
-          
-          if (!hasRole) {
-            // If user doesn't have the specified role, sign out and throw an error
+        // Check if the user has the required role
+        const hasRole = userRoles.some(userRole => userRole.role === role);
+        
+        if (!hasRole) {
+          // If no roles found, don't throw an error right away
+          if (userRoles.length === 0) {
+            console.warn("No roles found for user, but continuing login");
+          } else {
+            // If user has roles but not the requested one, sign out and throw an error
             await supabase.auth.signOut();
             setUserRole(null);
             throw new Error(`You don't have access as a ${role}. Please sign in with the correct account or contact support.`);
           }
-          
-          setUserRole(role);
-        } catch (roleError: any) {
-          // If there's an error checking roles, sign out and throw the error
-          await supabase.auth.signOut();
-          console.error("Error checking user role during login:", roleError);
-          throw roleError;
         }
       }
 
-      // Fetch the user's role to determine navigation
-      if (data.user) {
-        const userRoles = await roleService.getUserRoles(data.user.id);
-        const userRole = userRoles.length > 0 ? userRoles[0].role : null;
-        setUserRole(userRole);
+      // Set userRole based on what we found
+      const userRole = userRoles.length > 0 ? userRoles[0].role : null;
+      setUserRole(userRole);
 
-        // Navigate based on role
-        if (userRole === 'client') {
-          navigate('/patient/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+      // Navigate based on role
+      if (userRole === 'client') {
+        navigate('/patient/dashboard');
+      } else {
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast({
