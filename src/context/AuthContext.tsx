@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Please check your email to verify your account.",
       });
       
-      navigate('/login');
+      // Removed the navigate call to login - the component will now handle the success state
     } catch (error: any) {
       toast({
         title: "Error",
