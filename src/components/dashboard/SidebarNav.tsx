@@ -33,43 +33,43 @@ const SidebarNav = ({ activeTab, setActiveTab }: SidebarNavProps) => {
       name: 'Clients',
       icon: <Users className="h-5 w-5" />,
       value: 'clients',
-      path: '/dashboard',
+      path: '/dashboard/clients',
     },
     {
       name: 'Calendar',
       icon: <Calendar className="h-5 w-5" />,
       value: 'calendar',
-      path: '/therapist/calendar',
+      path: '/dashboard/calendar',
     },
     {
       name: 'Session Notes',
       icon: <FileText className="h-5 w-5" />,
       value: 'notes',
-      path: '/therapist/notes',
+      path: '/dashboard/notes',
     },
     {
       name: 'Video Consultations',
       icon: <Video className="h-5 w-5" />,
       value: 'video',
-      path: '/therapist/video',
+      path: '/dashboard/video',
     },
     {
       name: 'Insurance Claims',
       icon: <FileCheck className="h-5 w-5" />,
       value: 'claims',
-      path: '/therapist/billing',
+      path: '/dashboard/claims',
     },
     {
       name: 'Messages',
       icon: <MessageSquare className="h-5 w-5" />,
       value: 'messages',
-      path: '/therapist/messages',
+      path: '/dashboard/messages',
     },
     {
       name: 'Settings',
       icon: <Settings className="h-5 w-5" />,
       value: 'settings',
-      path: '/therapist/settings',
+      path: '/dashboard/settings',
     },
   ];
 
@@ -83,7 +83,21 @@ const SidebarNav = ({ activeTab, setActiveTab }: SidebarNavProps) => {
       return;
     }
     
-    // Find the matching sidebar item based on path
+    // Handle the dashboard routes
+    if (currentPath === '/dashboard') {
+      setActiveTab('overview');
+      return;
+    }
+    
+    // Handle the path-based tab activation
+    const dashboardPrefix = '/dashboard/';
+    if (currentPath.startsWith(dashboardPrefix)) {
+      const tabName = currentPath.slice(dashboardPrefix.length);
+      setActiveTab(tabName);
+      return;
+    }
+    
+    // Legacy path handling (can be removed after migration)
     const matchingItem = sidebarItems.find(item => 
       currentPath === item.path || 
       (item.path !== '/dashboard' && currentPath.includes(item.path))
