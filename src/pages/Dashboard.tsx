@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -13,49 +13,8 @@ import SessionNotes from '@/components/notes/SessionNotes';
 import VideoConsultation from '@/components/video/VideoConsultation';
 import InsuranceClaims from '@/components/claims/InsuranceClaims';
 
-// This will render the appropriate component based on the active tab
-const TabContent = ({ activeTab }: { activeTab: string }) => {
-  switch (activeTab) {
-    case 'overview':
-      return <DashboardOverview />;
-    case 'clients':
-      return <ClientList />;
-    case 'calendar':
-      return <AppointmentCalendar />;
-    case 'notes':
-      return <SessionNotes />;
-    case 'video':
-      return <VideoConsultation />;
-    case 'claims':
-      return <InsuranceClaims />;
-    case 'messages':
-      return <div className="p-6"><h1 className="text-2xl font-bold">Messages</h1><p>Message center coming soon.</p></div>;
-    case 'settings':
-      return <div className="p-6"><h1 className="text-2xl font-bold">Settings</h1><p>Settings page coming soon.</p></div>;
-    default:
-      return <DashboardOverview />;
-  }
-};
-
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const location = useLocation();
-  
-  useEffect(() => {
-    // Extract tab from path
-    const path = location.pathname;
-    
-    if (path === '/dashboard') {
-      setActiveTab('overview');
-      return;
-    }
-    
-    const dashboardPrefix = '/dashboard/';
-    if (path.startsWith(dashboardPrefix)) {
-      const tabName = path.slice(dashboardPrefix.length);
-      setActiveTab(tabName);
-    }
-  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -67,9 +26,40 @@ const Dashboard = () => {
             <DashboardSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             
             <main className="flex-1 p-6 overflow-auto">
-              <div className="max-w-6xl mx-auto">
-                <TabContent activeTab={activeTab} />
-              </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto">
+                <TabsList className="hidden">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="clients">Clients</TabsTrigger>
+                  <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                  <TabsTrigger value="notes">Notes</TabsTrigger>
+                  <TabsTrigger value="video">Video</TabsTrigger>
+                  <TabsTrigger value="claims">Claims</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="overview" className="mt-0">
+                  <DashboardOverview />
+                </TabsContent>
+                
+                <TabsContent value="clients" className="mt-0">
+                  <ClientList />
+                </TabsContent>
+                
+                <TabsContent value="calendar" className="mt-0">
+                  <AppointmentCalendar />
+                </TabsContent>
+                
+                <TabsContent value="notes" className="mt-0">
+                  <SessionNotes />
+                </TabsContent>
+                
+                <TabsContent value="video" className="mt-0">
+                  <VideoConsultation />
+                </TabsContent>
+                
+                <TabsContent value="claims" className="mt-0">
+                  <InsuranceClaims />
+                </TabsContent>
+              </Tabs>
             </main>
           </div>
         </SidebarProvider>

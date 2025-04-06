@@ -52,28 +52,13 @@ const App = () => (
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
-              {/* Therapist Dashboard Routes */}
+              {/* Therapist Routes */}
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/clients" element={<Dashboard />} />
-              <Route path="/dashboard/calendar" element={<Dashboard />} />
-              <Route path="/dashboard/notes" element={<Dashboard />} />
-              <Route path="/dashboard/video" element={<Dashboard />} />
-              <Route path="/dashboard/claims" element={<Dashboard />} />
-              <Route path="/dashboard/messages" element={<Dashboard />} />
-              <Route path="/dashboard/settings" element={<Dashboard />} />
-              
-              {/* Therapist Detail Pages */}
               <Route path="/therapist/profile" element={<TherapistProfile />} />
               <Route path="/therapist/settings" element={<TherapistSettings />} />
               <Route path="/therapist/billing" element={<TherapistBilling />} />
               <Route path="/therapist/client/:id" element={<ClientDetails />} />
               <Route path="/therapist/session/:id" element={<SessionDetails />} />
-              
-              {/* Legacy routes - redirect handled in Dashboard */}
-              <Route path="/therapist/calendar" element={<Dashboard />} />
-              <Route path="/therapist/notes" element={<Dashboard />} />
-              <Route path="/therapist/video" element={<Dashboard />} />
-              <Route path="/therapist/messages" element={<Dashboard />} />
               
               {/* Patient Routes */}
               <Route path="/patient/dashboard" element={<PatientDashboard />} />
