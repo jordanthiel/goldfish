@@ -21,7 +21,10 @@ const Dashboard = () => {
   const [isBackfilling, setIsBackfilling] = useState(false);
   
   useEffect(() => {
+    console.log("Dashboard - Current user role:", userRole);
+    
     if (userRole === 'client') {
+      console.log("Dashboard - Redirecting client to patient dashboard");
       navigate('/patient/dashboard');
     }
   }, [userRole, navigate]);
@@ -63,41 +66,8 @@ const Dashboard = () => {
     }
   };
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'clients':
-        return <ClientList />;
-      case 'calendar':
-        return <AppointmentCalendar />;
-      case 'notes':
-        return <SessionNotes />;
-      case 'video':
-        return <VideoConsultation />;
-      case 'claims':
-        return <InsuranceClaims />;
-      default:
-        return (
-          <>
-            <DashboardOverview />
-            <div className="mt-8 p-4 bg-muted rounded-lg">
-              <h3 className="text-lg font-medium mb-2">Development Tools</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Use this button to add test data to your account for testing purposes.
-              </p>
-              <Button 
-                onClick={handleBackfill} 
-                disabled={isBackfilling}
-                variant="outline"
-              >
-                {isBackfilling ? 'Adding test data...' : 'Backfill Test Data For My Account'}
-              </Button>
-            </div>
-          </>
-        );
-    }
-  };
-
   if (userRole === 'client') {
+    console.log("Dashboard - Client user, returning null");
     return null;
   }
 
@@ -116,6 +86,40 @@ const Dashboard = () => {
       </SidebarProvider>
     </RootLayout>
   );
+};
+
+const renderContent = () => {
+  switch (activeTab) {
+    case 'clients':
+      return <ClientList />;
+    case 'calendar':
+      return <AppointmentCalendar />;
+    case 'notes':
+      return <SessionNotes />;
+    case 'video':
+      return <VideoConsultation />;
+    case 'claims':
+      return <InsuranceClaims />;
+    default:
+      return (
+        <>
+          <DashboardOverview />
+          <div className="mt-8 p-4 bg-muted rounded-lg">
+            <h3 className="text-lg font-medium mb-2">Development Tools</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Use this button to add test data to your account for testing purposes.
+            </p>
+            <Button 
+              onClick={handleBackfill} 
+              disabled={isBackfilling}
+              variant="outline"
+            >
+              {isBackfilling ? 'Adding test data...' : 'Backfill Test Data For My Account'}
+            </Button>
+          </div>
+        </>
+      );
+  }
 };
 
 export default Dashboard;

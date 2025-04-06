@@ -28,26 +28,39 @@ export const ProtectedRoute: React.FC<{ requiredRole?: string }> = ({ requiredRo
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If a specific role is required and user doesn't have it
-  if (requiredRole && userRole !== requiredRole) {
-    // Redirect to appropriate dashboard based on user role
-    if (userRole === 'client') {
-      return <Navigate to="/patient/dashboard" replace />;
-    } else {
-      return <Navigate to="/dashboard" replace />;
+  console.log("ProtectedRoute - Current user role:", userRole);
+  console.log("ProtectedRoute - Required role:", requiredRole);
+  console.log("ProtectedRoute - Current path:", location.pathname);
+  
+  // If a specific role is required for this route
+  if (requiredRole) {
+    console.log(`Route requires role: ${requiredRole}, user has role: ${userRole}`);
+    
+    // If user doesn't have the required role, redirect to appropriate dashboard
+    if (userRole !== requiredRole) {
+      if (userRole === 'client') {
+        console.log("Redirecting client to patient dashboard");
+        return <Navigate to="/patient/dashboard" replace />;
+      } else if (userRole === 'therapist') {
+        console.log("Redirecting therapist to therapist dashboard");
+        return <Navigate to="/dashboard" replace />;
+      }
     }
   }
 
-  // Role-based routing: redirect clients to patient dashboard if trying to access therapist routes
+  // For client users trying to access therapist routes
   if (userRole === 'client' && isTherapistRoute) {
+    console.log("Client trying to access therapist route - redirecting to patient dashboard");
     return <Navigate to="/patient/dashboard" replace />;
   }
 
-  // Role-based routing: redirect therapists to therapist dashboard if trying to access client routes
+  // For therapist users trying to access client routes
   if (userRole === 'therapist' && isClientRoute) {
+    console.log("Therapist trying to access client route - redirecting to therapist dashboard");
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If user is authenticated and has the required role (or no specific role required), render the child routes
+  // Allow access to the route
+  console.log("Access granted to route");
   return <Outlet />;
 };
