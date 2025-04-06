@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,8 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useAuth } from '@/context/AuthContext';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import RootLayout from '@/components/layout/RootLayout';
 
 const loginSchema = z.object({
   email: z.string().email({
@@ -30,25 +28,18 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function Login() {
+const Login = () => {
   const { signIn, loading } = useAuth();
-
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
   });
 
-  async function onSubmit(values: LoginFormValues) {
-    await signIn(values.email, values.password);
-  }
+  const onSubmit = async (data: LoginFormValues) => {
+    await signIn(data.email, data.password);
+  };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-      
+    <RootLayout>
       <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
@@ -114,8 +105,8 @@ export default function Login() {
           </div>
         </div>
       </div>
-      
-      <Footer />
-    </div>
+    </RootLayout>
   );
-}
+};
+
+export default Login;

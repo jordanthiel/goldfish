@@ -1,9 +1,7 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import RootLayout from '@/components/layout/RootLayout';
 import { CheckCircle, Calendar, Users, MessageSquare, Video, FileText, Palette, Zap, ArrowRight } from 'lucide-react';
 
 const Index = () => {
@@ -113,9 +111,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-      
+    <RootLayout>
       {/* Hero Section */}
       <section className="py-20 md:py-28">
         <div className="container px-4 mx-auto">
@@ -517,9 +513,7 @@ const Index = () => {
           </div>
         </div>
       </section>
-      
-      <Footer />
-    </div>
+    </RootLayout>
   );
 };
 

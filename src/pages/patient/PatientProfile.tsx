@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import Footer from '@/components/layout/Footer';
 import { Camera, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import RootLayout from '@/components/layout/RootLayout';
 
 // Form schema for personal information
 const personalInfoSchema = z.object({
@@ -112,10 +112,8 @@ const PatientProfile = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-1 p-6 overflow-auto bg-gray-50">
+    <RootLayout>
+      <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
@@ -508,7 +506,7 @@ const PatientProfile = () => {
       
       <Separator />
       <Footer />
-    </div>
+    </RootLayout>
   );
 };
 

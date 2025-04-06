@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { format, addDays, isSameDay } from 'date-fns';
+import RootLayout from '@/components/layout/RootLayout';
 
 // Demo appointments data
 const appointmentsData = {
@@ -159,11 +159,9 @@ const PatientAppointments = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-1 p-6 overflow-auto bg-gray-50">
-        <div className="max-w-5xl mx-auto space-y-6">
+    <RootLayout>
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Appointments</h1>
             <p className="text-muted-foreground">
@@ -421,7 +419,7 @@ const PatientAppointments = () => {
       
       <Separator />
       <Footer />
-    </div>
+    </RootLayout>
   );
 };
 

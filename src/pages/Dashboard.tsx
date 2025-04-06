@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
+import RootLayout from '@/components/layout/RootLayout';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DashboardOverview from '@/components/dashboard/DashboardOverview';
 import ClientList from '@/components/clients/ClientList';
@@ -64,26 +62,19 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <div className="flex-1">
-        <SidebarProvider>
-          <div className="flex min-h-[calc(100vh-64px)] w-full">
-            <DashboardSidebar activeTab={activeTab} setActiveTab={handleTabChange} />
-            
-            <main className="flex-1 p-6 overflow-auto">
-              <div className="max-w-6xl mx-auto">
-                {renderContent()}
-              </div>
-            </main>
-          </div>
-        </SidebarProvider>
-      </div>
-      
-      <Separator />
-      <Footer />
-    </div>
+    <RootLayout>
+      <SidebarProvider>
+        <div className="flex min-h-[calc(100vh-64px)] w-full">
+          <DashboardSidebar activeTab={activeTab} setActiveTab={handleTabChange} />
+          
+          <main className="flex-1 p-6 overflow-auto">
+            <div className="max-w-6xl mx-auto">
+              {renderContent()}
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
+    </RootLayout>
   );
 };
 
