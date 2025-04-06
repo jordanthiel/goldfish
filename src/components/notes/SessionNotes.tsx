@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Save, Clock, User, AlignLeft, Tag, Paperclip, Shield, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Save, Clock, User, AlignLeft, Tag, Paperclip, Shield, AlertTriangle, Edit } from 'lucide-react';
 import { noteService, SessionNoteWithClient } from '@/services/noteService';
 import { clientService } from '@/services/clientService';
 import { auditService } from '@/services/auditService';
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
+import NoteEditDialog from './NoteEditDialog';
 
 const SessionNotes = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,6 +29,8 @@ const SessionNotes = () => {
   
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [noteToEdit, setNoteToEdit] = useState<SessionNoteWithClient | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -185,6 +188,32 @@ const SessionNotes = () => {
     }
   };
 
+  const handleEditInModal = (note: SessionNoteWithClient) => {
+    setNoteToEdit(note);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEditedNote = async (note: SessionNoteWithClient, newContent: string) => {
+    try {
+      await noteService.updateNote(note.id, {
+        content: newContent
+      });
+
+      const updatedNotes = await noteService.getNotes();
+      setNotes(updatedNotes);
+      
+      if (selectedNote && selectedNote.id === note.id) {
+        const updatedNote = updatedNotes.find(n => n.id === note.id);
+        if (updatedNote) {
+          setSelectedNote(updatedNote);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating note:', error);
+      throw error;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'yyyy-MM-dd');
@@ -293,15 +322,27 @@ const SessionNotes = () => {
             </div>
             
             {selectedNote && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => setShowLogs(!showLogs)}
-              >
-                <Shield className="h-4 w-4" />
-                {showLogs ? "Hide Logs" : "Access Logs"}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => setShowLogs(!showLogs)}
+                >
+                  <Shield className="h-4 w-4" />
+                  {showLogs ? "Hide Logs" : "Access Logs"}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => handleEditInModal(selectedNote)}
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit Note
+                </Button>
+              </div>
             )}
           </CardHeader>
           
@@ -444,6 +485,16 @@ const SessionNotes = () => {
           )}
         </Card>
       </div>
+
+      <NoteEditDialog
+        note={noteToEdit}
+        open={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setNoteToEdit(null);
+        }}
+        onSave={handleSaveEditedNote}
+      />
     </div>
   );
 };

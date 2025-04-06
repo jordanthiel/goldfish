@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Clock, User, Save } from 'lucide-react';
+import { Plus, FileText, Clock, User, Save, Edit } from 'lucide-react';
 import { noteService, SessionNote } from '@/services/noteService';
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
+import NoteEditDialog from './NoteEditDialog';
 
 interface ClientNotesListProps {
   clientId: string;
@@ -17,8 +18,10 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
   const [notes, setNotes] = useState<SessionNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedNote, setSelectedNote] = useState<SessionNote | null>(null);
+  const [noteToEdit, setNoteToEdit] = useState<SessionNote | null>(null);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -98,6 +101,34 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
     }
   };
 
+  const handleEditNote = (note: SessionNote) => {
+    setNoteToEdit(note);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEditedNote = async (note: SessionNote, newContent: string) => {
+    try {
+      await noteService.updateNote(note.id, {
+        content: newContent
+      });
+
+      // Refresh notes list
+      const updatedNotes = await noteService.getClientNotes(clientId);
+      setNotes(updatedNotes);
+      
+      // Update selected note if it was the one edited
+      if (selectedNote && selectedNote.id === note.id) {
+        const updatedNote = updatedNotes.find(n => n.id === note.id);
+        if (updatedNote) {
+          setSelectedNote(updatedNote);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating note:', error);
+      throw error;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM d, yyyy h:mm a');
@@ -171,18 +202,25 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs opacity-80">{formatDate(note.created_at)}</span>
                   </div>
-                  <div className="text-sm line-clamp-2" dangerouslySetInnerHTML={createMarkup(selectedNote.content)} />
-
-                  {/* <p className="text-sm line-clamp-2">{note.content}</p> */}
+                  <div className="text-sm line-clamp-2" dangerouslySetInnerHTML={createMarkup(note.content)} />
                 </div>
               ))}
             </div>
             <div className="md:col-span-2">
               {selectedNote ? (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatDate(selectedNote.created_at)}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>{formatDate(selectedNote.created_at)}</span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleEditNote(selectedNote)}
+                    >
+                      <Edit className="h-4 w-4 mr-2" /> Edit
+                    </Button>
                   </div>
                   <div className="prose max-w-none">
                     <div dangerouslySetInnerHTML={createMarkup(selectedNote.content)} />
@@ -212,6 +250,17 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
           </div>
         )}
       </CardContent>
+
+      {/* Note Edit Dialog */}
+      <NoteEditDialog
+        note={noteToEdit}
+        open={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setNoteToEdit(null);
+        }}
+        onSave={handleSaveEditedNote}
+      />
     </Card>
   );
 };
