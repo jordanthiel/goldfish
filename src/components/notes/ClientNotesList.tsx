@@ -171,7 +171,9 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs opacity-80">{formatDate(note.created_at)}</span>
                   </div>
-                  <p className="text-sm line-clamp-2">{note.content}</p>
+                  <div className="text-sm line-clamp-2" dangerouslySetInnerHTML={createMarkup(selectedNote.content)} />
+
+                  {/* <p className="text-sm line-clamp-2">{note.content}</p> */}
                 </div>
               ))}
             </div>

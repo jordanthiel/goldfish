@@ -83,18 +83,6 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
       path: '/dashboard/calendar',
     },
     {
-      name: 'Session Notes',
-      icon: <FileText className="h-5 w-5" />,
-      value: 'notes',
-      path: '/dashboard/notes',
-    },
-    {
-      name: 'Video Consultations',
-      icon: <Video className="h-5 w-5" />,
-      value: 'video',
-      path: '/dashboard/video',
-    },
-    {
       name: 'Insurance Claims',
       icon: <FileCheck className="h-5 w-5" />,
       value: 'claims',

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
@@ -22,6 +21,13 @@ import { noteService, SessionNote } from '@/services/noteService';
 import { auditService } from '@/services/auditService';
 import RichTextEditor from '@/components/notes/RichTextEditor';
 
+interface AccessLog {
+  access_type: string;
+  user_id: string;
+  users?: { email: string };
+  accessed_at: string;
+}
+
 const SessionDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,7 +37,7 @@ const SessionDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [note, setNote] = useState<SessionNote | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [accessLogs, setAccessLogs] = useState<any[]>([]);
+  const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [showAccessLogs, setShowAccessLogs] = useState(false);
   const [allClientNotes, setAllClientNotes] = useState<SessionNote[]>([]);
   
@@ -199,6 +205,10 @@ const SessionDetails = () => {
     return format(parseISO(date), 'MMM d, yyyy');
   };
   
+  const createMarkup = (htmlContent: string) => {
+    return { __html: htmlContent };
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -329,11 +339,12 @@ const SessionDetails = () => {
                         {allClientNotes.map((clientNote) => (
                           <div key={clientNote.id} className="mb-2 text-sm border-b pb-2">
                             <p className="font-medium">{formatNoteDate(clientNote.created_at)}</p>
-                            <p className="line-clamp-2 text-muted-foreground">
+                            <div className="line-clamp-2 text-muted-foreground" dangerouslySetInnerHTML={createMarkup(clientNote.content)} />
+                            {/* <p className="line-clamp-2 text-muted-foreground">
                               {clientNote.content.length > 60 
                                 ? `${clientNote.content.substring(0, 60)}...` 
                                 : clientNote.content}
-                            </p>
+                            </p> */}
                           </div>
                         ))}
                       </div>
