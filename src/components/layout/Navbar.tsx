@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { AlignRight, X } from 'lucide-react';
+import { AlignRight, X, User, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -39,12 +41,29 @@ const Navbar = () => {
             ))}
           </div>
           <div className="flex gap-4">
-            <Button asChild variant="outline" className="font-medium">
-              <Link to="/login">Log In</Link>
-            </Button>
-            <Button asChild className="font-medium btn-gradient">
-              <Link to="/signup">Sign Up</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button asChild variant="outline" className="font-medium">
+                  <Link to="/dashboard">
+                    <User className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button variant="outline" className="font-medium" onClick={() => signOut()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild variant="outline" className="font-medium">
+                  <Link to="/login">Log In</Link>
+                </Button>
+                <Button asChild className="font-medium btn-gradient">
+                  <Link to="/signup">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -73,12 +92,36 @@ const Navbar = () => {
               </a>
             ))}
             <div className="flex flex-col gap-3 py-2">
-              <Button asChild variant="outline" className="w-full font-medium">
-                <Link to="/login" onClick={toggleMenu}>Log In</Link>
-              </Button>
-              <Button asChild className="w-full font-medium btn-gradient">
-                <Link to="/signup" onClick={toggleMenu}>Sign Up</Link>
-              </Button>
+              {user ? (
+                <>
+                  <Button asChild variant="outline" className="w-full font-medium">
+                    <Link to="/dashboard" onClick={toggleMenu}>
+                      <User className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full font-medium" 
+                    onClick={() => {
+                      toggleMenu();
+                      signOut();
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild variant="outline" className="w-full font-medium">
+                    <Link to="/login" onClick={toggleMenu}>Log In</Link>
+                  </Button>
+                  <Button asChild className="w-full font-medium btn-gradient">
+                    <Link to="/signup" onClick={toggleMenu}>Sign Up</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
