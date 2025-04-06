@@ -26,13 +26,11 @@ const SessionNotes = () => {
     tags: ''
   });
   
-  // Add a new state for access logs
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   
   const { toast } = useToast();
 
-  // Load notes and clients
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -45,7 +43,6 @@ const SessionNotes = () => {
         if (fetchedNotes.length > 0) {
           setSelectedNote(fetchedNotes[0]);
           
-          // Fetch access logs for the selected note
           const logs = await auditService.getNoteAccessLogs(fetchedNotes[0].id);
           setAccessLogs(logs);
         }
@@ -66,7 +63,6 @@ const SessionNotes = () => {
     fetchData();
   }, [toast]);
 
-  // When a note is selected, update the edit form and fetch access logs
   useEffect(() => {
     if (selectedNote) {
       setEditNote({
@@ -77,13 +73,13 @@ const SessionNotes = () => {
         tags: ''
       });
       
-      // Fetch access logs for the selected note
       const fetchLogs = async () => {
         try {
           const logs = await auditService.getNoteAccessLogs(selectedNote.id);
           setAccessLogs(logs);
         } catch (error) {
           console.error('Error fetching access logs:', error);
+          setAccessLogs([]);
         }
       };
       
@@ -108,7 +104,6 @@ const SessionNotes = () => {
         client_id: editNote.clientId
       });
       
-      // Update the notes list
       setNotes(prevNotes => 
         prevNotes.map(note => 
           note.id === updatedNote.id ? { ...note, ...updatedNote } : note
@@ -133,7 +128,6 @@ const SessionNotes = () => {
   };
 
   const handleCreateNote = async () => {
-    // Reset form for a new note
     setEditNote({
       title: '',
       content: '',
@@ -163,11 +157,9 @@ const SessionNotes = () => {
         is_private: true
       });
       
-      // Fetch the complete note with client info
       const updatedNotes = await noteService.getNotes();
       setNotes(updatedNotes);
       
-      // Find and select the new note
       const createdNoteWithClient = updatedNotes.find(note => note.id === newNote.id);
       if (createdNoteWithClient) {
         setSelectedNote(createdNoteWithClient);
@@ -222,7 +214,6 @@ const SessionNotes = () => {
         </Button>
       </div>
       
-      {/* HIPAA compliance notice */}
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-4">
           <div className="flex gap-3">
@@ -239,7 +230,6 @@ const SessionNotes = () => {
       </Card>
       
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Notes list sidebar */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <CardTitle>Client Notes</CardTitle>
@@ -291,7 +281,6 @@ const SessionNotes = () => {
           </CardContent>
         </Card>
         
-        {/* Note detail/editor */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
@@ -332,7 +321,9 @@ const SessionNotes = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No access logs available</p>
+                  <p className="text-xs text-muted-foreground">
+                    No access logs available. This may be due to Row Level Security policies.
+                  </p>
                 )}
               </div>
             )}

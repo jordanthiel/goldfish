@@ -92,13 +92,16 @@ export const auditService = {
 
   // Get access logs for a note
   async getNoteAccessLogs(noteId: string): Promise<any[]> {
-    // Use explicit typing to work around TypeScript limitations
     try {
+      // Fix the query format for joining with users table
       const { data, error } = await supabase
         .from('note_access_logs')
-        .select('*, user:auth.users!inner(email)')
+        .select(`
+          *,
+          users:user_id(email)
+        `)
         .eq('note_id', noteId)
-        .order('accessed_at', { ascending: false }) as any;
+        .order('accessed_at', { ascending: false });
   
       if (error) {
         console.error('Error fetching note access logs:', error);

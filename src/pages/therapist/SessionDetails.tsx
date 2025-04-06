@@ -221,7 +221,7 @@ const SessionDetails = () => {
                         <div>
                           <p className="font-medium">{log.access_type}</p>
                           <p className="text-sm text-muted-foreground">
-                            User: {log.user?.email || log.user_id}
+                            User: {log.users?.email || log.user_id}
                           </p>
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -231,7 +231,9 @@ const SessionDetails = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">No access logs recorded yet or you don't have permission to view them.</p>
+                  <p className="text-muted-foreground">
+                    No access logs available. This could be due to Row Level Security policies.
+                  </p>
                 )}
               </CardContent>
             </Card>
