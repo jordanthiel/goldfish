@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,10 +11,15 @@ import AppointmentCalendar from '@/components/calendar/AppointmentCalendar';
 import SessionNotes from '@/components/notes/SessionNotes';
 import VideoConsultation from '@/components/video/VideoConsultation';
 import InsuranceClaims from '@/components/claims/InsuranceClaims';
+import { Button } from '@/components/ui/button';
+import { backfillUserData } from '@/utils/backfillUserData';
+import { useAuth } from '@/context/AuthContext';
 
 const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { userRole } = useAuth();
+  const [isBackfilling, setIsBackfilling] = useState(false);
   
   // Extract the current section from the URL path
   const getActiveTabFromPath = () => {
@@ -43,6 +49,18 @@ const Dashboard = () => {
     }
   };
 
+  const handleBackfill = async () => {
+    setIsBackfilling(true);
+    try {
+      await backfillUserData();
+      if (userRole === 'client') {
+        navigate('/patient/dashboard');
+      }
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
   // Render the appropriate content based on the active tab
   const renderContent = () => {
     switch (activeTab) {
@@ -57,7 +75,24 @@ const Dashboard = () => {
       case 'claims':
         return <InsuranceClaims />;
       default:
-        return <DashboardOverview />;
+        return (
+          <>
+            <DashboardOverview />
+            <div className="mt-8 p-4 bg-muted rounded-lg">
+              <h3 className="text-lg font-medium mb-2">Development Tools</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Use this button to add test data to your account for testing purposes.
+              </p>
+              <Button 
+                onClick={handleBackfill} 
+                disabled={isBackfilling}
+                variant="outline"
+              >
+                {isBackfilling ? 'Adding test data...' : 'Backfill Test Data For My Account'}
+              </Button>
+            </div>
+          </>
+        );
     }
   };
 
