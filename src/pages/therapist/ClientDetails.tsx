@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -22,11 +21,11 @@ import {
   MessageSquare, 
   Plus, 
   Edit, 
-  Clock 
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-// Demo client data
 const clientData = {
   id: "123",
   name: "Sarah Johnson",
@@ -37,7 +36,7 @@ const clientData = {
   dateAdded: "2023-02-10",
   status: "Active",
   nextAppointment: "2023-10-05T15:00:00",
-  photo: null, // Placeholder for a profile photo URL
+  photo: null,
   notes: [
     {
       id: 1,
@@ -79,13 +78,13 @@ const clientData = {
 
 const ClientDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState('clients');
   const [clientTab, setClientTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [noteContent, setNoteContent] = useState("");
   const { toast } = useToast();
   
-  // Function to handle saving a new note
   const handleSaveNote = () => {
     if (noteContent.trim().length === 0) {
       toast({
@@ -104,7 +103,6 @@ const ClientDetails = () => {
     setNoteContent("");
   };
 
-  // Function to handle scheduling a new appointment
   const handleScheduleAppointment = () => {
     if (!selectedDate) {
       toast({
@@ -406,16 +404,26 @@ const ClientDetails = () => {
                                       <p className="font-semibold">{appointment.type}</p>
                                       <p className="text-sm text-muted-foreground">{appointment.date} • {appointment.time}</p>
                                     </div>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={
-                                        appointment.status === "Completed" 
-                                          ? "bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800" 
-                                          : "bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-800"
-                                      }
-                                    >
-                                      {appointment.status}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                      <Badge 
+                                        variant="outline" 
+                                        className={
+                                          appointment.status === "Completed" 
+                                            ? "bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800" 
+                                            : "bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-800"
+                                        }
+                                      >
+                                        {appointment.status}
+                                      </Badge>
+                                      
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost"
+                                        onClick={() => navigate(`/therapist/session/${appointment.id}`)}
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>

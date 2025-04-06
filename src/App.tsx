@@ -17,6 +17,7 @@ import TherapistProfile from "./pages/therapist/TherapistProfile";
 import TherapistSettings from "./pages/therapist/TherapistSettings";
 import TherapistBilling from "./pages/therapist/TherapistBilling";
 import ClientDetails from "./pages/therapist/ClientDetails";
+import SessionDetails from "./pages/therapist/SessionDetails";
 
 // Patient pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/therapist/settings" element={<TherapistSettings />} />
               <Route path="/therapist/billing" element={<TherapistBilling />} />
               <Route path="/therapist/client/:id" element={<ClientDetails />} />
+              <Route path="/therapist/session/:id" element={<SessionDetails />} />
               
               {/* Patient Routes */}
               <Route path="/patient/dashboard" element={<PatientDashboard />} />
