@@ -28,8 +28,10 @@ const Navbar = () => {
         </Link>
 
         {/* Desktop menu */}
+        
         <div className="hidden md:flex items-center gap-8">
-          <div className="flex gap-6">
+          {!user && (
+            <div className="flex gap-6">
             {navItems.map((item) => (
               <a 
                 key={item.title} 
@@ -39,7 +41,8 @@ const Navbar = () => {
                 {item.title}
               </a>
             ))}
-          </div>
+            </div>
+          )}
           <div className="flex gap-4">
             {user ? (
               <>
