@@ -51,29 +51,33 @@ const App = () => (
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
-              {/* Therapist Dashboard Routes */}
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/clients" element={<Dashboard />} />
-              <Route path="/dashboard/calendar" element={<Dashboard />} />
-              <Route path="/dashboard/notes" element={<Dashboard />} />
-              <Route path="/dashboard/video" element={<Dashboard />} />
-              <Route path="/dashboard/claims" element={<Dashboard />} />
-              <Route path="/dashboard/messages" element={<Dashboard />} />
-              <Route path="/dashboard/settings" element={<Dashboard />} />
+              {/* Therapist Dashboard Routes - only accessible to therapists */}
+              <Route element={<ProtectedRoute requiredRole="therapist" />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard/clients" element={<Dashboard />} />
+                <Route path="/dashboard/calendar" element={<Dashboard />} />
+                <Route path="/dashboard/notes" element={<Dashboard />} />
+                <Route path="/dashboard/video" element={<Dashboard />} />
+                <Route path="/dashboard/claims" element={<Dashboard />} />
+                <Route path="/dashboard/messages" element={<Dashboard />} />
+                <Route path="/dashboard/settings" element={<Dashboard />} />
+                
+                {/* Other Therapist Routes */}
+                <Route path="/therapist/profile" element={<TherapistProfile />} />
+                <Route path="/therapist/settings" element={<TherapistSettings />} />
+                <Route path="/therapist/billing" element={<TherapistBilling />} />
+                <Route path="/therapist/client/:id" element={<ClientDetails />} />
+                <Route path="/therapist/session/:id" element={<SessionDetails />} />
+              </Route>
               
-              {/* Other Therapist Routes */}
-              <Route path="/therapist/profile" element={<TherapistProfile />} />
-              <Route path="/therapist/settings" element={<TherapistSettings />} />
-              <Route path="/therapist/billing" element={<TherapistBilling />} />
-              <Route path="/therapist/client/:id" element={<ClientDetails />} />
-              <Route path="/therapist/session/:id" element={<SessionDetails />} />
-              
-              {/* Patient Routes */}
-              <Route path="/patient/dashboard" element={<PatientDashboard />} />
-              <Route path="/patient/profile" element={<PatientProfile />} />
-              <Route path="/patient/appointments" element={<PatientAppointments />} />
-              <Route path="/patient/messages" element={<PatientMessages />} />
-              <Route path="/patient/resources" element={<PatientResources />} />
+              {/* Patient Routes - only accessible to clients */}
+              <Route element={<ProtectedRoute requiredRole="client" />}>
+                <Route path="/patient/dashboard" element={<PatientDashboard />} />
+                <Route path="/patient/profile" element={<PatientProfile />} />
+                <Route path="/patient/appointments" element={<PatientAppointments />} />
+                <Route path="/patient/messages" element={<PatientMessages />} />
+                <Route path="/patient/resources" element={<PatientResources />} />
+              </Route>
             </Route>
             
             {/* Catch-all route */}

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,7 +20,12 @@ const Dashboard = () => {
   const { userRole } = useAuth();
   const [isBackfilling, setIsBackfilling] = useState(false);
   
-  // Extract the current section from the URL path
+  useEffect(() => {
+    if (userRole === 'client') {
+      navigate('/patient/dashboard');
+    }
+  }, [userRole, navigate]);
+  
   const getActiveTabFromPath = () => {
     const path = location.pathname;
     if (path.includes('/dashboard/clients')) return 'clients';
@@ -34,12 +38,10 @@ const Dashboard = () => {
   
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
   
-  // Update the state when the URL changes
   useEffect(() => {
     setActiveTab(getActiveTabFromPath());
   }, [location]);
   
-  // Handle tab changes by navigating to the appropriate route
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     if (tab === 'overview') {
@@ -61,7 +63,6 @@ const Dashboard = () => {
     }
   };
 
-  // Render the appropriate content based on the active tab
   const renderContent = () => {
     switch (activeTab) {
       case 'clients':
@@ -95,6 +96,10 @@ const Dashboard = () => {
         );
     }
   };
+
+  if (userRole === 'client') {
+    return null;
+  }
 
   return (
     <RootLayout>
