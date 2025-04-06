@@ -1,37 +1,34 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface Appointment {
+export interface SessionNote {
   id: string;
-  title: string;
   therapist_id: string;
   client_id: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  notes?: string;
+  content: string;
+  appointment_id?: string;
+  is_private: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface SessionNoteInput {
+  client_id: string;
+  content: string;
+  appointment_id?: string;
+  is_private?: boolean;
+}
+
+export interface SessionNoteWithClient extends SessionNote {
   client?: {
     first_name: string;
     last_name: string;
-    email?: string;
-    phone?: string;
   };
 }
 
-export interface AppointmentInput {
-  title: string;
-  client_id: string;
-  start_time: string;
-  end_time: string;
-  status?: string;
-  notes?: string;
-}
-
-export const appointmentService = {
-  // Get all appointments for the current user
-  async getAppointments(): Promise<Appointment[]> {
+export const noteService = {
+  // Get all notes for the current therapist
+  async getNotes(): Promise<SessionNoteWithClient[]> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -39,18 +36,16 @@ export const appointmentService = {
     }
     
     const { data, error } = await supabase
-      .from('appointments')
+      .from('session_notes')
       .select(`
         *,
         clients (
           first_name,
-          last_name,
-          email,
-          phone
+          last_name
         )
       `)
       .eq('therapist_id', user.id)
-      .order('start_time');
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw new Error(error.message);
@@ -59,8 +54,8 @@ export const appointmentService = {
     return data || [];
   },
 
-  // Get appointments within a date range
-  async getAppointmentsInRange(startDate: Date, endDate: Date): Promise<Appointment[]> {
+  // Get notes for a specific client
+  async getClientNotes(clientId: string): Promise<SessionNote[]> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -68,20 +63,11 @@ export const appointmentService = {
     }
     
     const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        clients (
-          first_name,
-          last_name,
-          email,
-          phone
-        )
-      `)
+      .from('session_notes')
+      .select('*')
       .eq('therapist_id', user.id)
-      .gte('start_time', startDate.toISOString())
-      .lte('end_time', endDate.toISOString())
-      .order('start_time');
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw new Error(error.message);
@@ -90,8 +76,8 @@ export const appointmentService = {
     return data || [];
   },
 
-  // Get a single appointment by ID
-  async getAppointment(id: string): Promise<Appointment> {
+  // Get a single note by ID
+  async getNote(id: string): Promise<SessionNote> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -99,16 +85,8 @@ export const appointmentService = {
     }
     
     const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        clients (
-          first_name,
-          last_name,
-          email,
-          phone
-        )
-      `)
+      .from('session_notes')
+      .select('*')
       .eq('id', id)
       .eq('therapist_id', user.id)
       .single();
@@ -120,9 +98,8 @@ export const appointmentService = {
     return data;
   },
 
-  // Create a new appointment
-  async createAppointment(appointment: AppointmentInput): Promise<Appointment> {
-    // Get current user id
+  // Create a new note
+  async createNote(note: SessionNoteInput): Promise<SessionNote> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -130,11 +107,11 @@ export const appointmentService = {
     }
     
     const { data, error } = await supabase
-      .from('appointments')
+      .from('session_notes')
       .insert({
-        ...appointment,
+        ...note,
         therapist_id: user.id,
-        status: appointment.status || 'Scheduled'
+        is_private: note.is_private ?? true
       })
       .select()
       .single();
@@ -146,8 +123,8 @@ export const appointmentService = {
     return data;
   },
 
-  // Update an existing appointment
-  async updateAppointment(id: string, updates: Partial<AppointmentInput>): Promise<Appointment> {
+  // Update an existing note
+  async updateNote(id: string, updates: Partial<SessionNoteInput>): Promise<SessionNote> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -155,7 +132,7 @@ export const appointmentService = {
     }
     
     const { data, error } = await supabase
-      .from('appointments')
+      .from('session_notes')
       .update({
         ...updates,
         updated_at: new Date().toISOString()
@@ -172,8 +149,8 @@ export const appointmentService = {
     return data;
   },
 
-  // Delete an appointment
-  async deleteAppointment(id: string): Promise<void> {
+  // Delete a note
+  async deleteNote(id: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -181,7 +158,7 @@ export const appointmentService = {
     }
     
     const { error } = await supabase
-      .from('appointments')
+      .from('session_notes')
       .delete()
       .eq('id', id)
       .eq('therapist_id', user.id);
