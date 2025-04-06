@@ -47,43 +47,34 @@ const SessionDetails = () => {
     const fetchSessionData = async () => {
       try {
         setIsLoading(true);
-        // Fetch appointment details
         const appointmentData = await appointmentService.getAppointment(id);
         setAppointment(appointmentData);
         
-        // Fetch notes for this specific appointment
         try {
-          // First check if there's a note specifically for this appointment
           const appointmentNotes = await noteService.getAppointmentNotes(id);
           
           if (appointmentNotes.length > 0) {
             setNote(appointmentNotes[0]);
             
             try {
-              // Fetch access logs for this note
               const logs = await auditService.getNoteAccessLogs(appointmentNotes[0].id);
               setAccessLogs(logs);
             } catch (error) {
               console.error("Error fetching access logs:", error);
-              // Continue without access logs
               setAccessLogs([]);
             }
           } 
           
-          // Also fetch all notes for this client for reference
           if (appointmentData && appointmentData.client_id) {
             const clientNotes = await noteService.getClientNotes(appointmentData.client_id);
             setAllClientNotes(clientNotes);
             
-            // If no appointment-specific note was found, but there are client notes,
-            // we can still show an empty editor but let the user know about other notes
             if (appointmentNotes.length === 0 && clientNotes.length > 0) {
               console.log(`No appointment-specific notes found, but found ${clientNotes.length} client notes`);
             }
           }
         } catch (error) {
           console.error("Error fetching session notes:", error);
-          // Continue without notes
         }
         
         setIsLoading(false);
@@ -108,25 +99,20 @@ const SessionDetails = () => {
       setIsSaving(true);
       
       if (note) {
-        // Update existing note
         const updatedNote = await noteService.updateNote(note.id, { content });
         setNote(updatedNote);
         
-        // Also update the note in allClientNotes
         setAllClientNotes(prevNotes => 
           prevNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
         );
         
         try {
-          // Refresh access logs
           const logs = await auditService.getNoteAccessLogs(note.id);
           setAccessLogs(logs);
         } catch (error) {
           console.error("Error fetching access logs:", error);
-          // Continue without updating access logs
         }
       } else {
-        // Create new note
         const newNote = await noteService.createNote({
           client_id: appointment.client_id,
           content,
@@ -135,23 +121,15 @@ const SessionDetails = () => {
         });
         setNote(newNote);
         
-        // Add the new note to allClientNotes
         setAllClientNotes(prevNotes => [newNote, ...prevNotes]);
         
         try {
-          // Refresh access logs
           const logs = await auditService.getNoteAccessLogs(newNote.id);
           setAccessLogs(logs);
         } catch (error) {
           console.error("Error fetching access logs:", error);
-          // Continue without access logs
         }
       }
-      
-      toast({
-        title: "Success",
-        description: "Session notes saved successfully"
-      });
     } catch (error) {
       console.error("Error saving note:", error);
       toast({
@@ -277,7 +255,6 @@ const SessionDetails = () => {
           )}
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Session info sidebar */}
             <Card className="md:col-span-1">
               <CardHeader>
                 <CardTitle>Session Information</CardTitle>
@@ -329,7 +306,6 @@ const SessionDetails = () => {
                   </Badge>
                 </div>
                 
-                {/* Display all client notes */}
                 {allClientNotes.length > 0 && (
                   <>
                     <Separator />
@@ -340,11 +316,6 @@ const SessionDetails = () => {
                           <div key={clientNote.id} className="mb-2 text-sm border-b pb-2">
                             <p className="font-medium">{formatNoteDate(clientNote.created_at)}</p>
                             <div className="line-clamp-2 text-muted-foreground" dangerouslySetInnerHTML={createMarkup(clientNote.content)} />
-                            {/* <p className="line-clamp-2 text-muted-foreground">
-                              {clientNote.content.length > 60 
-                                ? `${clientNote.content.substring(0, 60)}...` 
-                                : clientNote.content}
-                            </p> */}
                           </div>
                         ))}
                       </div>
@@ -364,7 +335,6 @@ const SessionDetails = () => {
               </CardContent>
             </Card>
             
-            {/* Notes editor */}
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Session Notes</CardTitle>
@@ -385,6 +355,8 @@ const SessionDetails = () => {
                 <RichTextEditor 
                   initialContent={note?.content || ""}
                   onSave={handleSaveNote}
+                  autoSave={true}
+                  autoSaveInterval={2000}
                 />
               </CardContent>
               <CardFooter className="text-sm text-muted-foreground">

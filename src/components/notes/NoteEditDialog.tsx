@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Save, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { SessionNote } from '@/services/noteService';
 import RichTextEditor from './RichTextEditor';
 import { useToast } from "@/hooks/use-toast";
@@ -24,11 +24,7 @@ const NoteEditDialog = ({ note, open, onClose, onSave }: NoteEditDialogProps) =>
     setIsLoading(true);
     try {
       await onSave(note, content);
-      toast({
-        title: "Note updated",
-        description: "The note has been successfully updated."
-      });
-      onClose();
+      // No toast on auto-save to avoid overwhelming the user
     } catch (error) {
       console.error('Error updating note:', error);
       toast({
@@ -39,6 +35,14 @@ const NoteEditDialog = ({ note, open, onClose, onSave }: NoteEditDialogProps) =>
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCloseWithSuccess = () => {
+    toast({
+      title: "Note updated",
+      description: "The note has been successfully updated."
+    });
+    onClose();
   };
 
   return (
@@ -56,6 +60,8 @@ const NoteEditDialog = ({ note, open, onClose, onSave }: NoteEditDialogProps) =>
             <RichTextEditor
               initialContent={note.content}
               onSave={handleSaveContent}
+              autoSave={true}
+              autoSaveInterval={2000}
             />
           )}
         </div>
@@ -65,12 +71,10 @@ const NoteEditDialog = ({ note, open, onClose, onSave }: NoteEditDialogProps) =>
             Cancel
           </Button>
           <Button 
-            disabled={isLoading} 
+            onClick={handleCloseWithSuccess} 
             className="btn-gradient"
-            onClick={() => document.execCommand('save')}
           >
-            <Save className="mr-2 h-4 w-4" /> 
-            {isLoading ? "Saving..." : "Save Changes"}
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>
