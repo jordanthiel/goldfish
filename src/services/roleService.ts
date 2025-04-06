@@ -42,21 +42,47 @@ export const roleService = {
 
   // Assign a role to a user
   async assignRole(userId: string, roleName: string): Promise<UserRole> {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .insert({
-        user_id: userId,
-        role: roleName
-      })
-      .select()
-      .single();
+    // First try to use our new add_role_to_user function
+    try {
+      const { data, error } = await supabase
+        .rpc('add_role_to_user', { 
+          user_id_param: userId,
+          role_name: roleName 
+        });
+      
+      if (error) throw error;
+      
+      console.log('Role assignment result:', data);
+      
+      // Fetch the role that was just assigned
+      const roles = await this.getUserRoles(userId);
+      const assignedRole = roles.find(r => r.role === roleName);
+      
+      if (!assignedRole) {
+        throw new Error('Role was assigned but could not be retrieved');
+      }
+      
+      return assignedRole;
+    } catch (rpError) {
+      console.error('Error using RPC function, falling back to direct insert:', rpError);
+      
+      // Fallback to direct insert if RPC fails
+      const { data, error } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role: roleName
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Error assigning role:', error);
-      throw new Error(error.message);
+      if (error) {
+        console.error('Error assigning role:', error);
+        throw new Error(error.message);
+      }
+
+      return data;
     }
-
-    return data;
   },
 
   // Remove a role from a user

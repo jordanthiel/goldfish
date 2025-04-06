@@ -383,6 +383,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_role_to_user: {
+        Args: {
+          user_id_param: string
+          role_name: string
+        }
+        Returns: string
+      }
       get_user_roles: {
         Args: {
           user_id_param: string
