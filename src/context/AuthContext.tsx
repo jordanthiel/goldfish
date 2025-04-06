@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -108,6 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) throw error;
+      
+      // Assign default role to the new user
+      if (data.user) {
+        try {
+          // Assign the "therapist" role by default to all new users
+          await roleService.assignRole(data.user.id, 'therapist');
+          console.log('Default role assigned successfully');
+        } catch (roleError) {
+          console.error("Error assigning default role:", roleError);
+          // We'll continue even if role assignment fails, as the user can try again later
+        }
+      }
       
       toast({
         title: "Account created!",
