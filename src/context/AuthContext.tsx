@@ -28,25 +28,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+      (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         // If signed in, fetch the user's role
         if (event === 'SIGNED_IN' && currentSession?.user) {
-          try {
-            const roles = await roleService.getUserRoles(currentSession.user.id);
-            if (roles.length > 0) {
-              setUserRole(roles[0].role);
+          // Use setTimeout to prevent recursion issues with Supabase
+          setTimeout(async () => {
+            try {
+              const roles = await roleService.getUserRoles(currentSession.user.id);
+              if (roles.length > 0) {
+                setUserRole(roles[0].role);
+              }
+              
+              toast({
+                title: "Welcome back!",
+                description: "You have successfully signed in.",
+              });
+            } catch (error) {
+              console.error("Error fetching user role:", error);
             }
-            
-            toast({
-              title: "Welcome back!",
-              description: "You have successfully signed in.",
-            });
-          } catch (error) {
-            console.error("Error fetching user role:", error);
-          }
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           setUserRole(null);
           toast({

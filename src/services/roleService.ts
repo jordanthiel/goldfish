@@ -12,11 +12,10 @@ export interface UserRole {
 export const roleService = {
   // Get current user's roles
   async getUserRoles(userId: string): Promise<UserRole[]> {
-    // Use explicit typing to work around TypeScript limitations
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
-      .eq('user_id', userId) as any;
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error fetching user roles:', error);
@@ -28,25 +27,23 @@ export const roleService = {
 
   // Check if the user has a specific role
   async hasRole(userId: string, roleName: string): Promise<boolean> {
-    // Use explicit typing to work around TypeScript limitations
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
       .eq('user_id', userId)
       .eq('role', roleName)
-      .single() as any;
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is the "no rows returned" error
+    if (error) {
       console.error('Error checking user role:', error);
       throw new Error(error.message);
     }
 
-    return !!data;
+    return data && data.length > 0;
   },
 
   // Assign a role to a user
   async assignRole(userId: string, roleName: string): Promise<UserRole> {
-    // Use explicit typing to work around TypeScript limitations
     const { data, error } = await supabase
       .from('user_roles')
       .insert({
@@ -54,7 +51,7 @@ export const roleService = {
         role: roleName
       })
       .select()
-      .single() as any;
+      .single();
 
     if (error) {
       console.error('Error assigning role:', error);
@@ -66,12 +63,11 @@ export const roleService = {
 
   // Remove a role from a user
   async removeRole(userId: string, roleName: string): Promise<void> {
-    // Use explicit typing to work around TypeScript limitations
     const { error } = await supabase
       .from('user_roles')
       .delete()
       .eq('user_id', userId)
-      .eq('role', roleName) as any;
+      .eq('role', roleName);
 
     if (error) {
       console.error('Error removing role:', error);
