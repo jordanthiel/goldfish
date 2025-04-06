@@ -3,10 +3,11 @@ import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CalendarDays, MessageSquare, Clock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { clientService } from '@/services/clientService';
+import { appointmentService } from '@/services/appointmentService';
 
 const DashboardOverview = () => {
   const { user } = useAuth();
@@ -17,48 +18,37 @@ const DashboardOverview = () => {
     if (!user) throw new Error("User not authenticated");
     
     // Fetch clients count
-    const { count: clientsCount, error: clientsError } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true });
-    
-    if (clientsError) throw clientsError;
+    const clients = await clientService.getClients();
+    const clientsCount = clients.length;
     
     // Fetch upcoming appointments
     const today = new Date();
     const endOfWeek = new Date();
     endOfWeek.setDate(today.getDate() + 7);
     
-    const { data: upcomingAppointments, error: appointmentsError } = await supabase
-      .from('appointments')
-      .select('*, clients(*)')
-      .gte('start_time', today.toISOString())
-      .lte('start_time', endOfWeek.toISOString())
-      .order('start_time', { ascending: true });
-    
-    if (appointmentsError) throw appointmentsError;
+    const upcomingAppointments = await appointmentService.getAppointmentsInRange(today, endOfWeek);
     
     // Fetch recent appointments (past)
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(today.getDate() - 14);
     
-    const { data: recentAppointments, error: recentApptsError } = await supabase
-      .from('appointments')
-      .select('*, clients(*)')
-      .lte('end_time', today.toISOString())
-      .gte('end_time', twoWeeksAgo.toISOString())
-      .order('end_time', { ascending: false })
-      .limit(3);
+    // Get appointments from last two weeks
+    const allAppointments = await appointmentService.getAppointments();
+    const recentAppointments = allAppointments
+      .filter(apt => {
+        const endTime = new Date(apt.end_time);
+        return endTime <= today && endTime >= twoWeeksAgo;
+      })
+      .sort((a, b) => new Date(b.end_time).getTime() - new Date(a.end_time).getTime())
+      .slice(0, 3);
     
-    if (recentApptsError) throw recentApptsError;
-    
-    // Calculate hours booked
-    const { data: monthAppointments, error: monthApptsError } = await supabase
-      .from('appointments')
-      .select('start_time, end_time')
-      .gte('start_time', new Date(today.getFullYear(), today.getMonth(), 1).toISOString())
-      .lte('end_time', today.toISOString());
-    
-    if (monthApptsError) throw monthApptsError;
+    // Calculate hours booked for current month
+    const monthAppointments = allAppointments.filter(apt => {
+      const startTime = new Date(apt.start_time);
+      return startTime.getMonth() === today.getMonth() && 
+             startTime.getFullYear() === today.getFullYear() && 
+             startTime <= today;
+    });
     
     let hoursBooked = 0;
     
@@ -71,31 +61,32 @@ const DashboardOverview = () => {
       }, 0);
     }
     
-    // Calculate changes from previous period
-    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+    // Filter clients created this month
+    const thisMonthClients = clients.filter(client => {
+      const createdAt = new Date(client.created_at);
+      return createdAt.getMonth() === today.getMonth() && 
+             createdAt.getFullYear() === today.getFullYear();
+    });
     
-    const { data: lastMonthClients } = await supabase
-      .from('clients')
-      .select('created_at')
-      .gte('created_at', lastMonthStart.toISOString())
-      .lte('created_at', lastMonthEnd.toISOString());
+    // Filter clients created last month
+    const lastMonthClients = clients.filter(client => {
+      const createdAt = new Date(client.created_at);
+      const lastMonth = today.getMonth() - 1 < 0 ? 11 : today.getMonth() - 1;
+      const lastMonthYear = today.getMonth() - 1 < 0 ? today.getFullYear() - 1 : today.getFullYear();
+      return createdAt.getMonth() === lastMonth && 
+             createdAt.getFullYear() === lastMonthYear;
+    });
     
-    const { data: thisMonthClients } = await supabase
-      .from('clients')
-      .select('created_at')
-      .gte('created_at', new Date(today.getFullYear(), today.getMonth(), 1).toISOString());
-    
-    const clientsChange = lastMonthClients?.length > 0 
-      ? Math.round(((thisMonthClients?.length || 0) - lastMonthClients.length) / lastMonthClients.length * 100) 
-      : thisMonthClients?.length ? 100 : 0;
+    const clientsChange = lastMonthClients.length > 0 
+      ? Math.round(((thisMonthClients.length || 0) - lastMonthClients.length) / lastMonthClients.length * 100) 
+      : thisMonthClients.length ? 100 : 0;
     
     return {
       clientsCount: clientsCount || 0,
       upcomingAppointments: upcomingAppointments || [],
       recentAppointments: recentAppointments || [],
       hoursBooked: Math.round(hoursBooked * 10) / 10, // round to 1 decimal
-      newClientsThisMonth: thisMonthClients?.length || 0,
+      newClientsThisMonth: thisMonthClients.length || 0,
       clientsChange: clientsChange > 0 ? `+${clientsChange}%` : `${clientsChange}%`,
       sessionsChange: "+12%", // Mock data for now, would calculate similar to clients
       messagesChange: "-2%",  // Mock data for now
@@ -203,7 +194,7 @@ const DashboardOverview = () => {
                     <div className="flex-1">
                       <h4 className="font-semibold">Client Session Completed</h4>
                       <p className="text-sm text-muted-foreground">
-                        Session with {apt.clients.first_name} {apt.clients.last_name} - {
+                        Session with {apt.client?.first_name} {apt.client?.last_name || 'Client'} - {
                           Math.round((new Date(apt.end_time).getTime() - new Date(apt.start_time).getTime()) / (1000 * 60))
                         } minutes
                       </p>
@@ -241,7 +232,7 @@ const DashboardOverview = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between">
-                        <h4 className="font-semibold">{apt.clients.first_name} {apt.clients.last_name}</h4>
+                        <h4 className="font-semibold">{apt.client?.first_name} {apt.client?.last_name || 'Client'}</h4>
                         <span className="text-sm text-muted-foreground">
                           {format(new Date(apt.start_time), 'EEEE')}
                         </span>

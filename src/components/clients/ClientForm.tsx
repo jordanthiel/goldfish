@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -32,6 +31,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { clientService } from '@/services/clientService';
 
 const clientSchema = z.object({
   first_name: z.string().min(1, { message: 'First name is required' }),
@@ -87,15 +87,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
     try {
       if (client?.id) {
         // Update existing client
-        const { error } = await supabase
-          .from('clients')
-          .update({
-            ...values,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', client.id);
-
-        if (error) throw error;
+        await clientService.updateClient(client.id, values);
         
         toast({
           title: 'Client updated',
@@ -103,14 +95,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
         });
       } else {
         // Add new client
-        const { error } = await supabase
-          .from('clients')
-          .insert({
-            ...values,
-            therapist_id: user.id,
-          });
-
-        if (error) throw error;
+        await clientService.createClient(values);
         
         toast({
           title: 'Client added',

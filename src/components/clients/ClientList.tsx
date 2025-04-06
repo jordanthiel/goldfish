@@ -28,12 +28,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Search, MoreHorizontal, Plus, User, Calendar, MessageSquare, FileText } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import ClientForm from './ClientForm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { clientService } from '@/services/clientService';
 
 const ClientList = () => {
   const { user } = useAuth();
@@ -47,16 +47,7 @@ const ClientList = () => {
   // Fetch clients from Supabase
   const fetchClients = async () => {
     if (!user) return [];
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*, appointments(start_time, end_time)')
-      .order('last_name', { ascending: true });
-    
-    if (error) {
-      throw error;
-    }
-    
-    return data || [];
+    return await clientService.getClients();
   };
 
   const { data: clients = [], isLoading, error } = useQuery({
