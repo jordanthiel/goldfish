@@ -25,7 +25,16 @@ import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientMessages from "./pages/patient/PatientMessages";
 import PatientResources from "./pages/patient/PatientResources";
 
-const queryClient = new QueryClient();
+// Create a QueryClient with better defaults for our app
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
