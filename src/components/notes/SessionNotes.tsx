@@ -31,6 +31,10 @@ const SessionNotes = () => {
   
   const { toast } = useToast();
 
+  const createMarkup = (htmlContent: string) => {
+    return { __html: htmlContent };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -359,7 +363,7 @@ const SessionNotes = () => {
                       </div>
                       
                       <div className="prose max-w-none">
-                        <p>{selectedNote.content}</p>
+                        <div dangerouslySetInnerHTML={createMarkup(selectedNote.content)} />
                       </div>
                     </>
                   )}

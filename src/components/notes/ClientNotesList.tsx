@@ -105,6 +105,11 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
       return dateString;
     }
   };
+  
+  // Function to safely render HTML content
+  const createMarkup = (htmlContent: string) => {
+    return { __html: htmlContent };
+  };
 
   if (isLoading) {
     return (
@@ -178,7 +183,7 @@ const ClientNotesList = ({ clientId, clientName }: ClientNotesListProps) => {
                     <span>{formatDate(selectedNote.created_at)}</span>
                   </div>
                   <div className="prose max-w-none">
-                    <p>{selectedNote.content}</p>
+                    <div dangerouslySetInnerHTML={createMarkup(selectedNote.content)} />
                   </div>
                 </div>
               ) : (
