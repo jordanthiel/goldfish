@@ -9,7 +9,7 @@ import { roleService } from '@/services/roleService';
 interface AuthContextProps {
   session: Session | null;
   user: User | null;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, role?: string) => Promise<void>;
   signIn: (email: string, password: string, role?: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, role: string = 'therapist') => {
     try {
       setLoading(true);
       const { error, data } = await supabase.auth.signUp({
@@ -109,14 +109,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      // Assign default role to the new user
+      // Assign role to the new user
       if (data.user) {
         try {
-          // Assign the "therapist" role by default to all new users
-          await roleService.assignRole(data.user.id, 'therapist');
-          console.log('Default role assigned successfully');
+          // Assign the selected role to the user
+          await roleService.assignRole(data.user.id, role);
+          console.log(`${role} role assigned successfully`);
         } catch (roleError) {
-          console.error("Error assigning default role:", roleError);
+          console.error(`Error assigning ${role} role:`, roleError);
           // We'll continue even if role assignment fails, as the user can try again later
         }
       }
@@ -175,11 +175,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Navigate based on role
-      if (role === 'client') {
-        navigate('/patient/dashboard');
-      } else {
-        navigate('/dashboard');
+      // Fetch the user's role to determine navigation
+      if (data.user) {
+        const userRoles = await roleService.getUserRoles(data.user.id);
+        const userRole = userRoles.length > 0 ? userRoles[0].role : null;
+        setUserRole(userRole);
+
+        // Navigate based on role
+        if (userRole === 'client') {
+          navigate('/patient/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (error: any) {
       toast({

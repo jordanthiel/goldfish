@@ -15,6 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -31,6 +32,9 @@ const signUpSchema = z.object({
     message: 'Password must be at least 6 characters.',
   }),
   confirmPassword: z.string(),
+  role: z.enum(['therapist', 'client'], {
+    required_error: 'Please select an account type.',
+  })
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -50,12 +54,13 @@ export default function SignUp() {
       email: '',
       password: '',
       confirmPassword: '',
+      role: 'client',
     },
   });
 
   async function onSubmit(values: SignUpFormValues) {
     try {
-      await signUp(values.email, values.password, values.fullName);
+      await signUp(values.email, values.password, values.fullName, values.role);
       setUserEmail(values.email);
       setIsSuccess(true);
     } catch (error) {
@@ -115,7 +120,7 @@ export default function SignUp() {
           <div className="text-center">
             <h1 className="text-3xl font-bold">Create your account</h1>
             <p className="mt-2 text-gray-600">
-              Join Goldfish and streamline your therapy practice
+              Join Goldfish and experience better therapy management
             </p>
           </div>
 
@@ -171,6 +176,41 @@ export default function SignUp() {
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="******" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>I am a:</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="client" />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Client seeking therapy
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="therapist" />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            Therapist or healthcare provider
+                          </FormLabel>
+                        </FormItem>
+                      </RadioGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
