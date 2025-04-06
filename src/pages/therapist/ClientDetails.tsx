@@ -24,7 +24,8 @@ import {
   Edit, 
   Clock,
   ExternalLink,
-  Loader2
+  Loader2,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { clientService, Client } from '@/services/clientService';
@@ -41,7 +42,6 @@ const ClientDetails = () => {
   const [latestNote, setLatestNote] = useState<SessionNote | null>(null);
   const { toast } = useToast();
   
-  // Fetch client data with appointments
   const {
     data: clientData,
     isLoading,
@@ -52,14 +52,13 @@ const ClientDetails = () => {
     enabled: !!id
   });
 
-  // Fetch latest note
   useEffect(() => {
     const fetchLatestNote = async () => {
       if (!id) return;
       try {
         const notes = await noteService.getClientNotes(id);
         if (notes.length > 0) {
-          setLatestNote(notes[0]); // Notes are already sorted by created_at desc
+          setLatestNote(notes[0]);
         }
       } catch (error) {
         console.error('Error fetching latest note:', error);
@@ -69,7 +68,6 @@ const ClientDetails = () => {
     fetchLatestNote();
   }, [id]);
 
-  // Create markup for HTML content
   const createMarkup = (htmlContent: string) => {
     return { __html: htmlContent };
   };
@@ -107,7 +105,6 @@ const ClientDetails = () => {
       });
       setNoteContent("");
       
-      // Update the latest note
       setLatestNote(newNote);
     } catch (error) {
       console.error('Error saving note:', error);
@@ -134,6 +131,10 @@ const ClientDetails = () => {
       title: "Appointment scheduled",
       description: `Appointment scheduled for ${format(selectedDate, 'PPP')} at 3:00 PM.`
     });
+  };
+
+  const navigateToSession = (appointmentId: string) => {
+    navigate(`/therapist/session/${appointmentId}`);
   };
 
   if (isLoading) {
@@ -353,11 +354,17 @@ const ClientDetails = () => {
                         </Card>
                         
                         <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                          <Card>
+                          <Card 
+                            className={`cursor-pointer hover:shadow-md transition-shadow ${latestNote ? 'group' : ''}`}
+                            onClick={() => latestNote && setClientTab('notes')}
+                          >
                             <CardHeader>
                               <CardTitle className="flex items-center">
                                 <FileText className="h-5 w-5 mr-2 text-therapy-purple" />
                                 Latest Note
+                                {latestNote && (
+                                  <ChevronRight className="h-4 w-4 ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
                               </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -381,18 +388,27 @@ const ClientDetails = () => {
                               <Button 
                                 variant="outline" 
                                 className="w-full" 
-                                onClick={() => setClientTab('notes')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setClientTab('notes');
+                                }}
                               >
                                 {latestNote ? 'View All Notes' : 'Add First Note'}
                               </Button>
                             </CardFooter>
                           </Card>
                           
-                          <Card>
+                          <Card 
+                            className={`cursor-pointer hover:shadow-md transition-shadow ${nextAppointment ? 'group' : ''}`}
+                            onClick={() => nextAppointment && navigateToSession(nextAppointment.id)}
+                          >
                             <CardHeader>
                               <CardTitle className="flex items-center">
                                 <CalendarIcon className="h-5 w-5 mr-2 text-therapy-purple" />
                                 Next Appointment
+                                {nextAppointment && (
+                                  <ChevronRight className="h-4 w-4 ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
                               </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -425,7 +441,14 @@ const ClientDetails = () => {
                               )}
                             </CardContent>
                             <CardFooter>
-                              <Button variant="outline" className="w-full" onClick={() => setClientTab('appointments')}>
+                              <Button 
+                                variant="outline" 
+                                className="w-full" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  nextAppointment ? setClientTab('appointments') : setClientTab('appointments');
+                                }}
+                              >
                                 {nextAppointment ? 'View All Appointments' : 'Schedule Appointment'}
                               </Button>
                             </CardFooter>
@@ -473,7 +496,11 @@ const ClientDetails = () => {
                                   {sortedAppointments.map((appointment) => {
                                     const isCompleted = new Date(appointment.end_time) < new Date();
                                     return (
-                                      <div key={appointment.id} className="flex justify-between items-center p-3 border rounded-lg">
+                                      <div 
+                                        key={appointment.id} 
+                                        className="flex justify-between items-center p-3 border rounded-lg cursor-pointer hover:bg-muted/30"
+                                        onClick={() => navigateToSession(appointment.id)}
+                                      >
                                         <div>
                                           <p className="font-semibold">{appointment.title}</p>
                                           <p className="text-sm text-muted-foreground">
@@ -495,7 +522,10 @@ const ClientDetails = () => {
                                           <Button 
                                             size="sm" 
                                             variant="ghost"
-                                            onClick={() => navigate(`/therapist/session/${appointment.id}`)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              navigate(`/therapist/session/${appointment.id}`);
+                                            }}
                                           >
                                             <ExternalLink className="h-4 w-4" />
                                           </Button>
