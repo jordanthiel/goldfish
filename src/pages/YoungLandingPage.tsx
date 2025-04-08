@@ -40,9 +40,13 @@ const YoungLandingPage = () => {
               <div className="relative">
                 <div className="absolute -z-10 blur-[120px] bg-primary/30 rounded-full h-72 w-72 top-0 -left-10"></div>
                 <img 
-                  src="/placeholder.svg" 
+                  src="/assets/therapy-session.jpg" 
                   alt="Young person in therapy session" 
-                  className="rounded-2xl shadow-lg border border-gray-100 w-full"
+                  className="rounded-2xl shadow-lg border border-gray-100 w-full h-auto object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = "/placeholder.svg";
+                  }}
                 />
               </div>
             </div>
