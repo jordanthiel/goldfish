@@ -42,9 +42,10 @@ const YoungLandingPage = () => {
                 <img 
                   src="/assets/therapy-session.jpg" 
                   alt="Young person in therapy session" 
-                  className="rounded-2xl shadow-lg border border-gray-100 w-full h-auto object-cover"
+                  className="rounded-2xl shadow-lg border border-gray-100 w-full h-auto max-h-[500px] object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
+                    console.log("Image failed to load, using placeholder");
                     target.src = "/placeholder.svg";
                   }}
                 />
