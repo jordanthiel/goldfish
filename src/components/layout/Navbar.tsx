@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { AlignRight, X, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const location = useLocation();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -19,6 +20,9 @@ const Navbar = () => {
     { title: 'About', href: '#about' },
     { title: 'Contact', href: '#contact' },
   ];
+
+  // Check if we're on either landing page
+  const isOnLandingPage = location.pathname === '/' || location.pathname === '/young';
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-4">
@@ -32,15 +36,27 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8">
           {!user && (
             <div className="flex gap-6">
-            {navItems.map((item) => (
-              <a 
-                key={item.title} 
-                href={item.href}
-                className="text-gray-600 hover:text-primary transition-colors font-medium"
-              >
-                {item.title}
-              </a>
-            ))}
+              {navItems.map((item) => (
+                <a 
+                  key={item.title} 
+                  href={item.href}
+                  className="text-gray-600 hover:text-primary transition-colors font-medium"
+                >
+                  {item.title}
+                </a>
+              ))}
+              
+              {/* A/B test landing page switcher */}
+              {isOnLandingPage && (
+                <div className="border-l pl-4 ml-2">
+                  <Link 
+                    to={location.pathname === '/young' ? '/' : '/young'}
+                    className="text-primary hover:text-primary/80 transition-colors font-medium"
+                  >
+                    {location.pathname === '/young' ? 'Standard Page' : 'Youth Page'}
+                  </Link>
+                </div>
+              )}
             </div>
           )}
           <div className="flex gap-4">
@@ -94,6 +110,18 @@ const Navbar = () => {
                 {item.title}
               </a>
             ))}
+            
+            {/* A/B test landing page switcher for mobile */}
+            {isOnLandingPage && (
+              <Link 
+                to={location.pathname === '/young' ? '/' : '/young'}
+                className="text-primary hover:text-primary/80 transition-colors py-2 font-medium border-t border-gray-100 pt-4 mt-2"
+                onClick={toggleMenu}
+              >
+                {location.pathname === '/young' ? 'Switch to Standard Page' : 'Switch to Youth Page'}
+              </Link>
+            )}
+            
             <div className="flex flex-col gap-3 py-2">
               {user ? (
                 <>
