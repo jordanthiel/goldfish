@@ -154,25 +154,46 @@ export type Database = {
       }
       client_profiles: {
         Row: {
+          address: string | null
           created_at: string
+          date_of_birth: string | null
+          emergency_contact: string | null
           first_name: string | null
           id: string
           last_name: string | null
+          phi_data: Json | null
           phone: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          emergency_contact?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          phi_data?: Json | null
           phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
+          address?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          emergency_contact?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          phi_data?: Json | null
           phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

@@ -4,21 +4,20 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Client {
   id: string;
   user_id?: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
   phone?: string;
   date_of_birth?: string;
   address?: string;
   emergency_contact?: string;
   status: string;
   created_at: string;
+  updated_at?: string;
   // HIPAA-compliant fields
   phi_data?: any;
   consent_date?: string;
   consent_version?: string;
-  encryption_key_id?: string;
-  // User information (fetched from auth.users)
-  first_name?: string; 
-  last_name?: string;
-  email?: string;
   full_name?: string;
 }
 
@@ -77,6 +76,8 @@ export const clientService = {
     const clients = clientProfiles.map(profile => ({
       id: profile.id,
       user_id: profile.user_id,
+      first_name: profile.first_name || '',
+      last_name: profile.last_name || '',
       phone: profile.phone,
       date_of_birth: profile.date_of_birth,
       address: profile.address,
@@ -84,9 +85,7 @@ export const clientService = {
       status: profile.status || 'Active',
       created_at: profile.created_at,
       updated_at: profile.updated_at,
-      phi_data: profile.phi_data,
-      first_name: profile.first_name,
-      last_name: profile.last_name
+      phi_data: profile.phi_data
     }));
 
     // We need to fetch user information for each client
@@ -237,9 +236,9 @@ export const clientService = {
     const { data: updatedClient, error } = await supabase
       .from('client_profiles')
       .update({
+        first_name,
+        last_name,
         ...clientUpdates,
-        first_name: first_name,
-        last_name: last_name,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

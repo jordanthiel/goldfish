@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,41 +43,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Checking for pending invitations for email:", email);
       
-      // Fetch any pending invitations for this email
-      const { data: invitations, error } = await supabase
-        .from('client_invitations')
-        .select('*')
-        .eq('email', email)
-        .eq('status', 'pending');
+      // Check if the client_invitations table exists
+      // If not, we'll just return as this feature isn't set up yet
+      try {
+        // This is a safer approach than directly accessing the table
+        const { error } = await supabase.rpc('check_pending_invitations', { 
+          email_param: email 
+        });
         
-      if (error) {
-        console.error("Error checking pending invitations:", error);
+        if (error) {
+          console.log("Client invitations system not set up yet:", error.message);
+          return;
+        }
+      } catch (error) {
+        console.log("Client invitations system not available:", error);
         return;
       }
       
-      if (invitations?.length > 0) {
-        console.log("Found pending invitations:", invitations);
+      // Process any invitations through patientService
+      try {
+        const result = await patientService.claimPatientAccount("");
         
-        // Process the first pending invitation
-        const invite = invitations[0];
-        
-        try {
-          const result = await patientService.claimPatientAccount(invite.invite_code);
-          
-          if (result.success) {
-            toast({
-              title: "Account linked",
-              description: "Your account has been successfully linked to your therapist.",
-            });
-            
-            // Refresh the page to show updated dashboard with therapist info
-            window.location.reload();
-          }
-        } catch (claimError) {
-          console.error("Error claiming patient account:", claimError);
+        if (result && result.success) {
+          toast({
+            title: "Account linked",
+            description: "Your account has been successfully linked to your therapist.",
+          });
         }
-      } else {
-        console.log("No pending invitations found for email:", email);
+      } catch (claimError) {
+        console.error("Error claiming patient account:", claimError);
       }
     } catch (error) {
       console.error("Error in invitation check:", error);

@@ -27,9 +27,9 @@ export const backfillUserData = async () => {
 
     // Check if user already has a client record
     const { data: existingClient } = await supabase
-      .from('clients')
+      .from('client_profiles')
       .select('id')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     // Create a therapist for the client if needed
@@ -66,21 +66,45 @@ export const backfillUserData = async () => {
       therapistId = newTherapist.id;
     }
 
+    let clientId: string;
     // Create or update client record
     if (!existingClient) {
-      await supabase
-        .from('clients')
+      const { data: newClient, error: clientError } = await supabase
+        .from('client_profiles')
         .insert({
-          id: user.id,
+          user_id: user.id,
           first_name: user.user_metadata?.full_name?.split(' ')[0] || 'Test',
           last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 'Client',
-          email: user.email,
-          therapist_id: therapistId,
-          date_of_birth: '1990-01-01',
           phone: '555-123-4567',
+          date_of_birth: '1990-01-01',
           address: '123 Main St, Anytown, USA',
           status: 'Active'
+        })
+        .select()
+        .single();
+        
+      if (clientError) {
+        console.error('Error creating client profile:', clientError);
+        throw clientError;
+      }
+      
+      clientId = newClient.id;
+      
+      // Create therapist-client relationship
+      const { error: relationshipError } = await supabase
+        .from('therapist_clients')
+        .insert({
+          therapist_id: therapistId,
+          client_id: clientId,
+          status: 'active'
         });
+        
+      if (relationshipError) {
+        console.error('Error creating therapist-client relationship:', relationshipError);
+        throw relationshipError;
+      }
+    } else {
+      clientId = existingClient.id;
     }
 
     // Create sample appointments (past)
@@ -99,7 +123,7 @@ export const backfillUserData = async () => {
       .insert([
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Initial Assessment - Video Session',
           start_time: new Date(past30Days.setHours(10, 0, 0, 0)).toISOString(),
           end_time: new Date(past30Days.setHours(11, 0, 0, 0)).toISOString(),
@@ -108,7 +132,7 @@ export const backfillUserData = async () => {
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Follow-up Session - Video Session',
           start_time: new Date(past14Days.setHours(14, 0, 0, 0)).toISOString(),
           end_time: new Date(past14Days.setHours(15, 0, 0, 0)).toISOString(),
@@ -117,7 +141,7 @@ export const backfillUserData = async () => {
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Weekly Session - Video Session',
           start_time: new Date(past7Days.setHours(15, 30, 0, 0)).toISOString(),
           end_time: new Date(past7Days.setHours(16, 30, 0, 0)).toISOString(),
@@ -132,19 +156,19 @@ export const backfillUserData = async () => {
       .insert([
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           content: 'Client presented with symptoms of anxiety related to workplace stress. Recommended daily mindfulness practice and scheduled weekly follow-up.',
           is_private: false
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           content: 'Follow-up session showed positive response to mindfulness techniques. Client is implementing breathing exercises during stressful moments at work.',
           is_private: false
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           content: 'Client reports significant reduction in anxiety symptoms. Will continue with current approach and add journaling as an additional coping strategy.',
           is_private: false
         }
@@ -165,7 +189,7 @@ export const backfillUserData = async () => {
       .insert([
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Weekly Check-in - Video Session',
           start_time: new Date(tomorrow.setHours(10, 0, 0, 0)).toISOString(),
           end_time: new Date(tomorrow.setHours(11, 0, 0, 0)).toISOString(),
@@ -173,7 +197,7 @@ export const backfillUserData = async () => {
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Progress Review - Video Session',
           start_time: new Date(nextWeek.setHours(15, 0, 0, 0)).toISOString(),
           end_time: new Date(nextWeek.setHours(16, 0, 0, 0)).toISOString(),
@@ -181,7 +205,7 @@ export const backfillUserData = async () => {
         },
         {
           therapist_id: therapistId,
-          client_id: user.id,
+          client_id: clientId,
           title: 'Monthly Assessment - Video Session',
           start_time: new Date(twoWeeksLater.setHours(14, 30, 0, 0)).toISOString(),
           end_time: new Date(twoWeeksLater.setHours(15, 30, 0, 0)).toISOString(),
