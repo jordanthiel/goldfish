@@ -414,5 +414,42 @@ export const patientService = {
         }
       ]
     };
+  },
+
+  // Claim patient account by invite code
+  async claimPatientAccount(inviteCode: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Verify the invite code
+    const { data: verifyData, error: verifyError } = await supabase
+      .rpc('verify_invite_code', {
+        invite_code_param: inviteCode
+      });
+
+    if (verifyError || !verifyData.valid) {
+      throw new Error(verifyError?.message || 'Invalid or expired invitation code');
+    }
+
+    // Accept the invitation and link with user account
+    const { data: acceptData, error: acceptError } = await supabase
+      .rpc('accept_client_invitation', {
+        invite_code_param: inviteCode,
+        user_id_param: user.id
+      });
+
+    if (acceptError || !acceptData.success) {
+      throw new Error(acceptError?.message || 'Failed to claim account');
+    }
+
+    // Return success and therapist info
+    return {
+      success: true,
+      therapistId: acceptData.therapist_id,
+      clientId: acceptData.client_id
+    };
   }
 };

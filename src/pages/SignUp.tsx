@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -19,7 +19,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { CheckCircle2, Mail } from 'lucide-react';
+import { CheckCircle2, Mail, HelpCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, {
@@ -34,7 +36,8 @@ const signUpSchema = z.object({
   confirmPassword: z.string(),
   role: z.enum(['therapist', 'client'], {
     required_error: 'Please select an account type.',
-  })
+  }),
+  inviteCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -46,6 +49,64 @@ export default function SignUp() {
   const { signUp, loading } = useAuth();
   const [isSuccess, setIsSuccess] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [inviteInfo, setInviteInfo] = useState<any>(null);
+  const [isVerifyingInvite, setIsVerifyingInvite] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Parse invite code from URL if present
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const inviteCode = params.get('invite');
+    
+    if (inviteCode) {
+      verifyInviteCode(inviteCode);
+      form.setValue('inviteCode', inviteCode);
+      form.setValue('role', 'client');
+    }
+  }, [location]);
+
+  const verifyInviteCode = async (inviteCode: string) => {
+    if (!inviteCode) return;
+    
+    setIsVerifyingInvite(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('verify_invite_code', {
+          invite_code_param: inviteCode
+        });
+      
+      if (error || !data.valid) {
+        toast({
+          title: "Invalid invitation code",
+          description: error?.message || "This invitation is invalid or expired",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Set the email from the invitation
+      if (data.email) {
+        form.setValue('email', data.email);
+        setInviteInfo(data);
+        
+        toast({
+          title: "Invitation code verified",
+          description: "You've been invited to join as a client.",
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying invite code:', error);
+      toast({
+        title: "Error verifying invitation",
+        description: "There was a problem verifying your invitation code.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsVerifyingInvite(false);
+    }
+  };
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -55,6 +116,7 @@ export default function SignUp() {
       password: '',
       confirmPassword: '',
       role: 'client',
+      inviteCode: '',
     },
   });
 
@@ -63,6 +125,15 @@ export default function SignUp() {
       await signUp(values.email, values.password, values.fullName, values.role);
       setUserEmail(values.email);
       setIsSuccess(true);
+      
+      // If there's an invite code, automatically accept it after signup
+      if (values.inviteCode && inviteInfo) {
+        // The invitation will be automatically accepted when the user verifies their email and logs in
+        toast({
+          title: "Account will be linked",
+          description: "Your account will be linked to your therapist after you verify your email and login.",
+        });
+      }
     } catch (error) {
       // Error is handled by the AuthContext
     }
@@ -95,6 +166,18 @@ export default function SignUp() {
               </p>
             </div>
             
+            {inviteInfo && (
+              <div className="bg-purple-50 border border-purple-100 rounded-lg p-6 mt-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <HelpCircle className="h-6 w-6 text-purple-600" />
+                  <h2 className="text-lg font-medium text-purple-900">You've been invited!</h2>
+                </div>
+                <p className="text-purple-700 text-left">
+                  After verifying your email and logging in, your account will be automatically linked to your therapist.
+                </p>
+              </div>
+            )}
+            
             <div className="mt-8">
               <p className="text-sm text-gray-600 mb-4">
                 Once verified, you can log in to access your account.
@@ -122,6 +205,14 @@ export default function SignUp() {
             <p className="mt-2 text-gray-600">
               Join Goldfish and experience better therapy management
             </p>
+            
+            {inviteInfo && (
+              <div className="mt-4 bg-purple-50 rounded-lg p-4 text-left">
+                <p className="text-sm text-purple-800">
+                  You've been invited to join as a client. Your account will be linked to your therapist automatically.
+                </p>
+              </div>
+            )}
           </div>
 
           <Form {...form}>
@@ -147,7 +238,12 @@ export default function SignUp() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="jane@example.com" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="jane@example.com" 
+                        {...field} 
+                        disabled={!!inviteInfo}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -192,7 +288,9 @@ export default function SignUp() {
                       <RadioGroup
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        value={field.value}
                         className="flex flex-col space-y-1"
+                        disabled={!!inviteInfo}
                       >
                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
@@ -216,6 +314,35 @@ export default function SignUp() {
                   </FormItem>
                 )}
               />
+              
+              {!inviteInfo && (
+                <FormField
+                  control={form.control}
+                  name="inviteCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Invite Code (Optional)</FormLabel>
+                      <div className="flex space-x-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter invite code if you have one" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => verifyInviteCode(field.value)}
+                          disabled={!field.value || isVerifyingInvite}
+                        >
+                          Verify
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <div>
                 <Button type="submit" className="w-full btn-gradient" disabled={loading}>

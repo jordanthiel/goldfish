@@ -5,12 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { roleService } from '@/services/roleService';
+import { patientService } from '@/services/patientService';
 
 interface AuthContextProps {
   session: Session | null;
   user: User | null;
   signUp: (email: string, password: string, fullName: string, role?: string) => Promise<void>;
-  signIn: (email: string, password: string, role?: string) => Promise<void>;
+  signIn: (email: string, password: string, role?: string, inviteCode?: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
   userRole: string | null;
@@ -38,6 +39,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Function to check and process any pending client invitations
+  const checkPendingInvitations = async (email: string) => {
+    try {
+      // Fetch any pending invitations for this email
+      const { data: invitations, error } = await supabase
+        .from('client_invitations')
+        .select('*')
+        .eq('email', email)
+        .eq('status', 'pending');
+        
+      if (error) {
+        console.error("Error checking pending invitations:", error);
+        return;
+      }
+      
+      if (invitations?.length > 0) {
+        console.log("Found pending invitations:", invitations);
+        
+        // Process the first pending invitation
+        const invite = invitations[0];
+        
+        try {
+          await patientService.claimPatientAccount(invite.invite_code);
+          
+          toast({
+            title: "Account linked",
+            description: "Your account has been successfully linked to your therapist.",
+          });
+        } catch (claimError) {
+          console.error("Error claiming patient account:", claimError);
+        }
+      }
+    } catch (error) {
+      console.error("Error in invitation check:", error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,6 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTimeout(async () => {
             try {
               await fetchUserRole(currentSession.user.id);
+              
+              // Check for pending invitations
+              if (currentSession.user.email) {
+                await checkPendingInvitations(currentSession.user.email);
+              }
               
               toast({
                 title: "Welcome back!",
@@ -148,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signIn = async (email: string, password: string, role?: string) => {
+  const signIn = async (email: string, password: string, role?: string, inviteCode?: string) => {
     try {
       setLoading(true);
       const { error, data } = await supabase.auth.signInWithPassword({
@@ -190,6 +233,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set userRole based on what we found
       const userRole = userRoles.length > 0 ? userRoles[0].role : null;
       setUserRole(userRole);
+
+      // If invite code is provided, process it
+      if (inviteCode && data.user) {
+        try {
+          await patientService.claimPatientAccount(inviteCode);
+          
+          toast({
+            title: "Account linked",
+            description: "Your account has been successfully linked to your therapist.",
+          });
+        } catch (inviteError: any) {
+          console.error("Error processing invite during login:", inviteError);
+          toast({
+            title: "Invitation error",
+            description: inviteError.message || "Could not process your invitation",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Check for any pending invitations
+        if (data.user?.email) {
+          await checkPendingInvitations(data.user.email);
+        }
+      }
 
       // Navigate based on role
       if (userRole === 'client') {
