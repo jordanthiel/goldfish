@@ -1,5 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from './clientService';
+import { Client } from '@/services/clientService';
 
 export interface SessionNote {
   id: string;

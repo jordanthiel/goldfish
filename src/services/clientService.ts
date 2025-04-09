@@ -1,5 +1,35 @@
-import { supabase } from '@/lib/supabase';
-import { Appointment, Client } from '@/types';
+
+import { supabase } from '@/integrations/supabase/client';
+
+// Define the Client type
+export interface Client {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  date_of_birth: string;
+  address: string;
+  emergency_contact: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  phi_data: any;
+}
+
+// Define the Appointment type
+export interface Appointment {
+  id: string;
+  client_id: string;
+  therapist_id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // Function to get all clients
 const getClients = async (): Promise<Client[]> => {
@@ -43,7 +73,7 @@ const getClient = async (id: string): Promise<Client | null> => {
 };
 
 // Function to create a new client
-const createClient = async (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client | null> => {
+const createClient = async (client: Partial<Client>): Promise<Client | null> => {
   try {
     const { data, error } = await supabase
       .from('client_profiles')
@@ -106,7 +136,7 @@ const deleteClient = async (id: string): Promise<boolean> => {
 };
 
 // Function to create a new appointment for a client
-const createAppointment = async (appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment | null> => {
+const createAppointment = async (appointment: Partial<Appointment>): Promise<Appointment | null> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -264,25 +294,11 @@ const getClientWithAppointments = async (clientId: string) => {
 };
 
 // Function to send a client invitation
-const sendClientInvitation = async (clientData: { 
-  email: string; 
-  first_name?: string; 
-  last_name?: string;
-}) => {
+const sendClientInvitation = async (email: string): Promise<{ success: boolean; invitation?: any; message?: string }> => {
   try {
-    // Check if the client already exists with this email
-    const { data: existingUsers, error: userCheckError } = await supabase
-      .rpc('check_user_exists_by_email', { email_param: clientData.email });
-    
-    if (userCheckError) throw userCheckError;
-    
-    if (existingUsers && existingUsers.exists) {
-      throw new Error('A user with this email already exists');
-    }
-    
     // Generate an invitation code
     const { data: inviteData, error: inviteError } = await supabase
-      .rpc('generate_invite_code', { email_param: clientData.email });
+      .rpc('generate_invite_code');
     
     if (inviteError) throw inviteError;
     
@@ -292,12 +308,12 @@ const sendClientInvitation = async (clientData: {
     
     // In a real app, you would send an email with the invitation link
     console.log(`Invitation code generated: ${inviteData.invite_code}`);
-    console.log(`This would send an email to ${clientData.email} with the invitation link`);
+    console.log(`This would send an email to ${email} with the invitation link`);
     
     return {
       success: true,
       invitation: {
-        email: clientData.email,
+        email,
         invite_code: inviteData.invite_code
       }
     };
@@ -343,6 +359,48 @@ const inviteClient = async (email: string) => {
   }
 };
 
+// Also add the getAppointmentNotes method for compatibility with CalendarView component
+const getAppointmentNotes = async (appointmentId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('appointment_id', appointmentId)
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching appointment notes:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting appointment notes:', error);
+    throw error;
+  }
+};
+
+// Also fix the ClientForm issue
+const sendClientInvitationById = async (clientId: string, email: string) => {
+  try {
+    // Check if the client exists
+    const client = await getClient(clientId);
+    if (!client) {
+      throw new Error('Client not found');
+    }
+    
+    // Create the invitation
+    return await inviteClient(email);
+  } catch (error) {
+    console.error('Error sending client invitation:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    } else {
+      return { success: false, message: 'Unknown error occurred' };
+    }
+  }
+};
+
 export const clientService = {
   getClients,
   getClient,
@@ -357,5 +415,7 @@ export const clientService = {
   getClientAppointments,
   getClientWithAppointments,
   sendClientInvitation,
-  inviteClient
+  sendClientInvitationById, // Add this for ClientForm
+  inviteClient,
+  getAppointmentNotes // Add this for AppointmentCalendar
 };
