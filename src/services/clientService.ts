@@ -1,440 +1,361 @@
+import { supabase } from '@/lib/supabase';
+import { Appointment, Client } from '@/types';
 
-import { supabase } from '@/integrations/supabase/client';
-import { Patient } from './patientService';
+// Function to get all clients
+const getClients = async (): Promise<Client[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-export interface Client {
-  id: string;
-  user_id?: string;
-  first_name: string;
-  last_name: string;
-  email?: string;
-  phone?: string;
-  date_of_birth?: string;
-  address?: string;
-  emergency_contact?: string;
-  status: string;
-  created_at: string;
-  updated_at?: string;
-  therapist_id?: string;
-  phi_data?: any;
-  appointments?: any[];
-}
+    if (error) {
+      console.error('Error fetching clients:', error);
+      throw error;
+    }
 
-interface AppointmentDetails {
-  id: string;
-  title: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  notes?: string;
-  client?: any;
-}
+    return data || [];
+  } catch (error) {
+    console.error('Error getting clients:', error);
+    throw error;
+  }
+};
+
+// Function to get a single client by ID
+const getClient = async (id: string): Promise<Client | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching client:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error getting client:', error);
+    throw error;
+  }
+};
+
+// Function to create a new client
+const createClient = async (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .insert([client])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating client:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error creating client:', error);
+    throw error;
+  }
+};
+
+// Function to update an existing client
+const updateClient = async (id: string, updates: Partial<Client>): Promise<Client | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating client:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error updating client:', error);
+    throw error;
+  }
+};
+
+// Function to delete a client
+const deleteClient = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('client_profiles')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting client:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting client:', error);
+    return false;
+  }
+};
+
+// Function to create a new appointment for a client
+const createAppointment = async (appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert([appointment])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating appointment:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error creating appointment:', error);
+    throw error;
+  }
+};
+
+// Function to update an existing appointment
+const updateAppointment = async (id: string, updates: Partial<Appointment>): Promise<Appointment | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating appointment:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error updating appointment:', error);
+    throw error;
+  }
+};
+
+// Function to delete an appointment
+const deleteAppointment = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting appointment:', error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
+    return false;
+  }
+};
+
+// Function to get a single appointment by ID
+const getAppointment = async (id: string): Promise<Appointment | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching appointment:', error);
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error getting appointment:', error);
+    throw error;
+  }
+};
+
+// Function to get all appointments
+const getAppointments = async (): Promise<Appointment[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching appointments:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting appointments:', error);
+    throw error;
+  }
+};
+
+// Function to get all appointments for a single client
+const getClientAppointments = async (clientId: string): Promise<Appointment[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('start_time', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching client appointments:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error getting client appointments:', error);
+    throw error;
+  }
+};
+
+// Function to get a client with their appointments
+const getClientWithAppointments = async (clientId: string) => {
+  try {
+    // First, get the client profile data
+    const { data: client, error: clientError } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+    
+    if (clientError) throw clientError;
+    if (!client) throw new Error('Client not found');
+    
+    // Then get appointments for this client separately
+    const { data: appointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('start_time', { ascending: false });
+    
+    if (appointmentsError) throw appointmentsError;
+
+    // Combine the data
+    return {
+      ...client,
+      appointmentsList: appointments || []  // Use appointmentsList instead of appointments 
+    };
+  } catch (error) {
+    console.error('Error fetching client with appointments:', error);
+    throw error;
+  }
+};
+
+// Function to send a client invitation
+const sendClientInvitation = async (clientData: { 
+  email: string; 
+  first_name?: string; 
+  last_name?: string;
+}) => {
+  try {
+    // Check if the client already exists with this email
+    const { data: existingUsers, error: userCheckError } = await supabase
+      .rpc('check_user_exists_by_email', { email_param: clientData.email });
+    
+    if (userCheckError) throw userCheckError;
+    
+    if (existingUsers && existingUsers.exists) {
+      throw new Error('A user with this email already exists');
+    }
+    
+    // Generate an invitation code
+    const { data: inviteData, error: inviteError } = await supabase
+      .rpc('generate_invite_code', { email_param: clientData.email });
+    
+    if (inviteError) throw inviteError;
+    
+    if (!inviteData || !inviteData.invite_code) {
+      throw new Error('Failed to generate invitation code');
+    }
+    
+    // In a real app, you would send an email with the invitation link
+    console.log(`Invitation code generated: ${inviteData.invite_code}`);
+    console.log(`This would send an email to ${clientData.email} with the invitation link`);
+    
+    return {
+      success: true,
+      invitation: {
+        email: clientData.email,
+        invite_code: inviteData.invite_code
+      }
+    };
+  } catch (error) {
+    console.error('Error sending client invitation:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    } else {
+      return { success: false, message: 'Unknown error occurred' };
+    }
+  }
+};
+
+const inviteClient = async (email: string) => {
+  try {
+    const { data, error } = await supabase.rpc('create_client_invitation', {
+      email_param: email
+    });
+
+    if (error) throw error;
+    
+    // Check if data.id exists and handle it properly
+    if (data && typeof data === 'object') {
+      // Use optional chaining to safely access data.id if it exists
+      const inviteId = data?.id;
+      return { 
+        success: true, 
+        message: `Invitation sent to ${email}`,
+        inviteId: inviteId
+      };
+    }
+    
+    return { 
+      success: true, 
+      message: `Invitation sent to ${email}`
+    };
+  } catch (error) {
+    console.error('Error inviting client:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: 'Failed to invite client' };
+  }
+};
 
 export const clientService = {
-  // Get a list of all clients
-  async getClients(): Promise<Client[]> {
-    try {
-      // Get the current therapist ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("No user found");
-        return [];
-      }
-      
-      // Get clients from therapist_clients relationship table
-      const { data: relationships, error: relError } = await supabase
-        .from('therapist_clients')
-        .select('client_id, status')
-        .eq('therapist_id', user.id);
-      
-      if (relError) {
-        console.error('Error fetching client relationships:', relError);
-        return [];
-      }
-      
-      if (!relationships || relationships.length === 0) {
-        console.log('No client relationships found');
-        return [];
-      }
-      
-      const clientIds = relationships.map(rel => rel.client_id);
-      
-      // Get full client information for each client ID
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .in('id', clientIds);
-      
-      if (clientsError) {
-        console.error('Error fetching client profiles:', clientsError);
-        return [];
-      }
-      
-      const clients = clientsData.map(client => {
-        // Get relationship for this client
-        const relationship = relationships.find(rel => rel.client_id === client.id);
-        
-        return {
-          id: client.id,
-          first_name: client.first_name || '',
-          last_name: client.last_name || '',
-          phone: client.phone,
-          date_of_birth: client.date_of_birth,
-          address: client.address,
-          emergency_contact: client.emergency_contact,
-          status: relationship?.status || client.status || 'Active',
-          created_at: client.created_at,
-          updated_at: client.updated_at,
-          user_id: client.user_id,
-          phi_data: client.phi_data
-        };
-      });
-      
-      // Now get email info for clients with user accounts
-      const userIds = clients.filter(c => c.user_id).map(c => c.user_id);
-      
-      if (userIds.length > 0) {
-        // For email info, you would typically get this from auth.users
-        // but since we can't directly query that, we can use get-user-info edge function
-        // or a custom RPC function to retrieve that data
-        // For this example, we'll leave email as undefined
-      }
-      
-      // Get appointments for each client
-      for (const client of clients) {
-        const { data: appointments, error: appError } = await supabase
-          .from('appointments')
-          .select('*')
-          .eq('client_id', client.id)
-          .order('start_time', { ascending: false });
-          
-        if (!appError && appointments) {
-          client.appointments = appointments;
-        }
-      }
-      
-      return clients;
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      return [];
-    }
-  },
-  
-  // Get a single client by ID
-  async getClient(clientId: string): Promise<Client | null> {
-    try {
-      // Get client information
-      const { data: client, error } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .eq('id', clientId)
-        .single();
-      
-      if (error) {
-        console.error('Error fetching client:', error);
-        return null;
-      }
-      
-      // Get client relationship to get status
-      const { data: relationship, error: relError } = await supabase
-        .from('therapist_clients')
-        .select('*')
-        .eq('client_id', clientId)
-        .maybeSingle();
-        
-      // Get all appointments for this client
-      const { data: appointments, error: appError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('start_time', { ascending: false });
-      
-      const clientWithAppointments: Client = {
-        id: client.id,
-        user_id: client.user_id,
-        first_name: client.first_name || '',
-        last_name: client.last_name || '',
-        phone: client.phone,
-        date_of_birth: client.date_of_birth,
-        address: client.address,
-        emergency_contact: client.emergency_contact,
-        status: relationship?.status || client.status || 'Active',
-        created_at: client.created_at,
-        updated_at: client.updated_at,
-        phi_data: client.phi_data,
-        appointments: !appError ? appointments : []
-      };
-      
-      // Get email from auth user if available
-      if (client.user_id) {
-        // For email info, you would typically get this from auth.users
-        // but since we can't directly query that, we can use an edge function
-        // For this example, we'll leave email as undefined
-      }
-      
-      return clientWithAppointments;
-      
-    } catch (error) {
-      console.error('Error in getClient:', error);
-      return null;
-    }
-  },
-  
-  // Alias method for backward compatibility
-  async getClientWithAppointments(clientId: string): Promise<Client | null> {
-    return this.getClient(clientId);
-  },
-  
-  // Create a new client
-  async createClient(clientData: Partial<Client>): Promise<{ success: boolean; client?: Client; message?: string }> {
-    try {
-      // Get the current therapist ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, message: "Not authenticated as a therapist" };
-      }
-      
-      // Insert the client profile
-      const { data: insertedClient, error: insertError } = await supabase
-        .from('client_profiles')
-        .insert({
-          first_name: clientData.first_name,
-          last_name: clientData.last_name,
-          phone: clientData.phone,
-          date_of_birth: clientData.date_of_birth,
-          address: clientData.address,
-          emergency_contact: clientData.emergency_contact,
-          status: clientData.status || 'Active',
-          phi_data: clientData.phi_data || {}
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error('Error creating client:', insertError);
-        return { success: false, message: insertError.message };
-      }
-      
-      // Create relationship between therapist and client
-      const { error: relError } = await supabase
-        .from('therapist_clients')
-        .insert({
-          therapist_id: user.id,
-          client_id: insertedClient.id,
-          status: clientData.status || 'Active'
-        });
-        
-      if (relError) {
-        console.error('Error creating therapist-client relationship:', relError);
-        
-        // If relationship creation fails, delete the client to maintain consistency
-        const { error: deleteError } = await supabase
-          .from('client_profiles')
-          .delete()
-          .eq('id', insertedClient.id);
-          
-        if (deleteError) {
-          console.error('Error cleaning up client after failed relationship creation:', deleteError);
-        }
-        
-        return { success: false, message: relError.message };
-      }
-      
-      return { 
-        success: true, 
-        client: {
-          ...insertedClient,
-          status: clientData.status || 'Active'
-        }
-      };
-    } catch (error: any) {
-      console.error('Error in createClient:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
-  // Update an existing client
-  async updateClient(clientId: string, clientData: Partial<Client>): Promise<{ success: boolean; client?: Client; message?: string }> {
-    try {
-      // Update the client profile
-      const { data: updatedClient, error: updateError } = await supabase
-        .from('client_profiles')
-        .update({
-          first_name: clientData.first_name,
-          last_name: clientData.last_name,
-          phone: clientData.phone,
-          date_of_birth: clientData.date_of_birth,
-          address: clientData.address,
-          emergency_contact: clientData.emergency_contact,
-          phi_data: clientData.phi_data,
-          status: clientData.status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', clientId)
-        .select()
-        .single();
-      
-      if (updateError) {
-        console.error('Error updating client:', updateError);
-        return { success: false, message: updateError.message };
-      }
-      
-      // If status changed, update the relationship status too
-      if (clientData.status) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { error: relError } = await supabase
-            .from('therapist_clients')
-            .update({ status: clientData.status })
-            .eq('client_id', clientId)
-            .eq('therapist_id', user.id);
-            
-          if (relError) {
-            console.error('Error updating therapist-client relationship:', relError);
-            // Continue anyway, this is not critical
-          }
-        }
-      }
-      
-      return { 
-        success: true, 
-        client: {
-          ...updatedClient,
-          status: clientData.status || updatedClient.status || 'Active'
-        }
-      };
-    } catch (error: any) {
-      console.error('Error in updateClient:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
-  // Delete a client
-  async deleteClient(clientId: string): Promise<{ success: boolean; message?: string }> {
-    try {
-      // Get the current therapist ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, message: "Not authenticated as a therapist" };
-      }
-      
-      // First remove the therapist-client relationship
-      const { error: relError } = await supabase
-        .from('therapist_clients')
-        .delete()
-        .eq('client_id', clientId)
-        .eq('therapist_id', user.id);
-        
-      if (relError) {
-        console.error('Error removing therapist-client relationship:', relError);
-        return { success: false, message: relError.message };
-      }
-      
-      // Then delete the client profile
-      const { error: deleteError } = await supabase
-        .from('client_profiles')
-        .delete()
-        .eq('id', clientId);
-        
-      if (deleteError) {
-        console.error('Error deleting client:', deleteError);
-        return { success: false, message: deleteError.message };
-      }
-      
-      return { success: true };
-    } catch (error: any) {
-      console.error('Error in deleteClient:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
-  // Create an appointment for a client
-  async createAppointment(
-    clientId: string, 
-    appointmentData: Partial<AppointmentDetails>
-  ): Promise<{ success: boolean; appointment?: AppointmentDetails; message?: string }> {
-    try {
-      // Get the current therapist ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, message: "Not authenticated as a therapist" };
-      }
-      
-      // Validate start and end times
-      if (!appointmentData.start_time || !appointmentData.end_time) {
-        return { success: false, message: "Start time and end time are required" };
-      }
-      
-      // Insert the appointment
-      const { data: appointment, error } = await supabase
-        .from('appointments')
-        .insert({
-          therapist_id: user.id,
-          client_id: clientId,
-          title: appointmentData.title || 'Therapy Session',
-          start_time: appointmentData.start_time,
-          end_time: appointmentData.end_time,
-          status: appointmentData.status || 'Scheduled',
-          notes: appointmentData.notes
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error creating appointment:', error);
-        return { success: false, message: error.message };
-      }
-      
-      return { 
-        success: true, 
-        appointment
-      };
-    } catch (error: any) {
-      console.error('Error in createAppointment:', error);
-      return { success: false, message: error.message };
-    }
-  },
-
-  // Send an invitation to a client via email
-  async sendClientInvitation(clientId: string, email: string): Promise<{ success: boolean; message?: string }> {
-    try {
-      // Get the current therapist ID
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, message: "Not authenticated as a therapist" };
-      }
-      
-      // Call the create_client_invitation function
-      const { data, error } = await supabase.rpc('create_client_invitation', {
-        therapist_id_param: user.id,
-        client_id_param: clientId,
-        email_param: email
-      });
-      
-      if (error) {
-        console.error('Error creating client invitation:', error);
-        return { success: false, message: error.message };
-      }
-      
-      // Send the invitation email
-      const { data: emailResult, error: emailError } = await supabase.rpc('send_client_invitation_email', {
-        invite_id: data.id
-      });
-      
-      if (emailError) {
-        console.error('Error sending invitation email:', emailError);
-        return { success: false, message: emailError.message };
-      }
-      
-      return { success: true, message: "Invitation sent successfully" };
-    } catch (error: any) {
-      console.error('Error in sendClientInvitation:', error);
-      return { success: false, message: error.message };
-    }
-  },
-
-  async generateInviteLink(client: Client): Promise<{ success: boolean; inviteLink?: string; message?: string }> {
-    // Placeholder for invite link generation feature
-    return { success: false, message: "Invite link generation not implemented yet" };
-  }
+  getClients,
+  getClient,
+  createClient,
+  updateClient,
+  deleteClient,
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
+  getAppointment,
+  getAppointments,
+  getClientAppointments,
+  getClientWithAppointments,
+  sendClientInvitation,
+  inviteClient
 };

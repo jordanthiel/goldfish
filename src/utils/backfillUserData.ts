@@ -57,3 +57,31 @@ export const backfillNoteData = () => {
   
   return notes;
 };
+
+// Main backfill function that uses the other functions
+export const backfillUserData = async () => {
+  try {
+    console.log("Starting backfill of test data");
+    // The actual implementation would use the appointment and note data
+    // with actual API calls to create test data in the database
+    const appointments = backfillAppointmentData();
+    const notes = backfillNoteData();
+    
+    console.log(`Generated ${appointments.length} test appointments`);
+    console.log(`Generated ${notes.length} test notes`);
+    
+    // In a real implementation, this would send the data to your backend
+    // For now, we'll just return success
+    return {
+      success: true,
+      appointmentsCount: appointments.length,
+      notesCount: notes.length
+    };
+  } catch (error) {
+    console.error("Error in backfill process:", error);
+    return {
+      success: false,
+      error: "Failed to backfill test data"
+    };
+  }
+};

@@ -45,6 +45,7 @@ const ClientDetails = () => {
   const [upcomingAppointments, setUpcomingAppointments] = useState<SessionNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddingNote, setIsAddingNote] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -76,7 +77,11 @@ const ClientDetails = () => {
         }
       } catch (err) {
         console.error('Error fetching client data:', err);
-        setError('Failed to load client data');
+        if (typeof err === 'string') {
+          setError(new Error(err));
+        } else {
+          setError(err as Error);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -173,7 +178,7 @@ const ClientDetails = () => {
       });
       
       // Reset state
-      setAddingNote(false);
+      setIsAddingNote(false);
     } catch (error) {
       console.error('Error adding note:', error);
       toast({
