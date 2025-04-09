@@ -63,12 +63,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const invite = invitations[0];
         
         try {
-          await patientService.claimPatientAccount(invite.invite_code);
+          const result = await patientService.claimPatientAccount(invite.invite_code);
           
-          toast({
-            title: "Account linked",
-            description: "Your account has been successfully linked to your therapist.",
-          });
+          if (result.success) {
+            toast({
+              title: "Account linked",
+              description: "Your account has been successfully linked to your therapist.",
+            });
+            
+            // Refresh the page to show updated dashboard with therapist info
+            window.location.reload();
+          }
         } catch (claimError) {
           console.error("Error claiming patient account:", claimError);
         }
@@ -128,6 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentSession?.user) {
         try {
           await fetchUserRole(currentSession.user.id);
+          
+          // Also check for pending invitations on initial load
+          if (currentSession.user.email) {
+            await checkPendingInvitations(currentSession.user.email);
+          }
         } catch (error) {
           console.error("Error fetching user role:", error);
         }
@@ -244,7 +254,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("Processing invite code during login:", inviteCode);
           const result = await patientService.claimPatientAccount(inviteCode);
           
-          if (result.success) {
+          // Check if result is an object with a success property
+          if (result && typeof result === 'object' && 'success' in result && result.success) {
             toast({
               title: "Account linked",
               description: "Your account has been successfully linked to your therapist.",
@@ -253,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Make sure user has client role
             if (!userRoles.some(r => r.role === 'client')) {
               try {
-                await roleService.addRole(data.user.id, 'client');
+                await roleService.assignRole(data.user.id, 'client');
                 console.log("Added client role to user");
                 // Update userRole state
                 setUserRole('client');

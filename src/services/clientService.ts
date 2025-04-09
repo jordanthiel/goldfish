@@ -1,7 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
-import { toast } from '@/hooks/use-toast';
 
 export interface Client {
   id: string;
@@ -97,14 +95,33 @@ export const clientService = {
     // If email is provided, check if the user exists and create an invitation if needed
     if (client.email) {
       try {
-        // Check if a user with this email already exists in auth.users
-        const { data: existingUser, error: userCheckError } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('email', client.email)
-          .maybeSingle();
+        // Check if a user with this email already exists in auth users
+        const { data: existingUsers, error: userCheckError } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'client');
 
-        console.log('Checking for existing user with email:', client.email, existingUser);
+        if (userCheckError) {
+          console.error('Error checking existing users:', userCheckError);
+        }
+
+        let existingUserId = null;
+
+        // If there are users, we need to check their emails
+        if (existingUsers && existingUsers.length > 0) {
+          // For each user ID, get their email
+          for (const userRole of existingUsers) {
+            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userRole.user_id);
+            
+            if (!userError && userData?.user && userData.user.email === client.email) {
+              existingUserId = userData.user.id;
+              console.log('Found existing user with email:', client.email, existingUserId);
+              break;
+            }
+          }
+        }
+
+        console.log('Checking for existing user with email:', client.email, existingUserId);
 
         // Create client invitation to link this client with their user account
         const { data: inviteData, error: inviteError } = await supabase
@@ -119,9 +136,9 @@ export const clientService = {
         } else {
           console.log('Client invitation created:', inviteData);
           
-          // Check if inviteData is an object and has an id property
+          // Check if inviteData has an id property
           const inviteId = inviteData && typeof inviteData === 'object' ? 
-            (inviteData as any).id : null;
+            inviteData.id : null;
             
           if (inviteId) {
             // Send email notification via RPC function
@@ -264,8 +281,11 @@ export const clientService = {
     }
 
     // Type check and get the id
-    const inviteId = inviteData && typeof inviteData === 'object' ? 
-      (inviteData as any).id : null;
+    if (!inviteData || typeof inviteData !== 'object') {
+      throw new Error('Invalid invite data returned');
+    }
+    
+    const inviteId = 'id' in inviteData ? inviteData.id : null;
       
     if (!inviteId) {
       throw new Error('Invalid invite data returned');

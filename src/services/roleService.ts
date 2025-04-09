@@ -10,58 +10,47 @@ export interface UserRole {
 }
 
 export const roleService = {
-  // Get current user's roles using our security definer function
+  // Get all roles for a user
   async getUserRoles(userId: string): Promise<UserRole[]> {
-    // Use the RPC endpoint to call our security definer function
     const { data, error } = await supabase
       .rpc('get_user_roles', { user_id_param: userId });
 
     if (error) {
       console.error('Error fetching user roles:', error);
-      throw new Error(error.message);
+      return [];
     }
 
     return data || [];
   },
 
-  // Check if the user has a specific role using our security definer function
+  // Check if a user has a specific role
   async hasRole(userId: string, roleName: string): Promise<boolean> {
     const { data, error } = await supabase
-      .rpc('user_has_role', { 
-        user_id_param: userId,
-        role_name: roleName
-      });
+      .rpc('user_has_role', { user_id_param: userId, role_name: roleName });
 
     if (error) {
-      console.error('Error checking user role:', error);
-      throw new Error(error.message);
+      console.error('Error checking role:', error);
+      return false;
     }
 
     return data || false;
   },
 
   // Assign a role to a user
-  async assignRole(userId: string, roleName: string): Promise<UserRole> {
-    // Direct insert without using RPC function to avoid recursion issues
+  async assignRole(userId: string, roleName: string): Promise<{ success: boolean; message: string }> {
     const { data, error } = await supabase
-      .from('user_roles')
-      .insert({
-        user_id: userId,
-        role: roleName
-      })
-      .select()
-      .single();
-    
+      .rpc('add_role_to_user', { user_id_param: userId, role_name: roleName });
+
     if (error) {
       console.error('Error assigning role:', error);
-      throw new Error(error.message);
+      return { success: false, message: error.message };
     }
-    
-    return data;
+
+    return { success: true, message: data as string };
   },
 
   // Remove a role from a user
-  async removeRole(userId: string, roleName: string): Promise<void> {
+  async removeRole(userId: string, roleName: string): Promise<{ success: boolean; message: string }> {
     const { error } = await supabase
       .from('user_roles')
       .delete()
@@ -70,7 +59,14 @@ export const roleService = {
 
     if (error) {
       console.error('Error removing role:', error);
-      throw new Error(error.message);
+      return { success: false, message: error.message };
     }
+
+    return { success: true, message: 'Role removed successfully' };
+  },
+  
+  // Add a role to a user (alias for assignRole for backward compatibility)
+  async addRole(userId: string, roleName: string): Promise<{ success: boolean; message: string }> {
+    return this.assignRole(userId, roleName);
   }
 };
