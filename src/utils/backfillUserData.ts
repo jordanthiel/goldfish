@@ -42,4 +42,5 @@ export const backfillUserData = async () => {
   }
 };
 
+// Make sure the function is properly exported
 export default backfillUserData;

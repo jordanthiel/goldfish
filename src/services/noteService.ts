@@ -69,9 +69,9 @@ const getNotes = async (): Promise<SessionNoteWithClient[]> => {
           id: client.id,
           first_name: client.first_name || '',
           last_name: client.last_name || '',
+          email: client.email || '', // Make sure to include email with a fallback
           status: client.status || 'Active',
           created_at: client.created_at,
-          email: client.email,
           // Add other required client fields with defaults
           phone: client.phone || '',
           date_of_birth: client.date_of_birth || '',

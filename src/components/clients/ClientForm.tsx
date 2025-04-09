@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -273,7 +272,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
               {searchResults && (
                 <div className="mt-2">
                   {searchResults.exists ? (
-                    <Alert variant="success" className="bg-green-50 border-green-200">
+                    <Alert variant="default" className="bg-green-50 border-green-200">
                       <User className="h-4 w-4" />
                       <AlertTitle>User found</AlertTitle>
                       <AlertDescription>

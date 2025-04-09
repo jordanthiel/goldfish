@@ -6,7 +6,7 @@ import { UserRoleManager } from '@/components/auth/UserRoleManager';
 import { useAuth } from '@/context/AuthContext';
 
 const TherapistSettings = () => {
-  const { userRole } = useAuth();
+  const { userRole } = useAuth(); // Use userRole from the fixed AuthContext
   const isAdmin = userRole === 'admin';
 
   return (

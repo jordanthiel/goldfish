@@ -4,7 +4,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 export const ProtectedRoute: React.FC<{ requiredRole?: string }> = ({ requiredRole }) => {
-  const { user, loading, userRole } = useAuth();
+  const { user, loading, userRole } = useAuth(); // Use userRole from AuthContext
   const location = useLocation();
 
   // Determine if the current path is a therapist route

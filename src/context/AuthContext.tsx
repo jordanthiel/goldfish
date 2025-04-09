@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +16,7 @@ interface AuthContextType {
   checkHasRole: (role: string) => boolean;
   checkClaim: (key: string, value?: any) => boolean;
   getSession: () => Promise<any>;
+  userRole: string; // Add userRole property to match what's used in components
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,30 +25,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<string>(''); // Add userRole state
   const navigate = useNavigate();
 
   // Function to check for pending client invitations for a user
   const checkPendingInvitations = async (userId: string, userEmail: string) => {
     try {
-      // This function doesn't exist, so we should avoid calling it directly
-      // const { data, error } = await supabase.rpc('check_pending_invitations', {
-      //   user_id_param: userId,
-      //   email_param: userEmail
-      // });
-
-      // Instead, we'll check directly from the client_invitations table
-      const { data, error } = await supabase
-        .from('client_invitations')
+      // Use a direct query instead of trying to access a non-existent table
+      const { data: invitations, error } = await supabase
+        .from('client_profiles') // Use client_profiles instead of client_invitations
         .select('*')
         .eq('email', userEmail)
-        .eq('status', 'pending')
-        .eq('claimed', false);
+        .is('claimed', false);
       
       if (error) throw error;
       
       // Process any pending invitations
-      if (data && data.length > 0) {
-        console.log('Found pending invitations:', data);
+      if (invitations && invitations.length > 0) {
+        console.log('Found pending invitations:', invitations);
         
         // We would handle pending invitations here
         // For example, auto-claim them or show a notification to the user
@@ -78,6 +72,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const roleNames = roles.map(r => r.role);
           setUserRoles(roleNames);
           
+          // Set primary userRole based on priority (admin > therapist > client)
+          if (roleNames.includes('admin')) {
+            setUserRole('admin');
+          } else if (roleNames.includes('therapist')) {
+            setUserRole('therapist');
+          } else if (roleNames.includes('client')) {
+            setUserRole('client');
+          } else {
+            setUserRole('');
+          }
+          
           // Check for pending invitations after login
           if (event === 'SIGNED_IN') {
             await checkPendingInvitations(session.user.id, session.user.email || '');
@@ -85,10 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error('Error getting user roles:', error);
           setUserRoles([]);
+          setUserRole('');
         }
       } else {
         setUser(null);
         setUserRoles([]);
+        setUserRole('');
       }
       
       setLoading(false);
@@ -114,6 +121,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const roleNames = roles.map(r => r.role);
           setUserRoles(roleNames);
+          
+          // Set primary userRole based on priority
+          if (roleNames.includes('admin')) {
+            setUserRole('admin');
+          } else if (roleNames.includes('therapist')) {
+            setUserRole('therapist');
+          } else if (roleNames.includes('client')) {
+            setUserRole('client');
+          } else {
+            setUserRole('');
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -221,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp,
       signOut,
       userRoles,
+      userRole, // Add userRole to the context value
       isClient,
       isTherapist,
       isAdmin,

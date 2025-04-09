@@ -1,80 +1,108 @@
-
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SessionNote } from '@/services/noteService';
-import RichTextEditor from './RichTextEditor';
-import { useToast } from "@/hooks/use-toast";
 
-interface NoteEditDialogProps {
-  note: SessionNote | null;
+export interface NoteEditDialogProps {
   open: boolean;
-  onClose: () => void;
-  onSave: (note: SessionNote, content: string) => Promise<void>;
+  onOpenChange: (open: boolean) => void;
+  note: SessionNote;
+  clientId: string;
+  onSave: (noteData: any) => Promise<void>;
 }
 
-const NoteEditDialog = ({ note, open, onClose, onSave }: NoteEditDialogProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+const NoteEditDialog: React.FC<NoteEditDialogProps> = ({
+  open,
+  onOpenChange,
+  note,
+  clientId,
+  onSave,
+}) => {
+  const [content, setContent] = useState(note?.content || '');
+  const [isPrivate, setIsPrivate] = useState(note?.is_private || false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveContent = async (content: string) => {
-    if (!note) return;
+  const handleSave = async () => {
+    if (!content.trim()) return;
     
-    setIsLoading(true);
+    setIsSaving(true);
     try {
-      await onSave(note, content);
-      // No toast on auto-save to avoid overwhelming the user
-    } catch (error) {
-      console.error('Error updating note:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update the note. Please try again.",
-        variant: "destructive"
+      await onSave({
+        id: note?.id,
+        content,
+        is_private: isPrivate,
+        client_id: clientId,
+        appointment_id: note?.appointment_id,
       });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving note:', error);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const handleCloseWithSuccess = () => {
-    toast({
-      title: "Note updated",
-      description: "The note has been successfully updated."
-    });
-    onClose();
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-full h-[90vh] flex flex-col">
-        <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>Edit Note</DialogTitle>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>{note?.id ? 'Edit Note' : 'Add New Note'}</DialogTitle>
+          <DialogDescription>
+            {note?.id 
+              ? 'Update the session notes for this client.' 
+              : 'Add session notes for this client.'}
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-auto">
-          {note && (
-            <RichTextEditor
-              initialContent={note.content}
-              onSave={handleSaveContent}
-              autoSave={true}
-              autoSaveInterval={2000}
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="note-content">Note Content</Label>
+            <Textarea
+              id="note-content"
+              placeholder="Enter session notes here..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="min-h-[200px]"
             />
-          )}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is-private"
+              checked={isPrivate}
+              onCheckedChange={(checked) => setIsPrivate(checked as boolean)}
+            />
+            <Label htmlFor="is-private">
+              Mark as private (only visible to you)
+            </Label>
+          </div>
         </div>
         
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+        <DialogFooter>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button 
-            onClick={handleCloseWithSuccess} 
-            className="btn-gradient"
+            type="button" 
+            onClick={handleSave}
+            disabled={isSaving || !content.trim()}
           >
-            Done
+            {isSaving ? 'Saving...' : note?.id ? 'Update Note' : 'Save Note'}
           </Button>
         </DialogFooter>
       </DialogContent>

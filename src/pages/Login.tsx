@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -42,7 +41,6 @@ const Login = () => {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
 
-  // Parse query parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const email = searchParams.get('email');
@@ -71,7 +69,7 @@ const Login = () => {
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
-      await signIn(values.email, values.password, activeRole, inviteCode || undefined);
+      const result = await signIn(values.email, values.password);
       toast({
         title: "Login successful",
         description: "Welcome back!",

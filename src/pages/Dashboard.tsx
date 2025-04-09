@@ -18,7 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole } = useAuth(); // Use userRole from the fixed AuthContext
   const [isBackfilling, setIsBackfilling] = useState(false);
   
   useEffect(() => {
