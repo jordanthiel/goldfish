@@ -41,17 +41,36 @@ export const patientService = {
       throw new Error('User not authenticated');
     }
 
-    // Check if user exists in clients table
-    const { data: clientData, error: clientError } = await supabase
-      .from('clients')
-      .select('therapist_id')
-      .eq('id', user.id)
-      .maybeSingle();
+    // First check if the user's email matches any client email in the system
+    // This allows linking patients to therapists by email rather than just user ID
+    const userEmail = user.email;
+    
+    if (!userEmail) {
+      console.error('User email not found');
+      return {
+        therapist: null,
+        upcomingAppointments: [],
+        recentAppointments: []
+      };
+    }
 
-    // If the client doesn't exist in the system yet, return empty data
-    // This avoids the error when there's no matching client record
-    if (clientError || !clientData) {
-      console.error('Client not found in system:', clientError || 'No client record found');
+    // Check if the email exists in the clients table
+    const { data: clientByEmail, error: emailError } = await supabase
+      .from('clients')
+      .select('id, therapist_id, first_name, last_name')
+      .eq('email', userEmail)
+      .maybeSingle();
+    
+    if (emailError) {
+      console.error('Error checking client by email:', emailError);
+    }
+
+    // If found by email but not linked to auth user yet, we still proceed with this client
+    const clientData = clientByEmail;
+
+    // If no client record found at all
+    if (!clientData) {
+      console.log('No client record found for this user email:', userEmail);
       return {
         therapist: null,
         upcomingAppointments: [],
@@ -79,12 +98,12 @@ export const patientService = {
       console.error('Error fetching therapist:', therapistError);
     }
 
-    // Get upcoming appointments
+    // Get upcoming appointments - using email to link rather than just auth.id
     const now = new Date().toISOString();
     const { data: upcomingAppointments, error: upcomingError } = await supabase
       .from('appointments')
       .select('*')
-      .eq('client_id', user.id)
+      .eq('client_id', clientData.id)
       .gte('start_time', now)
       .order('start_time', { ascending: true });
 
@@ -99,7 +118,7 @@ export const patientService = {
         *,
         session_notes (content)
       `)
-      .eq('client_id', user.id)
+      .eq('client_id', clientData.id)
       .lt('end_time', now)
       .order('start_time', { ascending: false })
       .limit(3);
@@ -138,23 +157,34 @@ export const patientService = {
       throw new Error('User not authenticated');
     }
 
-    // Check if user exists in clients table first
-    const { data: clientExists } = await supabase
+    const userEmail = user.email;
+    
+    if (!userEmail) {
+      console.error('User email not found');
+      return [];
+    }
+
+    // Check if the email exists in the clients table
+    const { data: clientByEmail, error: emailError } = await supabase
       .from('clients')
       .select('id')
-      .eq('id', user.id)
+      .eq('email', userEmail)
       .maybeSingle();
+    
+    if (emailError) {
+      console.error('Error checking client by email:', emailError);
+    }
 
-    // If client doesn't exist, return empty array
-    if (!clientExists) {
-      console.log('Client not found in system, returning empty appointments list');
+    // If no client record found
+    if (!clientByEmail) {
+      console.log('No client record found for this user email:', userEmail);
       return [];
     }
 
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
-      .eq('client_id', user.id)
+      .eq('client_id', clientByEmail.id)
       .order('start_time', { ascending: false });
 
     if (error) {
@@ -248,32 +278,49 @@ export const patientService = {
 
   // Get messages
   async getPatientMessages() {
-    // Note: For now we'll return mock data since there's no messages table yet
-    // In a real implementation, you would fetch from a messages table
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       throw new Error('User not authenticated');
     }
 
-    // Check if user exists in clients table first
-    const { data: clientData, error: clientError } = await supabase
-      .from('clients')
-      .select('therapist_id, first_name, last_name')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (clientError || !clientData) {
-      console.error('Client not found in system:', clientError || 'No client record found');
+    const userEmail = user.email;
+    
+    if (!userEmail) {
+      console.error('User email not found');
       return null;
     }
 
-    // If no therapist assigned yet, return minimal data
-    if (!clientData.therapist_id) {
+    // Check if the email exists in the clients table
+    const { data: clientByEmail, error: emailError } = await supabase
+      .from('clients')
+      .select('id, therapist_id, first_name, last_name')
+      .eq('email', userEmail)
+      .maybeSingle();
+    
+    if (emailError) {
+      console.error('Error checking client by email:', emailError);
+      return null;
+    }
+
+    // If no client record found
+    if (!clientByEmail) {
+      console.log('No client record found for this user email:', userEmail);
       return {
         therapist: null,
         patient: {
-          name: `${clientData.first_name || 'New'} ${clientData.last_name || 'Patient'}`,
+          name: 'New Patient',
+        },
+        conversations: []
+      };
+    }
+
+    // If no therapist assigned yet, return minimal data
+    if (!clientByEmail.therapist_id) {
+      return {
+        therapist: null,
+        patient: {
+          name: `${clientByEmail.first_name || 'New'} ${clientByEmail.last_name || 'Patient'}`,
         },
         conversations: []
       };
@@ -283,7 +330,7 @@ export const patientService = {
     const { data: therapist, error: therapistError } = await supabase
       .from('therapist_profiles')
       .select('*')
-      .eq('id', clientData.therapist_id)
+      .eq('id', clientByEmail.therapist_id)
       .single();
 
     if (therapistError) {
@@ -300,7 +347,7 @@ export const patientService = {
         initials: therapist.full_name ? therapist.full_name.split(' ').map(n => n[0]).join('') : "TH"
       },
       patient: {
-        name: `${clientData.first_name || 'New'} ${clientData.last_name || 'Patient'}`,
+        name: `${clientByEmail.first_name || 'New'} ${clientByEmail.last_name || 'Patient'}`,
       },
       conversations: [
         {
@@ -309,7 +356,7 @@ export const patientService = {
             {
               id: 1,
               sender: "therapist",
-              content: `Hello ${clientData.first_name}, I hope you're doing well today. I wanted to check in on how you've been managing the stress reduction techniques we discussed in our last session.`,
+              content: `Hello ${clientByEmail.first_name}, I hope you're doing well today. I wanted to check in on how you've been managing the stress reduction techniques we discussed in our last session.`,
               timestamp: new Date("2023-09-30T10:30:00"),
               read: true
             },
@@ -323,7 +370,7 @@ export const patientService = {
             {
               id: 3,
               sender: "therapist",
-              content: `That's great progress, ${clientData.first_name}! It's normal for the techniques to be more challenging in high-stress situations. Try using the 5-4-3-2-1 grounding technique we discussed when you feel anxiety building up during meetings.`,
+              content: `That's great progress, ${clientByEmail.first_name}! It's normal for the techniques to be more challenging in high-stress situations. Try using the 5-4-3-2-1 grounding technique we discussed when you feel anxiety building up during meetings.`,
               timestamp: new Date("2023-09-30T15:20:00"),
               read: true
             },
