@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Client {
@@ -56,21 +55,24 @@ export const clientService = {
       (data || []).map(async (client) => {
         try {
           // Get user info for this client
-          const { data: userData, error: userError } = await supabase
-            .rpc('get_client_user_info', { client_id_param: client.id });
-            
-          if (userError || !userData || !userData.success) {
-            console.error('Error fetching user info for client:', client.id, userError || userData?.message);
+          if (!client.user_id) return client;
+          
+          const { data: userData, error } = await supabase.functions.invoke('get-user-info', {
+            query: { userId: client.user_id }
+          });
+          
+          if (error || !userData) {
+            console.error('Error fetching user info for client:', client.id, error);
             return client;
           }
           
           // Merge the user info with the client data
           return {
             ...client,
-            first_name: userData.first_name,
-            last_name: userData.last_name,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
             email: userData.email,
-            full_name: userData.full_name
+            full_name: userData.fullName
           };
         } catch (error) {
           console.error('Error processing client user info:', error);
@@ -94,22 +96,25 @@ export const clientService = {
       throw new Error(error.message);
     }
 
+    if (!client.user_id) return client;
+    
     // Get user info for this client
-    const { data: userData, error: userError } = await supabase
-      .rpc('get_client_user_info', { client_id_param: client.id });
-      
-    if (userError || !userData || !userData.success) {
-      console.error('Error fetching user info for client:', client.id, userError || userData?.message);
+    const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
+      query: { userId: client.user_id }
+    });
+    
+    if (userError || !userData) {
+      console.error('Error fetching user info for client:', client.id, userError);
       return client;
     }
     
     // Merge the user info with the client data
     return {
       ...client,
-      first_name: userData.first_name,
-      last_name: userData.last_name,
+      first_name: userData.firstName,
+      last_name: userData.lastName,
       email: userData.email,
-      full_name: userData.full_name
+      full_name: userData.fullName
     };
   },
 
@@ -188,13 +193,25 @@ export const clientService = {
 
   // Delete a client
   async deleteClient(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(error.message);
+    try {
+      // Use our Edge Function to handle cascade deletion
+      const { data, error } = await supabase.functions.invoke('manage-delete-cascade', {
+        body: { clientId: id }
+      });
+      
+      if (error) {
+        console.error('Error invoking manage-delete-cascade function:', error);
+        throw new Error(error.message);
+      }
+      
+      if (!data || !data.success) {
+        throw new Error(data?.error || 'Failed to delete client');
+      }
+      
+      console.log('Client deleted successfully:', data.message);
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
+      throw error;
     }
   },
 
@@ -213,22 +230,25 @@ export const clientService = {
       throw new Error(error.message);
     }
     
+    if (!data.user_id) return data;
+    
     // Get user info for this client
-    const { data: userData, error: userError } = await supabase
-      .rpc('get_client_user_info', { client_id_param: data.id });
-      
-    if (userError || !userData || !userData.success) {
-      console.error('Error fetching user info for client:', data.id, userError || userData?.message);
+    const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
+      query: { userId: data.user_id }
+    });
+    
+    if (userError || !userData) {
+      console.error('Error fetching user info for client:', data.id, userError);
       return data;
     }
     
     // Merge the user info with the client data
     return {
       ...data,
-      first_name: userData.first_name,
-      last_name: userData.last_name,
+      first_name: userData.firstName,
+      last_name: userData.lastName,
       email: userData.email,
-      full_name: userData.full_name
+      full_name: userData.fullName
     };
   },
 

@@ -87,10 +87,13 @@ export const patientService = {
         return null;
       }
       
-      // Get user metadata from auth.users
-      const userMetadata = user.user_metadata || {};
-      const firstName = userMetadata.first_name || '';
-      const lastName = userMetadata.last_name || '';
+      // Get user info
+      const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info');
+      
+      if (userError || !userData) {
+        console.error('Error fetching user info:', userError);
+        return null;
+      }
       
       // Extract insurance information safely from phi_data
       let insuranceProvider: string | undefined;
@@ -105,9 +108,9 @@ export const patientService = {
       return {
         id: clientData.id,
         user_id: user.id,
-        first_name: firstName,
-        last_name: lastName,
-        email: user.email || '',
+        first_name: userData.firstName || '',
+        last_name: userData.lastName || '',
+        email: userData.email || '',
         date_of_birth: clientData.date_of_birth,
         phone: clientData.phone,
         address: clientData.address,
