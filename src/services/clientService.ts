@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
@@ -68,8 +69,8 @@ const getClients = async (): Promise<Client[]> => {
         const { data: userData, error: userError } = await supabase
           .rpc('get_client_user_info', { client_id_param: client.id });
         
-        if (!userError && userData && userData.success) {
-          email = userData.email || '';
+        if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+          email = 'email' in userData ? userData.email as string : '';
         }
       }
       
@@ -108,8 +109,8 @@ const getClient = async (id: string): Promise<Client | null> => {
       const { data: userData, error: userError } = await supabase
         .rpc('get_client_user_info', { client_id_param: data.id });
       
-      if (!userError && userData && userData.success) {
-        email = userData.email || '';
+      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+        email = 'email' in userData ? userData.email as string : '';
       }
     }
 
@@ -185,8 +186,8 @@ const updateClient = async (id: string, updates: Partial<Client>): Promise<Clien
       const { data: userData, error: userError } = await supabase
         .rpc('get_client_user_info', { client_id_param: data.id });
       
-      if (!userError && userData && userData.success) {
-        emailValue = userData.email || '';
+      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+        emailValue = 'email' in userData ? userData.email as string : '';
       }
     }
 
@@ -370,7 +371,7 @@ const getClientWithAppointments = async (clientId: string) => {
       .single();
     
     if (clientError) throw clientError;
-    if (!client) throw new Error('Client not found');
+    if (!client) throw new Error('Client record not found');
     
     // Then get appointments for this client separately
     const { data: appointments, error: appointmentsError } = await supabase
@@ -387,8 +388,8 @@ const getClientWithAppointments = async (clientId: string) => {
       const { data: userData, error: userError } = await supabase
         .rpc('get_client_user_info', { client_id_param: client.id });
       
-      if (!userError && userData && userData.success) {
-        email = userData.email || '';
+      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+        email = 'email' in userData ? userData.email as string : '';
       }
     }
 
@@ -407,25 +408,15 @@ const getClientWithAppointments = async (clientId: string) => {
 // Function to search for a user by email
 const searchUserByEmail = async (email: string): Promise<{exists: boolean, user?: any}> => {
   try {
-    // We need to search in auth.users, but we can't directly access it
-    // So we'll use an RPC function if available, or search client_profiles associated with users
+    // Use Supabase function to search for a user by email
+    // Make sure to typecast the response to handle success property
     const { data, error } = await supabase
-      .rpc('search_user_by_email', { email_param: email })
-      .maybeSingle();
+      .functions.invoke('search-user-by-email', {
+        body: { email }
+      });
     
     if (error) {
       console.error('Error searching for user:', error);
-      
-      // Fallback: try to find a client with this email via their user_id
-      const { data: clientsData, error: clientsError } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .limit(1);
-      
-      if (clientsError) {
-        throw clientsError;
-      }
-      
       return {
         exists: false,
         user: undefined
@@ -433,8 +424,8 @@ const searchUserByEmail = async (email: string): Promise<{exists: boolean, user?
     }
     
     return {
-      exists: !!data && data.success,
-      user: data && data.success ? data : undefined
+      exists: data && typeof data === 'object' && 'success' in data ? !!data.success : false,
+      user: data && typeof data === 'object' && 'success' in data && data.success ? data : undefined
     };
   } catch (error) {
     console.error('Error searching for user by email:', error);

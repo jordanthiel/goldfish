@@ -1,332 +1,200 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from '@/services/clientService';
+import { Json } from '@/integrations/supabase/types';
 
 export interface SessionNote {
   id: string;
   therapist_id: string;
   client_id: string;
-  appointment_id?: string | null;
+  appointment_id?: string;
   content: string;
-  is_private: boolean | null;
+  is_private: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface SessionNoteWithClient extends SessionNote {
-  client: Client;
+export interface NoteWithClientInfo extends SessionNote {
+  client?: {
+    first_name: string | null;
+    last_name: string | null;
+    email?: string;
+  };
 }
 
-export interface NoteAccessLog {
-  id: string;
-  note_id: string;
-  user_id: string;
-  access_type: string;
-  accessed_at: string;
-}
-
-const getNotes = async (): Promise<SessionNoteWithClient[]> => {
+// Get all notes for a therapist
+const getAllNotes = async (): Promise<NoteWithClientInfo[]> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('No authenticated user');
-      return [];
-    }
-    
-    // Get notes with client information
-    const { data: notes, error } = await supabase
+    const { data, error } = await supabase
       .from('session_notes')
       .select(`
-        *
+        *,
+        client_profiles:client_id(*)
       `)
-      .eq('therapist_id', user.id)
       .order('created_at', { ascending: false });
-      
+    
     if (error) {
       console.error('Error fetching notes:', error);
-      return [];
+      throw error;
     }
     
-    // Get client information for each note
-    const notesWithClients: SessionNoteWithClient[] = [];
-    
-    for (const note of notes) {
-      const { data: client, error: clientError } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .eq('id', note.client_id)
-        .single();
-        
-      if (clientError) {
-        console.error('Error fetching client for note:', clientError);
-        continue;
-      }
+    // Transform the data to the expected format
+    const notes: NoteWithClientInfo[] = await Promise.all((data || []).map(async (note: any) => {
+      let clientEmail = '';
       
-      // Get email from user_id if available
-      let email = '';
-      if (client.user_id) {
+      // If client profile exists, try to get the email
+      if (note.client_profiles && note.client_profiles.user_id) {
+        // Get email from client's user_id
         const { data: userData, error: userError } = await supabase
-          .rpc('get_client_user_info', { client_id_param: client.id });
+          .rpc('get_client_user_info', { client_id_param: note.client_id });
         
-        if (!userError && userData && userData.success) {
-          email = userData.email || '';
+        if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+          clientEmail = 'email' in userData ? userData.email as string : '';
         }
       }
       
-      notesWithClients.push({
+      return {
         ...note,
-        client: {
-          ...client,
-          email,
-          // Add other required client fields with defaults
-          phone: client.phone || '',
-          date_of_birth: client.date_of_birth || '',
-          address: client.address || '',
-          emergency_contact: client.emergency_contact || '',
-          status: client.status || 'Active',
-          first_name: client.first_name || '',
-          last_name: client.last_name || '',
-          updated_at: client.updated_at || client.created_at,
-          phi_data: client.phi_data || null
-        }
-      });
-    }
+        client: note.client_profiles ? {
+          first_name: note.client_profiles.first_name,
+          last_name: note.client_profiles.last_name,
+          email: clientEmail
+        } : undefined
+      };
+    }));
     
-    return notesWithClients;
-    
+    return notes;
   } catch (error) {
-    console.error('Error in getNotes:', error);
-    return [];
+    console.error('Error in getAllNotes:', error);
+    throw error;
   }
 };
 
-// Get notes by client ID
-const getNotesByClient = async (clientId: string): Promise<SessionNote[]> => {
+// Get notes for a specific client
+const getClientNotes = async (clientId: string): Promise<SessionNote[]> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('No authenticated user');
-      return [];
-    }
-    
-    const { data: notes, error } = await supabase
+    const { data, error } = await supabase
       .from('session_notes')
       .select('*')
       .eq('client_id', clientId)
-      .eq('therapist_id', user.id)
       .order('created_at', { ascending: false });
-      
+    
     if (error) {
-      console.error('Error fetching notes by client ID:', error);
-      return [];
+      console.error('Error fetching client notes:', error);
+      throw error;
     }
     
-    return notes || [];
+    return data || [];
   } catch (error) {
-    console.error('Error in getNotesByClient:', error);
-    return [];
-  }
-};
-
-// Get client notes by client ID (alias for getNotesByClient for backward compatibility)
-const getClientNotes = async (clientId: string): Promise<SessionNote[]> => {
-  return getNotesByClient(clientId);
-};
-
-// Get notes by appointment ID
-const getAppointmentNotes = async (appointmentId: string): Promise<SessionNote[]> => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('No authenticated user');
-      return [];
-    }
-    
-    const { data: notes, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('appointment_id', appointmentId)
-      .eq('therapist_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    if (error) {
-      console.error('Error fetching notes by appointment ID:', error);
-      return [];
-    }
-    
-    return notes || [];
-  } catch (error) {
-    console.error('Error in getAppointmentNotes:', error);
-    return [];
-  }
-};
-
-// Get a single note by ID
-const getNote = async (noteId: string): Promise<SessionNote | null> => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.error('No authenticated user');
-      return null;
-    }
-    
-    const { data: note, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('id', noteId)
-      .eq('therapist_id', user.id)
-      .single();
-      
-    if (error) {
-      console.error('Error fetching note:', error);
-      return null;
-    }
-    
-    return note || null;
-  } catch (error) {
-    console.error('Error in getNote:', error);
-    return null;
+    console.error('Error in getClientNotes:', error);
+    throw error;
   }
 };
 
 // Create a new note
-const createNote = async (noteData: Partial<SessionNote>): Promise<SessionNote> => {
+const createNote = async (note: Partial<SessionNote>): Promise<SessionNote> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('No authenticated user');
-    }
-    
-    if (!noteData.client_id || !noteData.content) {
-      throw new Error('Client ID and content are required');
-    }
-    
-    const { data: note, error } = await supabase
+    const { data, error } = await supabase
       .from('session_notes')
-      .insert({
-        therapist_id: user.id,
-        client_id: noteData.client_id,
-        appointment_id: noteData.appointment_id,
-        content: noteData.content,
-        is_private: noteData.is_private || false
-      })
-      .select('*')
+      .insert([{
+        therapist_id: note.therapist_id,
+        client_id: note.client_id,
+        appointment_id: note.appointment_id,
+        content: note.content,
+        is_private: note.is_private
+      }])
+      .select()
       .single();
-      
+    
     if (error) {
       console.error('Error creating note:', error);
-      throw new Error(error.message);
+      throw error;
     }
     
-    return note;
-  } catch (error: any) {
+    if (!data) {
+      throw new Error('Failed to create note');
+    }
+    
+    return data;
+  } catch (error) {
     console.error('Error in createNote:', error);
-    throw new Error(error.message || 'Failed to create note');
+    throw error;
   }
 };
 
 // Update an existing note
-const updateNote = async (noteId: string, noteData: Partial<SessionNote>): Promise<SessionNote> => {
+const updateNote = async (id: string, updates: Partial<SessionNote>): Promise<SessionNote> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('No authenticated user');
-    }
-    
-    const { data: note, error } = await supabase
+    const { data, error } = await supabase
       .from('session_notes')
       .update({
-        content: noteData.content,
-        is_private: noteData.is_private,
-        appointment_id: noteData.appointment_id
+        content: updates.content,
+        is_private: updates.is_private,
+        updated_at: new Date().toISOString()
       })
-      .eq('id', noteId)
-      .eq('therapist_id', user.id)
-      .select('*')
+      .eq('id', id)
+      .select()
       .single();
-      
+    
     if (error) {
       console.error('Error updating note:', error);
-      throw new Error(error.message);
+      throw error;
     }
     
-    return note;
-  } catch (error: any) {
+    if (!data) {
+      throw new Error('Failed to update note');
+    }
+    
+    return data;
+  } catch (error) {
     console.error('Error in updateNote:', error);
-    throw new Error(error.message || 'Failed to update note');
+    throw error;
   }
 };
 
 // Delete a note
-const deleteNote = async (noteId: string): Promise<{ success: boolean; message?: string }> => {
+const deleteNote = async (id: string): Promise<void> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return { success: false, message: 'No authenticated user' };
-    }
-    
     const { error } = await supabase
       .from('session_notes')
       .delete()
-      .eq('id', noteId)
-      .eq('therapist_id', user.id);
-      
+      .eq('id', id);
+    
     if (error) {
       console.error('Error deleting note:', error);
-      return { success: false, message: error.message };
+      throw error;
     }
-    
-    return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in deleteNote:', error);
-    return { success: false, message: error.message };
+    throw error;
   }
 };
 
-// Log access to a note
-const logNoteAccess = async (noteId: string, accessType: string): Promise<boolean> => {
+// Get notes for a specific appointment
+const getAppointmentNotes = async (appointmentId: string): Promise<SessionNote[]> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('appointment_id', appointmentId)
+      .order('created_at', { ascending: false });
     
-    if (!user) {
-      console.error('No authenticated user');
-      return false;
-    }
-    
-    const { error } = await supabase
-      .from('note_access_logs')
-      .insert({
-        note_id: noteId,
-        user_id: user.id,
-        access_type: accessType
-      });
-      
     if (error) {
-      console.error('Error logging note access:', error);
-      return false;
+      console.error('Error fetching appointment notes:', error);
+      throw error;
     }
     
-    return true;
+    return data || [];
   } catch (error) {
-    console.error('Error logging note access:', error);
-    return false;
+    console.error('Error in getAppointmentNotes:', error);
+    throw error;
   }
 };
 
 export const noteService = {
-  getNotes,
-  getNotesByClient,
+  getAllNotes,
   getClientNotes,
-  getAppointmentNotes,
-  getNote,
   createNote,
   updateNote,
   deleteNote,
-  logNoteAccess
+  getAppointmentNotes
 };
