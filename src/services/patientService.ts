@@ -72,7 +72,7 @@ export const patientService = {
       // Get client record linked to this user
       console.log('Checking for client with user_id:', user.id);
       const { data: clientData, error: clientError } = await supabase
-        .from('clients')
+        .from('client_profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
@@ -148,7 +148,7 @@ export const patientService = {
       // Get the client record linked to this user ID
       console.log('Checking for client with user_id:', user.id);
       const { data: clientData, error: clientError } = await supabase
-        .from('clients')
+        .from('client_profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
@@ -165,8 +165,20 @@ export const patientService = {
       
       console.log('Found client record by user_id:', clientData);
       
+      // Get therapist relationship
+      const { data: relationship, error: relError } = await supabase
+        .from('therapist_clients')
+        .select('therapist_id')
+        .eq('client_id', clientData.id)
+        .maybeSingle();
+        
+      if (relError || !relationship) {
+        console.error('Error fetching therapist relationship:', relError);
+        return dashboardData;
+      }
+      
       // Get therapist info
-      dashboardData.therapist = await this.getTherapistInfo(clientData.therapist_id);
+      dashboardData.therapist = await this.getTherapistInfo(relationship.therapist_id);
       
       // Get upcoming and recent appointments
       dashboardData.upcomingAppointments = await this.getUpcomingAppointments(clientData.id);
@@ -278,7 +290,7 @@ export const patientService = {
       
       // Look up client by email to link them
       const { data: client, error: clientError } = await supabase
-        .from('clients')
+        .from('client_profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();

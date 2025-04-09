@@ -65,17 +65,31 @@ serve(async (req) => {
       )
     }
 
-    // Get the client to make sure it exists and belongs to this therapist
-    const { data: client, error: clientError } = await supabaseClient
-      .from('clients')
+    // Get the therapist-client relationship to make sure it exists and belongs to this therapist
+    const { data: therapistClient, error: relationshipError } = await supabaseClient
+      .from('therapist_clients')
       .select('*')
-      .eq('id', clientId)
+      .eq('client_id', clientId)
       .eq('therapist_id', user.id)
       .single()
 
-    if (clientError || !client) {
+    if (relationshipError || !therapistClient) {
       return new Response(
         JSON.stringify({ error: 'Client not found or you do not have permission to delete it' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      )
+    }
+
+    // Get client details from client_profiles
+    const { data: clientProfile, error: clientError } = await supabaseClient
+      .from('client_profiles')
+      .select('*')
+      .eq('id', clientId)
+      .single()
+
+    if (clientError || !clientProfile) {
+      return new Response(
+        JSON.stringify({ error: 'Client profile not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
       )
     }
@@ -94,9 +108,9 @@ serve(async (req) => {
       .insert({
         user_id: auditUserId, // Explicitly set the user_id to avoid null constraint violation
         action: 'DELETE',
-        table_name: 'clients',
+        table_name: 'client_profiles',
         record_id: clientId,
-        old_data: client
+        old_data: clientProfile
       })
 
     if (auditError) {
@@ -107,26 +121,41 @@ serve(async (req) => {
       )
     }
 
-    // Delete client - this will cascade delete related records
+    // Delete the therapist-client relationship first
+    const { error: relDeleteError } = await serviceClient
+      .from('therapist_clients')
+      .delete()
+      .eq('client_id', clientId)
+      .eq('therapist_id', user.id)
+
+    if (relDeleteError) {
+      console.error('Error deleting therapist-client relationship:', relDeleteError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete therapist-client relationship: ' + relDeleteError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
+    // Delete client profile - cascade delete should handle related records
     const { error: deleteError } = await serviceClient
-      .from('clients')
+      .from('client_profiles')
       .delete()
       .eq('id', clientId)
 
     if (deleteError) {
-      console.error('Error deleting client:', deleteError)
+      console.error('Error deleting client profile:', deleteError)
       return new Response(
-        JSON.stringify({ error: 'Failed to delete client: ' + deleteError.message }),
+        JSON.stringify({ error: 'Failed to delete client profile: ' + deleteError.message }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
     // If client had a user_id, remove the 'client' role from that user
-    if (client.user_id) {
+    if (clientProfile.user_id) {
       const { error: roleDeleteError } = await serviceClient
         .from('user_roles')
         .delete()
-        .eq('user_id', client.user_id)
+        .eq('user_id', clientProfile.user_id)
         .eq('role', 'client')
 
       if (roleDeleteError) {

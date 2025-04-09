@@ -48,13 +48,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "appointments_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "appointments_therapist_id_fkey"
             columns: ["therapist_id"]
             isOneToOne: false
@@ -151,13 +144,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "billing_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "billing_therapist_id_fkey"
             columns: ["therapist_id"]
             isOneToOne: false
@@ -166,108 +152,29 @@ export type Database = {
           },
         ]
       }
-      client_invitations: {
+      client_profiles: {
         Row: {
-          claimed: boolean | null
-          client_id: string
           created_at: string
-          email: string
-          expires_at: string
+          first_name: string | null
           id: string
-          invite_code: string
-          status: string
-          therapist_id: string
-        }
-        Insert: {
-          claimed?: boolean | null
-          client_id: string
-          created_at?: string
-          email: string
-          expires_at?: string
-          id?: string
-          invite_code: string
-          status?: string
-          therapist_id: string
-        }
-        Update: {
-          claimed?: boolean | null
-          client_id?: string
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invite_code?: string
-          status?: string
-          therapist_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_invitations_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      clients: {
-        Row: {
-          address: string | null
-          consent_date: string | null
-          consent_version: string | null
-          created_at: string
-          date_of_birth: string | null
-          emergency_contact: string | null
-          encryption_key_id: string | null
-          id: string
-          phi_data: Json | null
+          last_name: string | null
           phone: string | null
-          status: string | null
-          therapist_id: string
-          updated_at: string
-          user_id: string | null
         }
         Insert: {
-          address?: string | null
-          consent_date?: string | null
-          consent_version?: string | null
           created_at?: string
-          date_of_birth?: string | null
-          emergency_contact?: string | null
-          encryption_key_id?: string | null
+          first_name?: string | null
           id?: string
-          phi_data?: Json | null
+          last_name?: string | null
           phone?: string | null
-          status?: string | null
-          therapist_id: string
-          updated_at?: string
-          user_id?: string | null
         }
         Update: {
-          address?: string | null
-          consent_date?: string | null
-          consent_version?: string | null
           created_at?: string
-          date_of_birth?: string | null
-          emergency_contact?: string | null
-          encryption_key_id?: string | null
+          first_name?: string | null
           id?: string
-          phi_data?: Json | null
+          last_name?: string | null
           phone?: string | null
-          status?: string | null
-          therapist_id?: string
-          updated_at?: string
-          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "clients_therapist_id_fkey"
-            columns: ["therapist_id"]
-            isOneToOne: false
-            referencedRelation: "therapist_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       note_access_logs: {
         Row: {
@@ -341,13 +248,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "session_notes_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "session_notes_therapist_id_fkey"
             columns: ["therapist_id"]
             isOneToOne: false
@@ -355,6 +255,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      therapist_clients: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: number
+          status: string
+          therapist_id: string
+        }
+        Insert: {
+          client_id?: string
+          created_at?: string
+          id?: number
+          status?: string
+          therapist_id?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: number
+          status?: string
+          therapist_id?: string
+        }
+        Relationships: []
       }
       therapist_profiles: {
         Row: {

@@ -1,8 +1,8 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Client {
   id: string;
-  therapist_id: string;
   user_id?: string;
   phone?: string;
   date_of_birth?: string;
@@ -10,7 +10,6 @@ export interface Client {
   emergency_contact?: string;
   status: string;
   created_at: string;
-  updated_at: string;
   // HIPAA-compliant fields
   phi_data?: any;
   consent_date?: string;
@@ -39,20 +38,38 @@ export interface ClientInput {
 }
 
 export const clientService = {
-  // Get all clients for the current user
+  // Get all clients for the current therapist
   async getClients(): Promise<Client[]> {
+    // Get current user id (therapist)
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Get clients associated with this therapist through therapist_clients
     const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('id');
+      .from('therapist_clients')
+      .select(`
+        client_id,
+        client_profiles!inner(*)
+      `)
+      .eq('therapist_id', user.id)
+      .order('client_id');
 
     if (error) {
       throw new Error(error.message);
     }
 
+    // Map results to expected Client interface
+    const clients = data.map(item => ({
+      id: item.client_id,
+      ...item.client_profiles,
+    }));
+
     // We need to fetch user information for each client
     const clientsWithUserInfo = await Promise.all(
-      (data || []).map(async (client) => {
+      clients.map(async (client) => {
         try {
           // Get user info for this client
           if (!client.user_id) return client;
@@ -86,8 +103,28 @@ export const clientService = {
 
   // Get a single client by ID
   async getClient(id: string): Promise<Client> {
+    // First check if the current therapist has access to this client
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Verify therapist-client relationship
+    const { data: relationship, error: relationshipError } = await supabase
+      .from('therapist_clients')
+      .select('*')
+      .eq('therapist_id', user.id)
+      .eq('client_id', id)
+      .maybeSingle();
+
+    if (relationshipError || !relationship) {
+      throw new Error('Client not found or you do not have access');
+    }
+
+    // Now get the client profile
     const { data: client, error } = await supabase
-      .from('clients')
+      .from('client_profiles')
       .select('*')
       .eq('id', id)
       .single();
@@ -174,7 +211,7 @@ export const clientService = {
     
     // First update the client record
     const { data: updatedClient, error } = await supabase
-      .from('clients')
+      .from('client_profiles')
       .update({
         ...clientUpdates,
         updated_at: new Date().toISOString()
@@ -217,34 +254,50 @@ export const clientService = {
 
   // Get client with their appointments
   async getClientWithAppointments(id: string): Promise<Client & { appointments: any[] }> {
+    // First verify therapist-client relationship
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get client with appointments
     const { data, error } = await supabase
-      .from('clients')
+      .from('therapist_clients')
       .select(`
-        *,
-        appointments (*)
+        client_profiles!inner(*),
+        appointments(*)
       `)
-      .eq('id', id)
+      .eq('therapist_id', user.id)
+      .eq('client_id', id)
       .single();
 
     if (error) {
       throw new Error(error.message);
     }
     
-    if (!data.user_id) return data;
+    // Restructure data to match expected format
+    const clientData = {
+      ...data.client_profiles,
+      id: id,
+      appointments: data.appointments || []
+    };
+    
+    if (!clientData.user_id) return clientData;
     
     // Get user info for this client
     const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
-      body: { userId: data.user_id }
+      body: { userId: clientData.user_id }
     });
     
     if (userError || !userData) {
-      console.error('Error fetching user info for client:', data.id, userError);
-      return data;
+      console.error('Error fetching user info for client:', clientData.id, userError);
+      return clientData;
     }
     
     // Merge the user info with the client data
     return {
-      ...data,
+      ...clientData,
       first_name: userData.firstName,
       last_name: userData.lastName,
       email: userData.email,
@@ -255,7 +308,7 @@ export const clientService = {
   // Store sensitive PHI data
   async updateClientPHI(id: string, phiData: any): Promise<void> {
     const { error } = await supabase
-      .from('clients')
+      .from('client_profiles')
       .update({
         phi_data: phiData,
         updated_at: new Date().toISOString()
@@ -270,7 +323,7 @@ export const clientService = {
   // Record client consent
   async recordConsent(id: string, version: string): Promise<void> {
     const { error } = await supabase
-      .from('clients')
+      .from('client_profiles')
       .update({
         consent_date: new Date().toISOString(),
         consent_version: version,
