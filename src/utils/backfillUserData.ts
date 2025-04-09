@@ -1,87 +1,45 @@
 
-export const backfillAppointmentData = () => {
-  const today = new Date();
-  const appointments = [];
-  
-  // Add past appointments
-  for (let i = 1; i <= 5; i++) {
-    const date = new Date();
-    date.setDate(today.getDate() - i * 2);
-    
-    // Convert to ISO string for the timestamp
-    const startTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9 + i, 0).toISOString();
-    const endTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 10 + i, 0).toISOString();
-    
-    appointments.push({
-      title: `Past Session ${i}`,
-      start_time: startTime,
-      end_time: endTime,
-      status: 'Completed'
-    });
-  }
-  
-  // Add future appointments
-  for (let i = 1; i <= 5; i++) {
-    const date = new Date();
-    date.setDate(today.getDate() + i * 3);
-    
-    const startTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 10 + i, 0).toISOString();
-    const endTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 11 + i, 0).toISOString();
-    
-    appointments.push({
-      title: `Upcoming Session ${i}`,
-      start_time: startTime,
-      end_time: endTime,
-      status: 'Scheduled'
-    });
-  }
-  
-  return appointments;
+// Function to generate random dates
+const getRandomDate = (start: Date, end: Date): Date => {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 };
 
-export const backfillNoteData = () => {
-  const notes = [];
-  const today = new Date();
-  
-  for (let i = 1; i <= 10; i++) {
-    const date = new Date();
-    date.setDate(today.getDate() - i * 3);
-    
-    notes.push({
-      content: `<p>Session notes for session ${i}. The client reported making progress with their anxiety management techniques.</p><p>We discussed several strategies for handling stress in workplace situations.</p><p>Client has been practicing mindfulness exercises daily and reports improved sleep patterns.</p>`,
-      is_private: true,
-      created_at: date.toISOString(),
-      updated_at: date.toISOString()
-    });
-  }
-  
-  return notes;
-};
-
-// Main backfill function that uses the other functions
+// Function to backfill user data for the demo
 export const backfillUserData = async () => {
   try {
-    console.log("Starting backfill of test data");
-    // The actual implementation would use the appointment and note data
-    // with actual API calls to create test data in the database
-    const appointments = backfillAppointmentData();
-    const notes = backfillNoteData();
+    console.log('Backfilling user data...');
     
-    console.log(`Generated ${appointments.length} test appointments`);
-    console.log(`Generated ${notes.length} test notes`);
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 6);
     
-    // In a real implementation, this would send the data to your backend
-    // For now, we'll just return success
+    const endDate = new Date();
+    
+    // Generate 10 sample appointments
+    const sampleAppointments = Array.from({ length: 10 }, (_, i) => {
+      const date = getRandomDate(startDate, endDate);
+      return {
+        id: `appointment-${i + 1}`,
+        title: `Therapy Session ${i + 1}`,
+        start_time: date.toISOString(),
+        end_time: new Date(date.getTime() + 60 * 60 * 1000).toISOString(),
+        status: i % 5 === 0 ? 'Cancelled' : 'Completed',
+        notes: i % 2 === 0 ? 'Patient reported improved mood today.' : undefined
+      };
+    });
+    
+    console.log('Generated sample appointments:', sampleAppointments);
+    
     return {
       success: true,
-      appointmentsCount: appointments.length,
-      notesCount: notes.length
+      appointments: sampleAppointments
     };
   } catch (error) {
-    console.error("Error in backfill process:", error);
+    console.error('Error in backfillUserData:', error);
     return {
       success: false,
-      error: "Failed to backfill test data"
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 };
+
+export default backfillUserData;

@@ -6,6 +6,7 @@ export interface Client {
   id: string;
   first_name: string;
   last_name: string;
+  email?: string;
   phone: string;
   date_of_birth: string;
   address: string;
@@ -15,6 +16,7 @@ export interface Client {
   updated_at: string;
   user_id: string;
   phi_data: any;
+  appointmentsList?: Appointment[]; // For client with appointments
 }
 
 // Define the Appointment type
@@ -140,7 +142,7 @@ const createAppointment = async (appointment: Partial<Appointment>): Promise<App
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .insert([appointment])
+      .insert([appointment]) // Fix: Pass array with one item
       .select('*')
       .single();
 
@@ -293,7 +295,31 @@ const getClientWithAppointments = async (clientId: string) => {
   }
 };
 
-// Function to send a client invitation
+// Function to search for a user by email
+const searchUserByEmail = async (email: string): Promise<{exists: boolean, user?: any}> => {
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .ilike('email', email)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error searching for user:', error);
+      throw error;
+    }
+    
+    return {
+      exists: !!data,
+      user: data || undefined
+    };
+  } catch (error) {
+    console.error('Error searching for user by email:', error);
+    throw error;
+  }
+};
+
+// Function to send a client invitation by email only
 const sendClientInvitation = async (email: string): Promise<{ success: boolean; invitation?: any; message?: string }> => {
   try {
     // Generate an invitation code
@@ -327,22 +353,23 @@ const sendClientInvitation = async (email: string): Promise<{ success: boolean; 
   }
 };
 
+// Function to create a client invitation using RPC
 const inviteClient = async (email: string) => {
   try {
     const { data, error } = await supabase.rpc('create_client_invitation', {
-      email_param: email
+      email_param: email,
+      therapist_id_param: (await supabase.auth.getUser()).data.user?.id,
+      client_id_param: '00000000-0000-0000-0000-000000000000' // Placeholder, will be updated later
     });
 
     if (error) throw error;
     
-    // Check if data.id exists and handle it properly
+    // Check if data exists and handle it properly
     if (data && typeof data === 'object') {
-      // Use optional chaining to safely access data.id if it exists
-      const inviteId = data?.id;
       return { 
         success: true, 
         message: `Invitation sent to ${email}`,
-        inviteId: inviteId
+        inviteId: data.id
       };
     }
     
@@ -359,28 +386,7 @@ const inviteClient = async (email: string) => {
   }
 };
 
-// Also add the getAppointmentNotes method for compatibility with CalendarView component
-const getAppointmentNotes = async (appointmentId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('appointment_id', appointmentId)
-      .order('created_at', { ascending: false });
-      
-    if (error) {
-      console.error('Error fetching appointment notes:', error);
-      throw error;
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error getting appointment notes:', error);
-    throw error;
-  }
-};
-
-// Also fix the ClientForm issue
+// Send invitation for an existing client ID
 const sendClientInvitationById = async (clientId: string, email: string) => {
   try {
     // Check if the client exists
@@ -401,6 +407,27 @@ const sendClientInvitationById = async (clientId: string, email: string) => {
   }
 };
 
+// Add getAppointmentNotes method for CalendarView component
+const getAppointmentNotes = async (appointmentId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('appointment_id', appointmentId)
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching appointment notes:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting appointment notes:', error);
+    throw error;
+  }
+};
+
 export const clientService = {
   getClients,
   getClient,
@@ -415,7 +442,8 @@ export const clientService = {
   getClientAppointments,
   getClientWithAppointments,
   sendClientInvitation,
-  sendClientInvitationById, // Add this for ClientForm
+  sendClientInvitationById,
   inviteClient,
-  getAppointmentNotes // Add this for AppointmentCalendar
+  getAppointmentNotes,
+  searchUserByEmail // Add the new search function
 };

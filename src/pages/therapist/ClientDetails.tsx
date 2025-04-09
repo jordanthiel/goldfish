@@ -1,661 +1,568 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar } from '@/components/ui/calendar';
-import { Textarea } from '@/components/ui/textarea';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
-import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
-import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import ClientNotesList from '@/components/notes/ClientNotesList';
 import { 
-  Calendar as CalendarIcon, 
-  Send, 
+  Calendar, 
   FileText, 
-  Video, 
-  MessageSquare, 
-  Plus, 
-  Edit, 
-  Clock,
-  ExternalLink,
-  Loader2,
-  ChevronRight
+  Mail, 
+  Phone, 
+  User, 
+  MapPin, 
+  AlertTriangle, 
+  Settings, 
+  Plus 
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { clientService, Client } from '@/services/clientService';
-import { noteService, SessionNote } from '@/services/noteService';
-import { useQuery } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { Appointment, Client, clientService } from '@/services/clientService';
+import { SessionNote, noteService } from '@/services/noteService';
+import ClientForm from '@/components/clients/ClientForm';
+import ClientNotesList from '@/components/notes/ClientNotesList';
+import NoteEditDialog from '@/components/notes/NoteEditDialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const ClientDetails = () => {
-  const { id } = useParams<{ id: string }>();
+  const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = React.useState('clients');
-  const [clientTab, setClientTab] = useState('overview');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [noteContent, setNoteContent] = useState("");
-  const [latestNote, setLatestNote] = useState<SessionNote | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
-  const [notes, setNotes] = useState<SessionNote[]>([]);
-  const [upcomingAppointments, setUpcomingAppointments] = useState<SessionNote[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAddingNote, setIsAddingNote] = useState(false);
   const { toast } = useToast();
+
+  const [loading, setLoading] = useState(true);
+  const [client, setClient] = useState<Client | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [notes, setNotes] = useState<SessionNote[]>([]);
+  const [activeTab, setActiveTab] = useState('profile');
   
+  const [clientFormOpen, setClientFormOpen] = useState(false);
+  const [noteEditOpen, setNoteEditOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<SessionNote | null>(null);
+  
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch client data
   useEffect(() => {
     const fetchClientData = async () => {
-      setIsLoading(true);
+      if (!clientId) return;
+      
       try {
-        if (id) {
-          // Get client data
-          const clientData = await clientService.getClient(id);
-          
-          if (clientData) {
-            setClient(clientData);
-            
-            // Get client notes
-            const notesData = await noteService.getClientNotes(id);
-            setNotes(notesData);
-            
-            // Get upcoming appointments
-            if (clientData.appointments) {
-              const upcoming = clientData.appointments
-                .filter((apt: any) => new Date(apt.start_time) > new Date())
-                .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-              
-              setUpcomingAppointments(upcoming);
-            }
-          } else {
-            setError('Client not found');
-          }
+        setLoading(true);
+        setError(null);
+        
+        // Get client with appointments
+        const clientData = await clientService.getClientWithAppointments(clientId);
+        setClient(clientData);
+        
+        // Extract appointments from client data
+        if (clientData.appointmentsList) {
+          setAppointments(clientData.appointmentsList);
         }
+        
+        // Get notes separately
+        const clientNotes = await noteService.getClientNotes(clientId);
+        setNotes(clientNotes);
       } catch (err) {
         console.error('Error fetching client data:', err);
-        if (typeof err === 'string') {
-          setError(new Error(err));
-        } else {
-          setError(err as Error);
-        }
+        setError(err instanceof Error ? err.message : 'Failed to load client data');
+        toast({
+          title: 'Error',
+          description: err instanceof Error ? err.message : 'Failed to load client data',
+          variant: 'destructive',
+        });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    
-    fetchClientData();
-  }, [id]);
 
-  const createMarkup = (htmlContent: string) => {
-    return { __html: htmlContent };
+    fetchClientData();
+  }, [clientId, toast]);
+
+  // Handle editing a client
+  const handleEditClient = () => {
+    setClientFormOpen(true);
   };
 
-  useEffect(() => {
-    if (error) {
-      toast({
-        title: "Error loading client data",
-        description: (error as Error).message,
-        variant: "destructive"
-      });
-    }
-  }, [error, toast]);
-
-  const handleSaveNote = async () => {
-    if (!id || noteContent.trim().length === 0) {
-      toast({
-        title: "Error",
-        description: "Note content cannot be empty.",
-        variant: "destructive"
-      });
-      return;
-    }
+  // Handle client form saving
+  const handleClientSaved = async () => {
+    if (!clientId) return;
     
     try {
-      const newNote = await noteService.createNote({
-        client_id: id,
-        content: noteContent,
-        is_private: true
-      });
+      const updatedClient = await clientService.getClientWithAppointments(clientId);
+      setClient(updatedClient);
+      
+      if (updatedClient?.appointmentsList) {
+        setAppointments(updatedClient.appointmentsList);
+      }
       
       toast({
-        title: "Note saved",
-        description: "Your note has been saved successfully."
+        title: 'Success',
+        description: 'Client information updated successfully.',
       });
-      setNoteContent("");
-      
-      setLatestNote(newNote);
-    } catch (error) {
-      console.error('Error saving note:', error);
+    } catch (err) {
       toast({
-        title: "Error",
-        description: "Failed to save note. Please try again.",
-        variant: "destructive"
+        title: 'Error',
+        description: typeof err === 'string' ? err : 'Failed to refresh client data',
+        variant: 'destructive',
       });
     }
   };
 
-  const handleScheduleAppointment = () => {
-    if (!selectedDate) {
-      toast({
-        title: "Error",
-        description: "Please select a date for the appointment.",
-        variant: "destructive"
-      });
-      return;
-    }
+  // Handle adding a new note
+  const handleAddNote = () => {
+    setSelectedNote(null);
+    setNoteEditOpen(true);
+  };
+
+  // Handle editing an existing note
+  const handleEditNote = (note: SessionNote) => {
+    setSelectedNote(note);
+    setNoteEditOpen(true);
+  };
+
+  // Handle saving a note
+  const handleSaveNote = async (noteData: any) => {
+    if (!clientId) return;
     
-    console.log("Scheduling appointment for:", selectedDate);
+    try {
+      let savedNote;
+      
+      if (selectedNote) {
+        // Update existing note
+        savedNote = await noteService.updateNote(selectedNote.id, {
+          ...noteData,
+          client_id: clientId,
+        });
+      } else {
+        // Create new note
+        savedNote = await noteService.createNote({
+          ...noteData,
+          client_id: clientId,
+        });
+      }
+      
+      // Refresh notes list
+      const updatedNotes = await noteService.getClientNotes(clientId);
+      setNotes(updatedNotes);
+      
+      toast({
+        title: 'Success',
+        description: selectedNote ? 'Note updated successfully.' : 'Note created successfully.',
+      });
+      
+      setNoteEditOpen(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save note.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle deleting a note
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const result = await noteService.deleteNote(noteId);
+      
+      if (result.success) {
+        // Refresh notes list
+        const updatedNotes = await noteService.getClientNotes(clientId!);
+        setNotes(updatedNotes);
+        
+        toast({
+          title: 'Success',
+          description: 'Note deleted successfully.',
+        });
+      } else {
+        throw new Error(result.message || 'Failed to delete note');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete note.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle starting a new session
+  const handleStartSession = () => {
     toast({
-      title: "Appointment scheduled",
-      description: `Appointment scheduled for ${format(selectedDate, 'PPP')} at 3:00 PM.`
+      title: 'Not implemented',
+      description: 'Starting a new session is not implemented yet.',
     });
   };
 
-  const navigateToSession = (appointmentId: string) => {
-    navigate(`/therapist/session/${appointmentId}`);
+  // Handle sending a message to client
+  const handleSendMessage = () => {
+    toast({
+      title: 'Not implemented',
+      description: 'Sending messages is not implemented yet.',
+    });
   };
 
-  const handleAddNote = async (content: string) => {
+  // Format a date for display
+  const formatDate = (dateString: string) => {
     try {
-      const newNote = await noteService.createNote({
-        client_id: id || '',
-        content: content,
-        is_private: true
-      });
-      
-      // Refresh notes
-      const updatedNotes = await noteService.getClientNotes(id || '');
-      setNotes(updatedNotes);
-      
-      // Show success message
-      toast({
-        title: 'Note Added',
-        description: 'Client note has been successfully added',
-      });
-      
-      // Reset state
-      setIsAddingNote(false);
+      return format(new Date(dateString), 'PPP');
     } catch (error) {
-      console.error('Error adding note:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add client note',
-        variant: 'destructive'
-      });
+      return 'Invalid date';
     }
   };
 
-  if (isLoading) {
+  // If loading, show loading spinner
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-12 w-12 animate-spin text-therapy-purple mb-4" />
-            <p className="text-muted-foreground">Loading client data...</p>
-          </div>
-        </div>
-        <Separator />
-        <Footer />
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  if (!client) {
+  // If error or no client found, show error message
+  if (error || !client) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center text-center max-w-md p-6">
-            <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Client Not Found</h2>
-            <p className="text-muted-foreground mb-6">
-              The client you're looking for couldn't be found or you don't have permission to view this client.
-            </p>
-            <Button onClick={() => navigate('/dashboard')}>
-              Return to Dashboard
-            </Button>
-          </div>
+      <div className="container mx-auto py-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error || 'Client not found. Please check the client ID and try again.'}
+          </AlertDescription>
+        </Alert>
+        <div className="mt-4">
+          <Button onClick={() => navigate('/dashboard/clients')}>
+            Return to Client List
+          </Button>
         </div>
-        <Separator />
-        <Footer />
       </div>
     );
   }
-
-  const clientName = `${client.first_name} ${client.last_name}`;
-  const clientInitials = `${client.first_name[0]}${client.last_name[0]}`.toUpperCase();
-  
-  const sortedAppointments = [...(client.appointments || [])].sort((a, b) => 
-    new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-  );
-  
-  const nextAppointment = sortedAppointments.find(apt => 
-    new Date(apt.start_time) > new Date()
-  );
-  
-  const pastAppointments = sortedAppointments.filter(apt => 
-    new Date(apt.end_time) < new Date()
-  ).sort((a, b) => 
-    new Date(b.end_time).getTime() - new Date(a.end_time).getTime()
-  );
-  
-  const lastAppointment = pastAppointments[0];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <div className="flex-1">
-        <SidebarProvider>
-          <div className="flex min-h-[calc(100vh-64px)] w-full">
-            <DashboardSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            
-            <main className="flex-1 p-6 overflow-auto">
-              <div className="max-w-5xl mx-auto space-y-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{clientName}</h1>
-                    <p className="text-muted-foreground">
-                      Client ID: {client.id} • Added on {new Date(client.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Client
-                    </Button>
-                    <Button>
-                      <Video className="h-4 w-4 mr-2" />
-                      Start Session
-                    </Button>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid grid-cols-3 gap-6">
-                  <Card className="col-span-3 md:col-span-1">
-                    <CardHeader className="pb-2">
-                      <CardTitle>Client Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col items-center mb-6">
-                        <Avatar className="h-24 w-24 mb-4">
-                          <AvatarImage src={undefined} alt={clientName} />
-                          <AvatarFallback className="bg-therapy-purple text-white text-xl">{clientInitials}</AvatarFallback>
-                        </Avatar>
-                        <Badge className={`mb-2 ${
-                          client.status === 'Active' 
-                            ? 'bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800'
-                            : 'bg-gray-100 text-gray-800 hover:bg-gray-100 hover:text-gray-800'
-                        }`}>
-                          {client.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Email</p>
-                          <p>{client.email || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                          <p>{client.phone || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
-                          <p>{client.date_of_birth || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Address</p>
-                          <p>{client.address || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Emergency Contact</p>
-                          <p>{client.emergency_contact || 'Not provided'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Next Appointment</p>
-                          {nextAppointment ? (
-                            <p className="flex items-center text-therapy-purple">
-                              <CalendarIcon className="h-4 w-4 mr-1" />
-                              {format(new Date(nextAppointment.start_time), 'PPP')} at{' '}
-                              {format(new Date(nextAppointment.start_time), 'h:mm a')}
-                            </p>
-                          ) : (
-                            <p className="text-muted-foreground">No upcoming appointments</p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <div className="col-span-3 md:col-span-2">
-                    <Tabs value={clientTab} onValueChange={setClientTab} className="w-full">
-                      <TabsList className="grid w-full grid-cols-4 mb-6">
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="notes">Notes</TabsTrigger>
-                        <TabsTrigger value="appointments">Appointments</TabsTrigger>
-                        <TabsTrigger value="messages">Messages</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="overview" className="space-y-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Clock className="h-5 w-5 mr-2 text-therapy-purple" />
-                              Recent Activity
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            {sortedAppointments.length > 0 ? (
-                              <div className="space-y-4">
-                                {nextAppointment && (
-                                  <div className="flex items-start gap-4 pb-4 border-b">
-                                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-therapy-light-purple flex items-center justify-center">
-                                      <CalendarIcon className="h-5 w-5 text-therapy-purple" />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold">Upcoming Session</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        Scheduled session with {clientName}.
-                                      </p>
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {format(new Date(nextAppointment.start_time), 'PPP • h:mm a')}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {lastAppointment && (
-                                  <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-therapy-soft-pink flex items-center justify-center">
-                                      <Video className="h-5 w-5 text-therapy-pink" />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold">Session Completed</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        You completed a session with {clientName}.
-                                      </p>
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {format(new Date(lastAppointment.end_time), 'PPP • h:mm a')}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-center py-6">
-                                <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                                <h3 className="font-semibold text-lg mb-2">No activity yet</h3>
-                                <p className="text-muted-foreground mb-4">
-                                  There are no sessions scheduled or completed with this client.
-                                </p>
-                                <Button>
-                                  <CalendarIcon className="h-4 w-4 mr-2" />
-                                  Schedule First Session
-                                </Button>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                        
-                        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                          <Card 
-                            className={`cursor-pointer hover:shadow-md transition-shadow ${latestNote ? 'group' : ''}`}
-                            onClick={() => latestNote && setClientTab('notes')}
-                          >
-                            <CardHeader>
-                              <CardTitle className="flex items-center">
-                                <FileText className="h-5 w-5 mr-2 text-therapy-purple" />
-                                Latest Note
-                                {latestNote && (
-                                  <ChevronRight className="h-4 w-4 ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                )}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              {latestNote ? (
-                                <div className="space-y-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    {format(new Date(latestNote.created_at), 'MMM d, yyyy • h:mm a')}
-                                  </p>
-                                  <div className="prose max-w-none line-clamp-3">
-                                    <div dangerouslySetInnerHTML={createMarkup(latestNote.content)} />
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                                  <p className="text-muted-foreground">No notes yet for this client</p>
-                                </div>
-                              )}
-                            </CardContent>
-                            <CardFooter>
-                              <Button 
-                                variant="outline" 
-                                className="w-full" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setClientTab('notes');
-                                }}
-                              >
-                                {latestNote ? 'View All Notes' : 'Add First Note'}
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                          
-                          <Card 
-                            className={`cursor-pointer hover:shadow-md transition-shadow ${nextAppointment ? 'group' : ''}`}
-                            onClick={() => nextAppointment && navigateToSession(nextAppointment.id)}
-                          >
-                            <CardHeader>
-                              <CardTitle className="flex items-center">
-                                <CalendarIcon className="h-5 w-5 mr-2 text-therapy-purple" />
-                                Next Appointment
-                                {nextAppointment && (
-                                  <ChevronRight className="h-4 w-4 ml-2 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                )}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              {nextAppointment ? (
-                                <div className="space-y-2">
-                                  <div className="flex justify-between items-center">
-                                    <p className="font-semibold">{nextAppointment.title}</p>
-                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-800">
-                                      {nextAppointment.status}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">
-                                    <span className="flex items-center">
-                                      <CalendarIcon className="h-4 w-4 mr-1" />
-                                      {format(new Date(nextAppointment.start_time), 'PPP')}
-                                    </span>
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    <span className="flex items-center">
-                                      <Clock className="h-4 w-4 mr-1" />
-                                      {format(new Date(nextAppointment.start_time), 'h:mm a')} - {format(new Date(nextAppointment.end_time), 'h:mm a')}
-                                    </span>
-                                  </p>
-                                </div>
-                              ) : (
-                                <div className="text-center py-4">
-                                  <CalendarIcon className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                                  <p className="text-muted-foreground">No upcoming appointments</p>
-                                </div>
-                              )}
-                            </CardContent>
-                            <CardFooter>
-                              <Button 
-                                variant="outline" 
-                                className="w-full" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  nextAppointment ? setClientTab('appointments') : setClientTab('appointments');
-                                }}
-                              >
-                                {nextAppointment ? 'View All Appointments' : 'Schedule Appointment'}
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                        </div>
-                        
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-therapy-purple" />
-                              Add Quick Note
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <Textarea
-                              placeholder="Type a quick note about this client..."
-                              value={noteContent}
-                              onChange={(e) => setNoteContent(e.target.value)}
-                              rows={4}
-                              className="resize-none"
-                            />
-                          </CardContent>
-                          <CardFooter className="flex justify-end">
-                            <Button onClick={handleSaveNote}>
-                              Save Note
-                            </Button>
-                          </CardFooter>
-                        </Card>
-                      </TabsContent>
-                      
-                      <TabsContent value="notes" className="space-y-6">
-                        {id && <ClientNotesList clientId={id} clientName={clientName} />}
-                      </TabsContent>
-                      
-                      <TabsContent value="appointments" className="space-y-6">
-                        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Appointment History</CardTitle>
-                              <CardDescription>Past and upcoming appointments.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              {clientData.appointments && clientData.appointments.length > 0 ? (
-                                <div className="space-y-4">
-                                  {sortedAppointments.map((appointment) => {
-                                    const isCompleted = new Date(appointment.end_time) < new Date();
-                                    return (
-                                      <div 
-                                        key={appointment.id} 
-                                        className="flex justify-between items-center p-3 border rounded-lg cursor-pointer hover:bg-muted/30"
-                                        onClick={() => navigateToSession(appointment.id)}
-                                      >
-                                        <div>
-                                          <p className="font-semibold">{appointment.title}</p>
-                                          <p className="text-sm text-muted-foreground">
-                                            {format(new Date(appointment.start_time), 'PPP')} • {format(new Date(appointment.start_time), 'h:mm a')} - {format(new Date(appointment.end_time), 'h:mm a')}
-                                          </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <Badge 
-                                            variant="outline" 
-                                            className={
-                                              isCompleted 
-                                                ? "bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800" 
-                                                : "bg-blue-100 text-blue-800 hover:bg-blue-100 hover:text-blue-800"
-                                            }
-                                          >
-                                            {isCompleted ? "Completed" : appointment.status}
-                                          </Badge>
-                                          
-                                          <Button 
-                                            size="sm" 
-                                            variant="ghost"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              navigate(`/therapist/session/${appointment.id}`);
-                                            }}
-                                          >
-                                            <ExternalLink className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <div className="text-center py-6">
-                                  <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                                  <p className="text-muted-foreground">No appointments scheduled yet</p>
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                          
-                          <Card>
-                            <CardHeader>
-                              <CardTitle>Schedule New Appointment</CardTitle>
-                              <CardDescription>Select a date for the next session.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="flex flex-col">
-                                <Calendar
-                                  mode="single"
-                                  selected={selectedDate}
-                                  onSelect={setSelectedDate}
-                                  className="rounded-md border p-3 mb-4 mx-auto"
-                                />
-                                <Button onClick={handleScheduleAppointment}>
-                                  <CalendarIcon className="h-4 w-4 mr-2" />
-                                  Schedule Appointment
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      </TabsContent>
-                      
-                      <TabsContent value="messages" className="space-y-6">
-                        <Card>
-                          <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                              <CardTitle>Messages</CardTitle>
-                              <CardDescription>Your message history with this client.</CardDescription>
-                            </div>
-                            <Button>
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              Send Message
-                            </Button>
-                          </CardHeader>
-                          <CardContent className="h-96 flex items-center justify-center">
-                            <div className="text-center">
-                              <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                              <h3 className="font-semibold text-lg mb-2">No messages yet</h3>
-                              <p className="text-muted-foreground mb-4">
-                                Start a conversation with {clientName} to send appointment reminders or check-ins.
-                              </p>
-                              <Button>
-                                <Send className="h-4 w-4 mr-2" />
-                                Start Conversation
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-                    </Tabs>
-                  </div>
-                </div>
-              </div>
-            </main>
-          </div>
-        </SidebarProvider>
+    <div className="container mx-auto py-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{`${client.first_name} ${client.last_name}`}</h2>
+          <p className="text-muted-foreground">Client Details</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleSendMessage}>
+            <Mail className="mr-2 h-4 w-4" /> Message
+          </Button>
+          <Button variant="default" onClick={handleStartSession}>
+            <Plus className="mr-2 h-4 w-4" /> New Session
+          </Button>
+        </div>
       </div>
       
-      <Separator />
-      <Footer />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="profile">
+            <User className="h-4 w-4 mr-2" /> Profile
+          </TabsTrigger>
+          <TabsTrigger value="appointments">
+            <Calendar className="h-4 w-4 mr-2" /> Appointments
+          </TabsTrigger>
+          <TabsTrigger value="notes">
+            <FileText className="h-4 w-4 mr-2" /> Notes
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <Settings className="h-4 w-4 mr-2" /> Settings
+          </TabsTrigger>
+        </TabsList>
+        
+        {/* Profile Tab */}
+        <TabsContent value="profile">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Client Information</CardTitle>
+                <CardDescription>Personal details and contact information.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-medium mb-2">Contact Information</h3>
+                    <ul className="space-y-3">
+                      {client.email && (
+                        <li className="flex items-start">
+                          <Mail className="h-5 w-5 mr-2 text-muted-foreground shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Email</p>
+                            <p>{client.email}</p>
+                          </div>
+                        </li>
+                      )}
+                      
+                      {client.phone && (
+                        <li className="flex items-start">
+                          <Phone className="h-5 w-5 mr-2 text-muted-foreground shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Phone</p>
+                            <p>{client.phone}</p>
+                          </div>
+                        </li>
+                      )}
+                      
+                      {client.address && (
+                        <li className="flex items-start">
+                          <MapPin className="h-5 w-5 mr-2 text-muted-foreground shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Address</p>
+                            <p className="whitespace-pre-line">{client.address}</p>
+                          </div>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-medium mb-2">Additional Information</h3>
+                    <ul className="space-y-3">
+                      {client.emergency_contact && (
+                        <li>
+                          <p className="text-sm text-muted-foreground">Emergency Contact</p>
+                          <p>{client.emergency_contact}</p>
+                        </li>
+                      )}
+                      
+                      {client.date_of_birth && (
+                        <li>
+                          <p className="text-sm text-muted-foreground">Date of Birth</p>
+                          <p>{client.date_of_birth}</p>
+                        </li>
+                      )}
+                      
+                      <li>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            client.status === 'Active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {client.status}
+                          </span>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" onClick={handleEditClient}>Edit Information</Button>
+              </CardFooter>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Client Summary</CardTitle>
+                <CardDescription>Overview and recent activity.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="font-medium mb-2">Client Since</h3>
+                  <p>{formatDate(client.created_at)}</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-2">Last Appointment</h3>
+                  {appointments && appointments.length > 0 ? (
+                    <p>{formatDate(appointments[0].start_time)}</p>
+                  ) : (
+                    <p className="text-muted-foreground">No appointments yet</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-2">Total Appointments</h3>
+                  <p>{appointments ? appointments.length : 0}</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-2">Upcoming Appointments</h3>
+                  {appointments && appointments.filter(apt => new Date(apt.start_time) > new Date()).length > 0 ? (
+                    <p>{appointments.filter(apt => new Date(apt.start_time) > new Date()).length}</p>
+                  ) : (
+                    <p className="text-muted-foreground">No upcoming appointments</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        {/* Appointments Tab */}
+        <TabsContent value="appointments">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Appointments History</CardTitle>
+                  <CardDescription>All past and upcoming appointments for this client.</CardDescription>
+                </div>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Schedule Appointment
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {appointments && appointments.length > 0 ? (
+                <div className="border rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-card divide-y divide-gray-200">
+                      {appointments.map((appointment) => (
+                        <tr key={appointment.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {format(new Date(appointment.start_time), 'PPP')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {format(new Date(appointment.start_time), 'h:mm a')} - {format(new Date(appointment.end_time), 'h:mm a')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              appointment.status === 'Completed' 
+                                ? 'bg-green-100 text-green-800' 
+                                : appointment.status === 'Cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {appointment.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {appointment.notes ? 
+                              appointment.notes.length > 50 
+                                ? `${appointment.notes.substring(0, 50)}...` 
+                                : appointment.notes
+                              : 'No notes'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/therapist/session/${appointment.id}`)}>
+                              View Details
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="font-semibold text-lg mb-2">No appointments yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    This client doesn't have any scheduled appointments.
+                  </p>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" /> Schedule First Appointment
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Notes Tab */}
+        <TabsContent value="notes">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Client Notes</h3>
+            <Button onClick={handleAddNote}>
+              <Plus className="mr-2 h-4 w-4" /> Add Note
+            </Button>
+          </div>
+          
+          <ClientNotesList 
+            clientId={clientId || ''} 
+            notes={notes}
+            onEditNote={handleEditNote}
+            onDeleteNote={handleDeleteNote}
+          />
+        </TabsContent>
+        
+        {/* Settings Tab */}
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Client Settings</CardTitle>
+              <CardDescription>Manage client account and preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {client.email ? (
+                <div>
+                  <h3 className="font-medium mb-2">Client Portal Access</h3>
+                  <p className="mb-4">
+                    Current status: <span className="font-medium">Not Activated</span>
+                  </p>
+                  <Button>
+                    <Mail className="mr-2 h-4 w-4" /> Send Portal Invitation
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="font-medium mb-2">Client Portal Access</h3>
+                  <p className="mb-4 text-muted-foreground">
+                    Add an email address to the client profile to send a portal invitation.
+                  </p>
+                  <Button variant="outline" onClick={handleEditClient}>
+                    Add Email Address
+                  </Button>
+                </div>
+              )}
+              
+              <div className="pt-4 border-t">
+                <h3 className="font-medium mb-2">Danger Zone</h3>
+                <p className="text-muted-foreground mb-4">
+                  These actions are irreversible. Please proceed with caution.
+                </p>
+                <div className="space-y-3">
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+                    Archive Client
+                  </Button>
+                  <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+                    Delete Client
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      {/* Client Edit Form */}
+      <ClientForm 
+        open={clientFormOpen} 
+        onOpenChange={setClientFormOpen} 
+        client={client} 
+        onClientSaved={handleClientSaved} 
+      />
+      
+      {/* Note Edit Dialog */}
+      <NoteEditDialog
+        open={noteEditOpen}
+        onOpenChange={setNoteEditOpen}
+        note={selectedNote}
+        clientId={clientId || ''}
+        onSave={handleSaveNote}
+      />
     </div>
   );
 };

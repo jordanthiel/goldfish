@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { clientService } from '@/services/clientService';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, Mail } from 'lucide-react';
+import { AlertCircle, Mail, Search, User } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const clientSchema = z.object({
@@ -59,6 +60,9 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [emailToSearch, setEmailToSearch] = useState('');
 
   const defaultValues = client ? {
     first_name: client.first_name,
@@ -88,6 +92,59 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
   const emailValue = form.watch('email');
   const sendInvitation = form.watch('send_invitation');
 
+  const handleEmailSearch = async () => {
+    if (!emailToSearch) {
+      toast({
+        title: 'Email Required',
+        description: 'Please enter an email to search',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const result = await clientService.searchUserByEmail(emailToSearch);
+      setSearchResults(result);
+      
+      if (result.exists && result.user) {
+        // Pre-fill the form with the user's data
+        form.setValue('first_name', result.user.first_name);
+        form.setValue('last_name', result.user.last_name);
+        form.setValue('email', result.user.email);
+        form.setValue('phone', result.user.phone || '');
+        form.setValue('address', result.user.address || '');
+        form.setValue('emergency_contact', result.user.emergency_contact || '');
+        
+        toast({
+          title: 'User Found',
+          description: `Found existing user: ${result.user.first_name} ${result.user.last_name}`,
+        });
+      } else {
+        // Clear form and leave only email
+        form.setValue('first_name', '');
+        form.setValue('last_name', '');
+        form.setValue('phone', '');
+        form.setValue('address', '');
+        form.setValue('emergency_contact', '');
+        
+        toast({
+          title: 'User Not Found',
+          description: 'No existing user found with this email. Please fill in the details.',
+        });
+      }
+    } catch (error) {
+      console.error('Error searching for user:', error);
+      toast({
+        title: 'Search Error',
+        description: error instanceof Error ? error.message : 'Failed to search for user',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const onSubmit = async (values: ClientFormValues) => {
     if (!user) return;
     
@@ -105,11 +162,19 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
         // If email was added or changed and send_invitation is true, send invitation
         if (values.email && values.email !== client.email && values.send_invitation) {
           try {
-            await clientService.sendClientInvitationById(client.id, values.email);
-            toast({
-              title: 'Invitation sent',
-              description: `An invitation email has been sent to ${values.email}.`,
-            });
+            const result = await clientService.sendClientInvitationById(client.id, values.email);
+            if (result.success) {
+              toast({
+                title: 'Invitation sent',
+                description: `An invitation email has been sent to ${values.email}.`,
+              });
+            } else {
+              toast({
+                title: 'Error sending invitation',
+                description: result.message || 'Failed to send invitation email.',
+                variant: 'destructive',
+              });
+            }
           } catch (inviteError: any) {
             toast({
               title: 'Error sending invitation',
@@ -134,11 +199,28 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
           description: `${values.first_name} ${values.last_name} has been added to your client list.`,
         });
         
-        if (values.email && values.send_invitation) {
-          toast({
-            title: 'Invitation prepared',
-            description: `An invitation will be sent to ${values.email}.`,
-          });
+        if (values.email && values.send_invitation && newClient) {
+          try {
+            const result = await clientService.sendClientInvitationById(newClient.id, values.email);
+            if (result.success) {
+              toast({
+                title: 'Invitation sent',
+                description: `An invitation email has been sent to ${values.email}.`,
+              });
+            } else {
+              toast({
+                title: 'Error sending invitation',
+                description: result.message || 'Failed to send invitation email.',
+                variant: 'destructive',
+              });
+            }
+          } catch (inviteError: any) {
+            toast({
+              title: 'Error sending invitation',
+              description: inviteError.message || 'Failed to send invitation email.',
+              variant: 'destructive',
+            });
+          }
         }
       }
 
@@ -167,6 +249,51 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
               : 'Fill in the details to add a new client to your practice.'}
           </SheetDescription>
         </SheetHeader>
+        
+        {!client && (
+          <div className="py-4">
+            <div className="mb-4">
+              <h3 className="text-sm font-medium mb-2">Search for Existing User</h3>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Search by email"
+                  value={emailToSearch}
+                  onChange={(e) => setEmailToSearch(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleEmailSearch}
+                  disabled={isSearching}
+                >
+                  {isSearching ? 'Searching...' : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+              {searchResults && (
+                <div className="mt-2">
+                  {searchResults.exists ? (
+                    <Alert variant="success" className="bg-green-50 border-green-200">
+                      <User className="h-4 w-4" />
+                      <AlertTitle>User found</AlertTitle>
+                      <AlertDescription>
+                        User details have been filled in. You can modify them before saving.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>New User</AlertTitle>
+                      <AlertDescription>
+                        No existing user found with this email. Please fill in their details.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
@@ -207,7 +334,16 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="john@example.com" {...field} value={field.value || ''} />
+                    <Input 
+                      type="email" 
+                      placeholder="john@example.com" 
+                      {...field} 
+                      value={field.value || ''} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setEmailToSearch(e.target.value);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

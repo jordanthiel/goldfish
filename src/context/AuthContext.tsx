@@ -1,330 +1,233 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { toast } from '@/hooks/use-toast';
-import { roleService } from '@/services/roleService';
-import { patientService } from '@/services/patientService';
 
-interface AuthContextProps {
-  session: Session | null;
-  user: User | null;
-  signUp: (email: string, password: string, fullName: string, role?: string) => Promise<void>;
-  signIn: (email: string, password: string, role?: string, inviteCode?: string) => Promise<void>;
-  signOut: () => Promise<void>;
+// Update the context types
+interface AuthContextType {
+  user: any | null;
   loading: boolean;
-  userRole: string | null;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, metadata?: any) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  userRoles: string[];
+  isClient: boolean;
+  isTherapist: boolean;
+  isAdmin: boolean;
+  checkHasRole: (role: string) => boolean;
+  checkClaim: (key: string, value?: any) => boolean;
+  getSession: () => Promise<any>;
 }
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  const fetchUserRole = async (userId: string) => {
+  // Function to check for pending client invitations for a user
+  const checkPendingInvitations = async (userId: string, userEmail: string) => {
     try {
-      const roles = await roleService.getUserRoles(userId);
-      console.log('Fetched roles:', roles);
-      if (roles.length > 0) {
-        setUserRole(roles[0].role);
-      }
-    } catch (error) {
-      console.error("Error fetching user role:", error);
-    }
-  };
+      // This function doesn't exist, so we should avoid calling it directly
+      // const { data, error } = await supabase.rpc('check_pending_invitations', {
+      //   user_id_param: userId,
+      //   email_param: userEmail
+      // });
 
-  const checkPendingInvitations = async (email: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('check-client-invitations', {
-        body: { email }
-      });
+      // Instead, we'll check directly from the client_invitations table
+      const { data, error } = await supabase
+        .from('client_invitations')
+        .select('*')
+        .eq('email', userEmail)
+        .eq('status', 'pending')
+        .eq('claimed', false);
       
-      if (error) {
-        console.error('Error checking invitations:', error);
-        return [];
-      }
+      if (error) throw error;
       
-      return data.invitations || [];
-    } catch (error) {
-      console.error('Error in checkPendingInvitations:', error);
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log('Auth state changed:', event);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+      // Process any pending invitations
+      if (data && data.length > 0) {
+        console.log('Found pending invitations:', data);
         
-        if (event === 'SIGNED_IN' && currentSession?.user) {
-          setTimeout(async () => {
-            try {
-              await fetchUserRole(currentSession.user.id);
-              
-              if (currentSession.user.email) {
-                await checkPendingInvitations(currentSession.user.email);
-              }
-              
-              toast({
-                title: "Welcome back!",
-                description: "You have successfully signed in.",
-              });
-            } catch (error) {
-              console.error("Error fetching user role:", error);
-            }
-          }, 100);
-        } else if (event === 'SIGNED_OUT') {
-          setUserRole(null);
-          toast({
-            title: "Signed out",
-            description: "You have been signed out successfully.",
-          });
-        }
+        // We would handle pending invitations here
+        // For example, auto-claim them or show a notification to the user
       }
-    );
+    } catch (error) {
+      console.error('Error checking pending invitations:', error);
+    }
+  };
 
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      console.log('Getting existing session:', currentSession?.user?.id);
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+  // Function to sync user auth state with our state
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setLoading(true);
       
-      if (currentSession?.user) {
+      if (session && session.user) {
+        setUser(session.user);
+        
         try {
-          await fetchUserRole(currentSession.user.id);
+          // Get user roles
+          const { data: roles, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id);
+            
+          if (error) throw error;
           
-          if (currentSession.user.email) {
-            await checkPendingInvitations(currentSession.user.email);
+          const roleNames = roles.map(r => r.role);
+          setUserRoles(roleNames);
+          
+          // Check for pending invitations after login
+          if (event === 'SIGNED_IN') {
+            await checkPendingInvitations(session.user.id, session.user.email || '');
           }
         } catch (error) {
-          console.error("Error fetching user role:", error);
+          console.error('Error getting user roles:', error);
+          setUserRoles([]);
         }
+      } else {
+        setUser(null);
+        setUserRoles([]);
       }
       
       setLoading(false);
     });
+
+    // Check current session on mount
+    const initializeAuth = async () => {
+      setLoading(true);
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session && session.user) {
+          setUser(session.user);
+          
+          // Get user roles
+          const { data: roles, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id);
+            
+          if (error) throw error;
+          
+          const roleNames = roles.map(r => r.role);
+          setUserRoles(roleNames);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      }
+      
+      setLoading(false);
+    };
+
+    initializeAuth();
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  useEffect(() => {
-    const fetchRoles = async () => {
-      if (user) {
-        try {
-          const roles = await roleService.getUserRoles(user.id);
-          console.log('Fetched roles:', roles);
-          if (roles.length > 0) {
-            setUserRole(roles[0].role);
-          }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-        }
-      }
-    };
-
-    if (user) {
-      fetchRoles();
-      
-      const checkInvitations = async () => {
-        try {
-          console.log("Checking for pending invitations for email:", user.email);
-          const { data, error } = await supabase.functions.invoke('check-client-invitations', {
-            body: { email: user.email }
-          });
-          
-          if (error) {
-            console.error('Client invitations system not set up yet:', error.message);
-          } else if (data && data.invitations && data.invitations.length > 0) {
-            console.log("Found pending invitations:", data.invitations);
-            // Handle invitations logic here
-          }
-        } catch (err) {
-          console.error('Client invitations system not set up yet:', err);
-        }
-      };
-      
-      checkInvitations();
-    }
-  }, [user]);
-
-  const signUp = async (email: string, password: string, fullName: string, role: string = 'therapist') => {
+  // Sign in with email and password
+  const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      const { error, data } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error signing in:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to sign in. Please check your credentials.' 
+      };
+    }
+  };
+
+  // Sign up with email and password
+  const signUp = async (email: string, password: string, metadata?: any) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-          },
+          data: metadata,
         },
       });
 
       if (error) throw error;
       
-      if (data.user) {
-        try {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: data.user.id,
-              role: role
-            });
-            
-          if (roleError) {
-            console.error(`Error assigning ${role} role:`, roleError);
-          } else {
-            console.log(`${role} role assigned successfully`);
-          }
-        } catch (roleError) {
-          console.error(`Error assigning ${role} role:`, roleError);
-          // We'll continue even if role assignment fails, as the user can try again later
-        }
-      }
-      
-      toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account.",
-      });
-      
+      return { success: true };
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error;
-    } finally {
-      setLoading(false);
+      console.error('Error signing up:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to sign up. Please try again.' 
+      };
     }
   };
 
-  const signIn = async (email: string, password: string, role?: string, inviteCode?: string) => {
-    try {
-      setLoading(true);
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      let userRoles: any[] = [];
-      if (data.user) {
-        try {
-          userRoles = await roleService.getUserRoles(data.user.id);
-          console.log('User roles during login:', userRoles);
-        } catch (roleError) {
-          console.error("Error checking user roles during login:", roleError);
-        }
-      }
-
-      if (role && data.user) {
-        const hasRole = userRoles.some(userRole => userRole.role === role);
-        
-        if (!hasRole) {
-          if (userRoles.length === 0) {
-            console.warn("No roles found for user, but continuing login");
-          } else {
-            await supabase.auth.signOut();
-            setUserRole(null);
-            throw new Error(`You don't have access as a ${role}. Please sign in with the correct account or contact support.`);
-          }
-        }
-      }
-
-      const userRole = userRoles.length > 0 ? userRoles[0].role : null;
-      setUserRole(userRole);
-
-      if (inviteCode && data.user) {
-        try {
-          console.log("Processing invite code during login:", inviteCode);
-          const result = await patientService.claimPatientAccount(inviteCode);
-          
-          if (result && typeof result === 'object' && 'success' in result && result.success) {
-            toast({
-              title: "Account linked",
-              description: "Your account has been successfully linked to your therapist.",
-            });
-            
-            if (!userRoles.some(r => r.role === 'client')) {
-              try {
-                await roleService.assignRole(data.user.id, 'client');
-                console.log("Added client role to user");
-                setUserRole('client');
-              } catch (roleError) {
-                console.error("Error adding client role:", roleError);
-              }
-            }
-          }
-        } catch (inviteError: any) {
-          console.error("Error processing invite during login:", inviteError);
-          toast({
-            title: "Invitation error",
-            description: inviteError.message || "Could not process your invitation",
-            variant: "destructive",
-          });
-        }
-      } else {
-        if (data.user?.email) {
-          await checkPendingInvitations(data.user.email);
-        }
-      }
-
-      if (userRole === 'client') {
-        navigate('/patient/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error signing in",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Sign out
   const signOut = async () => {
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUserRole(null);
+      await supabase.auth.signOut();
       navigate('/');
-    } catch (error: any) {
-      toast({
-        title: "Error signing out",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   };
 
+  // Check if the user has a specific role
+  const checkHasRole = (role: string) => {
+    return userRoles.includes(role);
+  };
+
+  // Check if the user has a specific claim
+  const checkClaim = (key: string, value?: any) => {
+    if (!user) return false;
+    
+    const claims = user.app_metadata;
+    if (!claims) return false;
+    
+    return value !== undefined ? claims[key] === value : !!claims[key];
+  };
+
+  // Get the current session
+  const getSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
+    } catch (error) {
+      console.error('Error getting session:', error);
+      return null;
+    }
+  };
+
+  // Computed properties
+  const isClient = checkHasRole('client');
+  const isTherapist = checkHasRole('therapist');
+  const isAdmin = checkHasRole('admin');
+
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        signUp,
-        signIn,
-        signOut,
-        loading,
-        userRole,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      userRoles,
+      isClient,
+      isTherapist,
+      isAdmin,
+      checkHasRole,
+      checkClaim,
+      getSession,
+    }}>
       {children}
     </AuthContext.Provider>
   );
