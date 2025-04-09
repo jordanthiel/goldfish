@@ -1,310 +1,228 @@
-
 import React, { useState, useEffect } from 'react';
-import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar as CalendarIcon, Clock, Video } from "lucide-react";
-import { format } from "date-fns";
+import { useQuery } from '@tanstack/react-query';
+import { patientService } from '@/services/patientService';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import PatientLayout from '@/components/layout/PatientLayout';
+import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { PatientLayout } from '../layout/PatientLayout';
-import { patientService, Appointment } from '@/services/patientService';
-import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 const PatientAppointments = () => {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [appointmentDates, setAppointmentDates] = useState<Date[]>([]);
 
-  useEffect(() => {
-    const loadAppointments = async () => {
-      try {
-        const patientData = await patientService.getPatientProfile();
-        if (!patientData) {
-          toast({
-            title: "Error loading profile",
-            description: "Could not load your patient profile",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        const dashboardData = await patientService.getPatientDashboardData();
-        setAppointments([
-          ...dashboardData.upcomingAppointments,
-          ...dashboardData.recentAppointments
-        ]);
-      } catch (error) {
-        console.error("Error loading appointments:", error);
-        toast({
-          title: "Error",
-          description: "Could not load your appointments",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAppointments();
-  }, [toast]);
-
-  // Filter appointments for the selected date
-  const appointmentsOnSelectedDate = selectedDate
-    ? appointments.filter(apt => {
-        const aptDate = new Date(apt.start_time);
-        return (
-          aptDate.getDate() === selectedDate.getDate() &&
-          aptDate.getMonth() === selectedDate.getMonth() &&
-          aptDate.getFullYear() === selectedDate.getFullYear()
-        );
-      })
-    : [];
-
-  // Get all dates that have appointments for highlighting in the calendar
-  const appointmentDates = appointments.map(apt => {
-    const date = new Date(apt.start_time);
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  // Fetch patient dashboard data
+  const { data: dashboardData, isLoading, error } = useQuery({
+    queryKey: ['patientDashboard'],
+    queryFn: patientService.getPatientDashboardData,
   });
+
+  // Extract appointments from dashboard data
+  const allAppointments = [
+    ...(dashboardData?.upcomingAppointments || []),
+    ...(dashboardData?.recentAppointments || [])
+  ];
+
+  // Get appointments for the selected date
+  const appointmentsForSelectedDate = allAppointments.filter(appointment => {
+    if (!selectedDate) return false;
+    const appointmentDate = new Date(appointment.start_time);
+    return (
+      appointmentDate.getDate() === selectedDate.getDate() &&
+      appointmentDate.getMonth() === selectedDate.getMonth() &&
+      appointmentDate.getFullYear() === selectedDate.getFullYear()
+    );
+  });
+
+  // Update appointment dates for calendar highlighting
+  useEffect(() => {
+    if (allAppointments.length > 0) {
+      const dates = allAppointments.map(appointment => new Date(appointment.start_time));
+      setAppointmentDates(dates);
+    }
+  }, [allAppointments]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error loading appointments',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  }, [error, toast]);
+
+  // Format appointment time
+  const formatAppointmentTime = (startTime: string, endTime: string) => {
+    return `${format(new Date(startTime), 'h:mm a')} - ${format(new Date(endTime), 'h:mm a')}`;
+  };
+
+  // Get status badge color
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <PatientLayout>
-      <div className="space-y-6 p-6 pb-16">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Appointments</h1>
-          <p className="text-muted-foreground">View and manage your therapy sessions</p>
+      <div className="container mx-auto py-6">
+        <h1 className="text-3xl font-bold mb-6">My Appointments</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Calendar */}
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Calendar</CardTitle>
+              <CardDescription>Select a date to view appointments</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="rounded-md border"
+                modifiers={{
+                  appointment: appointmentDates,
+                }}
+                modifiersStyles={{
+                  appointment: {
+                    fontWeight: 'bold',
+                    backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                    borderRadius: '100%',
+                  },
+                }}
+              />
+            </CardContent>
+          </Card>
+          
+          {/* Appointments for selected date */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>
+                {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'Select a date'}
+              </CardTitle>
+              <CardDescription>
+                {appointmentsForSelectedDate.length > 0 
+                  ? `${appointmentsForSelectedDate.length} appointment(s) scheduled` 
+                  : 'No appointments scheduled for this date'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple"></div>
+                </div>
+              ) : appointmentsForSelectedDate.length > 0 ? (
+                <div className="space-y-4">
+                  {appointmentsForSelectedDate.map((appointment) => (
+                    <div 
+                      key={appointment.id} 
+                      className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold text-lg">{appointment.title || 'Therapy Session'}</h3>
+                        <Badge className={getStatusColor(appointment.status)}>
+                          {appointment.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">
+                        {formatAppointmentTime(appointment.start_time, appointment.end_time)}
+                      </div>
+                      {appointment.type && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          Type: {appointment.type}
+                        </div>
+                      )}
+                      {appointment.notes && (
+                        <div className="mt-2 text-sm">
+                          <p className="font-medium">Notes:</p>
+                          <p className="text-gray-600">{appointment.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500">
+                    {selectedDate 
+                      ? 'No appointments scheduled for this date. Select another date or contact your therapist to schedule a session.'
+                      : 'Please select a date to view appointments.'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Upcoming Appointments */}
+          <Card className="md:col-span-3">
+            <CardHeader>
+              <CardTitle>Upcoming Appointments</CardTitle>
+              <CardDescription>Your next scheduled sessions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple"></div>
+                </div>
+              ) : dashboardData?.upcomingAppointments && dashboardData.upcomingAppointments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-4">Date</th>
+                        <th className="text-left py-2 px-4">Time</th>
+                        <th className="text-left py-2 px-4">Type</th>
+                        <th className="text-left py-2 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboardData.upcomingAppointments.map((appointment) => (
+                        <tr key={appointment.id} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-4">{format(new Date(appointment.start_time), 'MMMM d, yyyy')}</td>
+                          <td className="py-2 px-4">{formatAppointmentTime(appointment.start_time, appointment.end_time)}</td>
+                          <td className="py-2 px-4">{appointment.title || 'Therapy Session'}</td>
+                          <td className="py-2 px-4">
+                            <Badge className={getStatusColor(appointment.status)}>
+                              {appointment.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500">
+                    You don't have any upcoming appointments. Contact your therapist to schedule a session.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-
-        <Tabs defaultValue="calendar" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="list">List View</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="past">Past</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="calendar" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card className="col-span-1">
-                <CardHeader>
-                  <CardTitle>Calendar</CardTitle>
-                  <CardDescription>Select a date to view appointments</CardDescription>
-                </CardHeader>
-                <CardContent className="pl-2">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    className="rounded-md border"
-                    disabled={loading}
-                    modifiers={{
-                      booked: appointmentDates,
-                    }}
-                    modifiersStyles={{
-                      booked: { 
-                        fontWeight: 'bold',
-                        backgroundColor: 'rgba(147, 51, 234, 0.1)',
-                      }
-                    }}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1 md:col-span-1 lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>
-                    {selectedDate ? (
-                      `Appointments for ${format(selectedDate, 'PPP')}`
-                    ) : (
-                      'Select a date to view appointments'
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    {appointmentsOnSelectedDate.length} 
-                    {appointmentsOnSelectedDate.length === 1 ? ' session' : ' sessions'} scheduled
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="space-y-3">
-                      <Skeleton className="h-20 w-full" />
-                      <Skeleton className="h-20 w-full" />
-                    </div>
-                  ) : appointmentsOnSelectedDate.length > 0 ? (
-                    <div className="space-y-4">
-                      {appointmentsOnSelectedDate.map((appointment) => (
-                        <AppointmentCard key={appointment.id} appointment={appointment} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium">No appointments on this date</h3>
-                      <p className="text-sm text-muted-foreground max-w-md mt-1 mb-4">
-                        There are no therapy sessions scheduled for the selected date.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="list" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Appointments</CardTitle>
-                <CardDescription>View all your scheduled therapy sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                  </div>
-                ) : appointments.length > 0 ? (
-                  <div className="space-y-4">
-                    {appointments
-                      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-                      .map((appointment) => (
-                        <AppointmentCard key={appointment.id} appointment={appointment} />
-                      ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No appointments found</h3>
-                    <p className="text-sm text-muted-foreground max-w-md mt-1 mb-4">
-                      You don't have any therapy sessions scheduled yet.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="upcoming" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Appointments</CardTitle>
-                <CardDescription>View your upcoming therapy sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                  </div>
-                ) : appointments.filter(a => new Date(a.start_time) > new Date()).length > 0 ? (
-                  <div className="space-y-4">
-                    {appointments
-                      .filter(a => new Date(a.start_time) > new Date())
-                      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-                      .map((appointment) => (
-                        <AppointmentCard key={appointment.id} appointment={appointment} />
-                      ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No upcoming appointments</h3>
-                    <p className="text-sm text-muted-foreground max-w-md mt-1 mb-4">
-                      You don't have any upcoming therapy sessions scheduled.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="past" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Past Appointments</CardTitle>
-                <CardDescription>View your past therapy sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                  </div>
-                ) : appointments.filter(a => new Date(a.start_time) <= new Date()).length > 0 ? (
-                  <div className="space-y-4">
-                    {appointments
-                      .filter(a => new Date(a.start_time) <= new Date())
-                      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-                      .map((appointment) => (
-                        <AppointmentCard key={appointment.id} appointment={appointment} />
-                      ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No past appointments</h3>
-                    <p className="text-sm text-muted-foreground max-w-md mt-1 mb-4">
-                      You haven't had any therapy sessions yet.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
     </PatientLayout>
-  );
-};
-
-const AppointmentCard = ({ appointment }: { appointment: Appointment }) => {
-  const isPast = new Date(appointment.end_time) < new Date();
-  const isOngoing = new Date(appointment.start_time) <= new Date() && new Date(appointment.end_time) >= new Date();
-  
-  return (
-    <div className={`rounded-lg border p-4 ${isOngoing ? 'border-purple-500 bg-purple-50' : ''}`}>
-      <div className="flex flex-col sm:flex-row justify-between">
-        <div>
-          <h3 className="font-medium text-lg">{appointment.title}</h3>
-          <div className="flex items-center text-sm text-muted-foreground mt-1">
-            <CalendarIcon className="mr-1 h-4 w-4" />
-            <span>{format(new Date(appointment.start_time), 'PPP')}</span>
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground mt-1">
-            <Clock className="mr-1 h-4 w-4" />
-            <span>
-              {format(new Date(appointment.start_time), 'h:mm a')} - 
-              {format(new Date(appointment.end_time), 'h:mm a')}
-              {appointment.duration && ` (${appointment.duration} min)`}
-            </span>
-          </div>
-          <div className="mt-2">
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-              ${appointment.status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                appointment.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                isOngoing ? 'bg-purple-100 text-purple-800' :
-                'bg-blue-100 text-blue-800'}`
-            }>
-              {isOngoing ? 'In Progress' : appointment.status}
-            </span>
-          </div>
-        </div>
-        <div className="mt-3 sm:mt-0 flex flex-row sm:flex-col items-center sm:items-end gap-2">
-          {!isPast && (
-            <Button variant="secondary" size="sm" className="flex items-center gap-1">
-              <Video className="h-4 w-4" />
-              <span className="hidden sm:inline">Join</span>
-            </Button>
-          )}
-          {isPast && appointment.status === 'Completed' && (
-            <Button variant="outline" size="sm" className="flex items-center gap-1">
-              View Notes <ArrowRight className="h-3 w-3 ml-1" />
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
   );
 };
 

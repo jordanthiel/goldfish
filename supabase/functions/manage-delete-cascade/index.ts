@@ -86,6 +86,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
+    // First, create the audit log entry
+    const { error: auditError } = await serviceClient
+      .from('audit_logs')
+      .insert({
+        user_id: user.id, // Use the current user's ID
+        action: 'DELETE',
+        table_name: 'clients',
+        record_id: clientId,
+        old_data: client
+      })
+
+    if (auditError) {
+      console.error('Error creating audit log:', auditError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to log deletion: ' + auditError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+
     // Delete client - this will cascade delete related records
     const { error: deleteError } = await serviceClient
       .from('clients')

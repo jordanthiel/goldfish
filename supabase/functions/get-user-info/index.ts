@@ -41,8 +41,30 @@ serve(async (req) => {
     }
 
     // Get request parameters
-    const url = new URL(req.url)
-    const userId = url.searchParams.get('userId')
+    let userId;
+    
+    // Check if this is a GET or POST request
+    if (req.method === 'POST') {
+      const { userId: reqUserId } = await req.json();
+      userId = reqUserId;
+    } else {
+      // For GET requests, check URL parameters
+      const url = new URL(req.url);
+      userId = url.searchParams.get('userId');
+      
+      // Also support the new params format in v2.0+
+      if (!userId) {
+        try {
+          const requestUrl = new URL(req.url);
+          const paramsMatch = requestUrl.pathname.match(/\/params\/(.+)/);
+          if (paramsMatch && paramsMatch[1]) {
+            userId = paramsMatch[1];
+          }
+        } catch (e) {
+          console.error("Error parsing URL params:", e);
+        }
+      }
+    }
 
     // If a userId is provided, check if current user is an admin
     if (userId) {
