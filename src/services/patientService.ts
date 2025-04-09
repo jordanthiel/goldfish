@@ -224,8 +224,7 @@ export const patientService = {
     const { data: appointments, error } = await supabase
       .from('appointments')
       .select(`
-        *,
-        session_notes (*)
+        *
       `)
       .eq('client_id', clientId)
       .gte('start_time', now.toISOString())
@@ -253,8 +252,7 @@ export const patientService = {
     const { data: appointments, error } = await supabase
       .from('appointments')
       .select(`
-        *,
-        session_notes (*)
+        *
       `)
       .eq('client_id', clientId)
       .lt('start_time', now.toISOString())

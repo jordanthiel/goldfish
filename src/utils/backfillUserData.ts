@@ -1,248 +1,163 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 
-/**
- * Backfills test data for the currently logged-in user
- * This is for development/testing purposes only
- */
+const createSampleAppointmentsForClient = async (therapistId: string, clientId: string) => {
+  const sampleAppointments = [
+    {
+      title: 'Initial Consultation',
+      start_time: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
+      end_time: new Date(new Date().setDate(new Date().getDate() + 7)).setHours(new Date().getHours() + 1).toISOString(),
+      status: 'Scheduled',
+      notes: 'Discuss client history and goals for therapy.'
+    },
+    {
+      title: 'Follow-up Session',
+      start_time: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString(),
+      end_time: new Date(new Date().setDate(new Date().getDate() + 14)).setHours(new Date().getHours() + 1).toISOString(),
+      status: 'Scheduled',
+      notes: 'Review progress and adjust treatment plan.'
+    }
+  ];
+  
+  for (const appointmentData of sampleAppointments) {
+    const { error: appError } = await supabase
+      .from('appointments')
+      .insert({
+        therapist_id: therapistId,
+        client_id: clientId,
+        title: appointmentData.title,
+        start_time: appointmentData.start_time,
+        end_time: appointmentData.end_time,
+        status: appointmentData.status,
+        notes: appointmentData.notes
+      });
+      
+    if (appError) {
+      console.error('Error creating sample appointment:', appError);
+    }
+  }
+};
+
 export const backfillUserData = async () => {
   try {
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You need to be logged in to backfill data",
-        variant: "destructive",
-      });
-      return;
+      console.error('No user found when trying to backfill data');
+      return false;
     }
-
-    toast({
-      title: "Backfilling data",
-      description: "Adding test data for your account...",
-    });
-
-    // Check if user already has a client record
-    const { data: existingClient } = await supabase
-      .from('client_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    // Create a therapist for the client if needed
-    let therapistId: string;
+    
+    console.log('Starting backfill for user:', user.id);
+    
+    // Check if this user already has a therapist profile
     const { data: existingTherapist } = await supabase
       .from('therapist_profiles')
       .select('id')
-      .limit(1)
-      .single();
-
-    if (existingTherapist) {
-      therapistId = existingTherapist.id;
-    } else {
-      // Create a sample therapist if none exists
-      const { data: newTherapist, error: therapistError } = await supabase
+      .eq('id', user.id)
+      .maybeSingle();
+    
+    if (!existingTherapist) {
+      // Create therapist profile if it doesn't exist
+      const { error: therapistError } = await supabase
         .from('therapist_profiles')
         .insert({
-          id: crypto.randomUUID(),
-          full_name: 'Dr. Jane Smith',
-          specialty: 'Clinical Psychologist',
-          bio: 'Specialized in cognitive behavioral therapy with 15 years of experience.',
-          license_number: 'PSY12345',
-          years_experience: 15,
-          profile_image_url: 'https://randomuser.me/api/portraits/women/65.jpg'
-        })
-        .select()
-        .single();
-
+          id: user.id,
+          full_name: user.user_metadata?.full_name || 'Dr. Example Therapist',
+          specialty: 'Clinical Psychology',
+          license_number: 'ABC12345',
+          years_experience: 8,
+          bio: 'Experienced therapist specializing in anxiety, depression, and relationship issues.',
+          profile_image_url: 'https://randomuser.me/api/portraits/men/1.jpg',
+        });
+        
       if (therapistError) {
-        console.error('Error creating therapist:', therapistError);
-        throw therapistError;
+        console.error('Error creating therapist profile:', therapistError);
+        return false;
       }
-      
-      therapistId = newTherapist.id;
     }
-
-    let clientId: string;
-    // Create or update client record
-    if (!existingClient) {
-      const { data: newClient, error: clientError } = await supabase
+    
+    // Create sample clients
+    const sampleClients = [
+      {
+        first_name: 'Alex',
+        last_name: 'Johnson',
+        phone: '555-123-4567',
+        date_of_birth: '1985-06-15',
+        address: '123 Main St, Anytown, USA',
+        status: 'Active'
+      },
+      {
+        first_name: 'Jordan',
+        last_name: 'Smith',
+        phone: '555-987-6543',
+        date_of_birth: '1990-03-22',
+        address: '456 Oak Ave, Somewhere, USA',
+        status: 'Active'
+      },
+      {
+        first_name: 'Taylor',
+        last_name: 'Williams',
+        phone: '555-555-5555',
+        date_of_birth: '1978-11-30',
+        address: '789 Pine Blvd, Nowhere, USA',
+        status: 'Inactive'
+      }
+    ];
+    
+    // Create each client
+    for (const clientData of sampleClients) {
+      // Insert client profile
+      const { data: client, error: clientError } = await supabase
         .from('client_profiles')
         .insert({
-          user_id: user.id,
-          first_name: user.user_metadata?.full_name?.split(' ')[0] || 'Test',
-          last_name: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 'Client',
-          phone: '555-123-4567',
-          date_of_birth: '1990-01-01',
-          address: '123 Main St, Anytown, USA',
-          status: 'Active'
+          first_name: clientData.first_name,
+          last_name: clientData.last_name,
+          phone: clientData.phone,
+          date_of_birth: clientData.date_of_birth,
+          address: clientData.address,
+          status: clientData.status
         })
         .select()
         .single();
         
-      if (clientError) {
-        console.error('Error creating client profile:', clientError);
-        throw clientError;
+      if (clientError || !client) {
+        console.error('Error creating sample client:', clientError);
+        continue;
       }
       
-      clientId = newClient.id;
-      
-      // Create therapist-client relationship
-      const { error: relationshipError } = await supabase
+      // Create relationship between therapist and client
+      const { error: relError } = await supabase
         .from('therapist_clients')
         .insert({
-          therapist_id: therapistId,
-          client_id: clientId,
-          status: 'active'
+          therapist_id: user.id,
+          client_id: client.id,
+          status: clientData.status
         });
         
-      if (relationshipError) {
-        console.error('Error creating therapist-client relationship:', relationshipError);
-        throw relationshipError;
+      if (relError) {
+        console.error('Error creating therapist-client relationship:', relError);
+        continue;
       }
-    } else {
-      clientId = existingClient.id;
+      
+      // Create sample appointments for this client
+      await createSampleAppointmentsForClient(user.id, client.id);
     }
-
-    // Create sample appointments (past)
-    const past30Days = new Date();
-    past30Days.setDate(past30Days.getDate() - 30);
     
-    const past14Days = new Date();
-    past14Days.setDate(past14Days.getDate() - 14);
-    
-    const past7Days = new Date();
-    past7Days.setDate(past7Days.getDate() - 7);
-
-    // Create past appointments
-    await supabase
-      .from('appointments')
-      .insert([
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Initial Assessment - Video Session',
-          start_time: new Date(past30Days.setHours(10, 0, 0, 0)).toISOString(),
-          end_time: new Date(past30Days.setHours(11, 0, 0, 0)).toISOString(),
-          status: 'Completed',
-          notes: 'Completed initial assessment. Client expressed anxiety about work situations.'
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Follow-up Session - Video Session',
-          start_time: new Date(past14Days.setHours(14, 0, 0, 0)).toISOString(),
-          end_time: new Date(past14Days.setHours(15, 0, 0, 0)).toISOString(),
-          status: 'Completed',
-          notes: 'Discussed coping mechanisms for workplace anxiety.'
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Weekly Session - Video Session',
-          start_time: new Date(past7Days.setHours(15, 30, 0, 0)).toISOString(),
-          end_time: new Date(past7Days.setHours(16, 30, 0, 0)).toISOString(),
-          status: 'Completed',
-          notes: 'Client reported improvement with using breathing techniques during stressful situations.'
-        }
-      ]);
-
-    // Create session notes for past appointments
-    await supabase
-      .from('session_notes')
-      .insert([
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          content: 'Client presented with symptoms of anxiety related to workplace stress. Recommended daily mindfulness practice and scheduled weekly follow-up.',
-          is_private: false
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          content: 'Follow-up session showed positive response to mindfulness techniques. Client is implementing breathing exercises during stressful moments at work.',
-          is_private: false
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          content: 'Client reports significant reduction in anxiety symptoms. Will continue with current approach and add journaling as an additional coping strategy.',
-          is_private: false
-        }
-      ]);
-
-    // Create upcoming appointments
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    
-    const twoWeeksLater = new Date();
-    twoWeeksLater.setDate(twoWeeksLater.getDate() + 14);
-
-    await supabase
-      .from('appointments')
-      .insert([
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Weekly Check-in - Video Session',
-          start_time: new Date(tomorrow.setHours(10, 0, 0, 0)).toISOString(),
-          end_time: new Date(tomorrow.setHours(11, 0, 0, 0)).toISOString(),
-          status: 'Scheduled'
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Progress Review - Video Session',
-          start_time: new Date(nextWeek.setHours(15, 0, 0, 0)).toISOString(),
-          end_time: new Date(nextWeek.setHours(16, 0, 0, 0)).toISOString(),
-          status: 'Scheduled'
-        },
-        {
-          therapist_id: therapistId,
-          client_id: clientId,
-          title: 'Monthly Assessment - Video Session',
-          start_time: new Date(twoWeeksLater.setHours(14, 30, 0, 0)).toISOString(),
-          end_time: new Date(twoWeeksLater.setHours(15, 30, 0, 0)).toISOString(),
-          status: 'Scheduled'
-        }
-      ]);
-
-    // Ensure the user has the client role
-    const { data: existingRole } = await supabase
+    // Add a therapist role if not already assigned
+    const { error: roleError } = await supabase
       .from('user_roles')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('role', 'client')
-      .single();
-
-    if (!existingRole) {
-      await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          role: 'client'
-        });
+      .insert({ user_id: user.id, role: 'therapist' })
+      .select();
+      
+    if (roleError) {
+      // Ignore duplicate key errors for roles
+      if (!roleError.message.includes('duplicate key')) {
+        console.error('Error assigning therapist role:', roleError);
+      }
     }
-
-    toast({
-      title: "Data backfilled successfully",
-      description: "Your account now has test data. Please refresh or navigate to the patient dashboard to see it.",
-    });
-
+    
+    console.log('Backfill completed successfully');
     return true;
   } catch (error) {
-    console.error('Error backfilling data:', error);
-    toast({
-      title: "Error backfilling data",
-      description: error.message || "An unexpected error occurred",
-      variant: "destructive",
-    });
+    console.error('Error during backfill:', error);
     return false;
   }
 };

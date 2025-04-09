@@ -1,79 +1,47 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create a Supabase client with the Auth context of the logged in user
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    )
-
-    // Get the authenticated user
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Not authenticated' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
-    }
-
-    // Get request body
-    const { email } = await req.json()
+    // Parse the request body
+    const { email } = await req.json();
+    
     if (!email) {
       return new Response(
-        JSON.stringify({ error: 'Email is required' }),
+        JSON.stringify({ success: false, message: 'Email is required' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      );
     }
-
-    // The client_invitations table might not exist yet, so we'll check if it does
-    // This is a safe approach
-    try {
-      // For now, we'll just return success if there are no invitations
-      // This will be expanded when the invitations system is implemented
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'No pending invitations found',
-          invitations: []
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    } catch (error) {
-      console.error('Error checking for invitations:', error)
-      
-      // Don't treat this as an error, just report that no invitations were found
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Invitations system not yet available',
-          invitations: []
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-  } catch (error) {
-    console.error('Error in check-client-invitations function:', error)
+    
+    console.log(`Checking for pending invitations for email: ${email}`);
+    
+    // In this simplified version, we just return a success with no invitations
+    // In a real implementation, you would query the client_invitations table
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: true, 
+        invitations: [] 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
+  } catch (error) {
+    console.error('Error in check-client-invitations:', error);
+    
+    return new Response(
+      JSON.stringify({ success: false, message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+    );
   }
-})
+});

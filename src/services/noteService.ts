@@ -1,263 +1,282 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Client } from '@/services/clientService';
-import { auditService } from '@/services/auditService';
-import { encryptAES, decryptAES } from '@/lib/utils';
+import { Client } from './clientService';
 
 export interface SessionNote {
   id: string;
   therapist_id: string;
   client_id: string;
+  appointment_id?: string | null;
   content: string;
+  is_private: boolean | null;
   created_at: string;
   updated_at: string;
-  appointment_id?: string;
-  is_private?: boolean;
 }
 
 export interface SessionNoteWithClient extends SessionNote {
-  client?: Client;
+  client: Client;
 }
 
-export interface SessionNoteInput {
-  client_id: string;
-  content: string;
-  appointment_id?: string;
-  is_private?: boolean;
+export interface NoteAccessLog {
+  id: string;
+  note_id: string;
+  user_id: string;
+  access_type: string;
+  accessed_at: string;
 }
-
-// Encryption/decryption functions
-const encryptContent = (content: string): string => {
-  try {
-    // Use AES encryption from utils
-    return encryptAES(content);
-  } catch (error) {
-    console.error('Error encrypting content:', error);
-    return content; // Fallback to unencrypted content
-  }
-};
-
-const decryptContent = (encryptedContent: string): string => {
-  try {
-    // Use AES decryption from utils
-    return decryptAES(encryptedContent);
-  } catch (error) {
-    console.error('Error decrypting content:', error);
-    return encryptedContent; // Return as is if decryption fails
-  }
-};
 
 export const noteService = {
-  // Get all notes for the current user/therapist
+  // Get all notes for the therapist
   async getNotes(): Promise<SessionNoteWithClient[]> {
-    const { data, error } = await supabase
-      .from('session_notes')
-      .select(`
-        *,
-        client:clients(*)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching notes:', error);
-      throw new Error(error.message);
-    }
-
-    // Decrypt the content of each note
-    const decryptedNotes = data?.map(note => ({
-      ...note,
-      content: note.content ? decryptContent(note.content) : ''
-    })) || [];
-
-    return decryptedNotes;
-  },
-
-  // Get notes for a specific client
-  async getClientNotes(clientId: string): Promise<SessionNote[]> {
-    const { data, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching client notes:', error);
-      throw new Error(error.message);
-    }
-
-    // Log access to the notes for HIPAA compliance
-    if (data && data.length > 0) {
-      // We only log once for the batch access
-      try {
-        await auditService.logNoteAccess(data[0].id, 'View Client Notes');
-      } catch (error) {
-        console.error('Error logging note access:', error);
-        // Continue execution - don't let access logging failure prevent note access
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user');
+        return [];
       }
-    }
-
-    // Decrypt the content of each note
-    const decryptedNotes = data?.map(note => ({
-      ...note,
-      content: note.content ? decryptContent(note.content) : ''
-    })) || [];
-
-    return decryptedNotes;
-  },
-
-  // Get notes for a specific appointment
-  async getAppointmentNotes(appointmentId: string): Promise<SessionNote[]> {
-    const { data, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('appointment_id', appointmentId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching appointment notes:', error);
-      throw new Error(error.message);
-    }
-
-    // Log access to the notes for HIPAA compliance
-    if (data && data.length > 0) {
-      try {
-        await auditService.logNoteAccess(data[0].id, 'View Appointment Notes');
-      } catch (error) {
-        console.error('Error logging note access:', error);
-        // Continue execution - don't let access logging failure prevent note access
+      
+      // Get notes with client information
+      const { data: notes, error } = await supabase
+        .from('session_notes')
+        .select(`
+          *
+        `)
+        .eq('therapist_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching notes:', error);
+        return [];
       }
+      
+      // Get client information for each note
+      const notesWithClients: SessionNoteWithClient[] = [];
+      
+      for (const note of notes) {
+        const { data: client, error: clientError } = await supabase
+          .from('client_profiles')
+          .select('*')
+          .eq('id', note.client_id)
+          .single();
+          
+        if (clientError) {
+          console.error('Error fetching client for note:', clientError);
+          continue;
+        }
+        
+        notesWithClients.push({
+          ...note,
+          client: {
+            id: client.id,
+            first_name: client.first_name || '',
+            last_name: client.last_name || '',
+            status: client.status || 'Active',
+            created_at: client.created_at,
+            // Add other required client fields with defaults
+            phone: client.phone,
+            date_of_birth: client.date_of_birth,
+            address: client.address,
+            emergency_contact: client.emergency_contact,
+            updated_at: client.updated_at,
+            user_id: client.user_id,
+            phi_data: client.phi_data
+          }
+        });
+      }
+      
+      return notesWithClients;
+      
+    } catch (error) {
+      console.error('Error in getNotes:', error);
+      return [];
     }
-
-    // Decrypt the content of each note
-    const decryptedNotes = data?.map(note => ({
-      ...note,
-      content: note.content ? decryptContent(note.content) : ''
-    })) || [];
-
-    return decryptedNotes;
   },
-
+  
+  // Get notes by client ID
+  async getNotesByClient(clientId: string): Promise<SessionNote[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user');
+        return [];
+      }
+      
+      const { data: notes, error } = await supabase
+        .from('session_notes')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('therapist_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching notes by client ID:', error);
+        return [];
+      }
+      
+      return notes || [];
+    } catch (error) {
+      console.error('Error in getNotesByClient:', error);
+      return [];
+    }
+  },
+  
   // Get a single note by ID
-  async getNote(id: string): Promise<SessionNote> {
-    const { data, error } = await supabase
-      .from('session_notes')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching note:', error);
-      throw new Error(error.message);
-    }
-
-    // Log access to the note for HIPAA compliance
+  async getNote(noteId: string): Promise<SessionNote | null> {
     try {
-      await auditService.logNoteAccess(id, 'View Note');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user');
+        return null;
+      }
+      
+      const { data: note, error } = await supabase
+        .from('session_notes')
+        .select('*')
+        .eq('id', noteId)
+        .eq('therapist_id', user.id)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching note:', error);
+        return null;
+      }
+      
+      return note || null;
     } catch (error) {
-      console.error('Error logging note access:', error);
-      // Continue execution - don't let access logging failure prevent note access
+      console.error('Error in getNote:', error);
+      return null;
     }
-
-    // Decrypt the note content
-    return {
-      ...data,
-      content: data.content ? decryptContent(data.content) : ''
-    };
   },
-
+  
   // Create a new note
-  async createNote(note: SessionNoteInput): Promise<SessionNote> {
-    // Get current user id
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
+  async createNote(noteData: Partial<SessionNote>): Promise<{ success: boolean; note?: SessionNote; message?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'No authenticated user' };
+      }
+      
+      if (!noteData.client_id || !noteData.content) {
+        return { success: false, message: 'Client ID and content are required' };
+      }
+      
+      const { data: note, error } = await supabase
+        .from('session_notes')
+        .insert({
+          therapist_id: user.id,
+          client_id: noteData.client_id,
+          appointment_id: noteData.appointment_id,
+          content: noteData.content,
+          is_private: noteData.is_private || false
+        })
+        .select('*')
+        .single();
+        
+      if (error) {
+        console.error('Error creating note:', error);
+        return { success: false, message: error.message };
+      }
+      
+      return { success: true, note };
+    } catch (error: any) {
+      console.error('Error in createNote:', error);
+      return { success: false, message: error.message };
     }
-    
-    // Encrypt the note content before saving
-    const encryptedNote = {
-      ...note,
-      content: encryptContent(note.content)
-    };
-    
-    const { data, error } = await supabase
-      .from('session_notes')
-      .insert({
-        ...encryptedNote,
-        therapist_id: user.id,
-        is_private: note.is_private !== undefined ? note.is_private : true
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating note:', error);
-      throw new Error(error.message);
-    }
-
-    // Return the decrypted note for immediate use
-    return {
-      ...data,
-      content: decryptContent(data.content)
-    };
   },
-
+  
   // Update an existing note
-  async updateNote(id: string, updates: Partial<SessionNoteInput>): Promise<SessionNote> {
-    // If content is being updated, encrypt it
-    const encryptedUpdates = { ...updates };
-    if (updates.content) {
-      encryptedUpdates.content = encryptContent(updates.content);
-    }
-    
-    const { data, error } = await supabase
-      .from('session_notes')
-      .update({
-        ...encryptedUpdates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating note:', error);
-      throw new Error(error.message);
-    }
-
-    // Log the edit for HIPAA compliance
+  async updateNote(
+    noteId: string, 
+    noteData: Partial<SessionNote>
+  ): Promise<{ success: boolean; note?: SessionNote; message?: string }> {
     try {
-      await auditService.logNoteAccess(id, 'Edit Note');
-    } catch (error) {
-      console.error('Error logging note access:', error);
-      // Continue execution - don't let access logging failure prevent note access
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'No authenticated user' };
+      }
+      
+      const { data: note, error } = await supabase
+        .from('session_notes')
+        .update({
+          content: noteData.content,
+          is_private: noteData.is_private,
+          appointment_id: noteData.appointment_id
+        })
+        .eq('id', noteId)
+        .eq('therapist_id', user.id)
+        .select('*')
+        .single();
+        
+      if (error) {
+        console.error('Error updating note:', error);
+        return { success: false, message: error.message };
+      }
+      
+      return { success: true, note };
+    } catch (error: any) {
+      console.error('Error in updateNote:', error);
+      return { success: false, message: error.message };
     }
-
-    // Return the decrypted note
-    return {
-      ...data,
-      content: decryptContent(data.content)
-    };
   },
-
+  
   // Delete a note
-  async deleteNote(id: string): Promise<void> {
-    // Log the deletion for HIPAA compliance
+  async deleteNote(noteId: string): Promise<{ success: boolean; message?: string }> {
     try {
-      await auditService.logNoteAccess(id, 'Delete Note');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'No authenticated user' };
+      }
+      
+      const { error } = await supabase
+        .from('session_notes')
+        .delete()
+        .eq('id', noteId)
+        .eq('therapist_id', user.id);
+        
+      if (error) {
+        console.error('Error deleting note:', error);
+        return { success: false, message: error.message };
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in deleteNote:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Log access to a note
+  async logNoteAccess(noteId: string, accessType: string): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user');
+        return false;
+      }
+      
+      const { error } = await supabase
+        .from('note_access_logs')
+        .insert({
+          note_id: noteId,
+          user_id: user.id,
+          access_type: accessType
+        });
+        
+      if (error) {
+        console.error('Error logging note access:', error);
+        return false;
+      }
+      
+      return true;
     } catch (error) {
       console.error('Error logging note access:', error);
-      // Continue execution - don't let access logging failure prevent note deletion
-    }
-
-    const { error } = await supabase
-      .from('session_notes')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting note:', error);
-      throw new Error(error.message);
+      return false;
     }
   }
 };

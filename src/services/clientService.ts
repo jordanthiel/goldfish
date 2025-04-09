@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Patient } from './patientService';
 
 export interface Client {
   id: string;
@@ -14,373 +15,383 @@ export interface Client {
   status: string;
   created_at: string;
   updated_at?: string;
-  // HIPAA-compliant fields
+  therapist_id?: string;
   phi_data?: any;
-  consent_date?: string;
-  consent_version?: string;
-  full_name?: string;
+  appointments?: any[];
 }
 
-export interface ClientInput {
-  first_name: string;
-  last_name: string;
-  email?: string;
-  phone?: string;
-  date_of_birth?: string;
-  address?: string;
-  emergency_contact?: string;
-  status?: string;
-  // HIPAA-compliant fields
-  phi_data?: any;
-  consent_date?: string;
-  consent_version?: string;
+interface AppointmentDetails {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  notes?: string;
+  client?: any;
 }
 
 export const clientService = {
-  // Get all clients for the current therapist
+  // Get a list of all clients
   async getClients(): Promise<Client[]> {
-    // Get current user id (therapist)
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
-    // First get the therapist-client relationships
-    const { data: relationships, error: relError } = await supabase
-      .from('therapist_clients')
-      .select('client_id, therapist_id')
-      .eq('therapist_id', user.id);
-
-    if (relError) {
-      throw new Error(relError.message);
-    }
-
-    if (!relationships || relationships.length === 0) {
-      return [];
-    }
-
-    // Get client profiles for all client IDs
-    const clientIds = relationships.map(rel => rel.client_id);
-    
-    const { data: clientProfiles, error } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .in('id', clientIds);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // Map results to expected Client interface
-    const clients = clientProfiles.map(profile => ({
-      id: profile.id,
-      user_id: profile.user_id,
-      first_name: profile.first_name || '',
-      last_name: profile.last_name || '',
-      phone: profile.phone,
-      date_of_birth: profile.date_of_birth,
-      address: profile.address,
-      emergency_contact: profile.emergency_contact,
-      status: profile.status || 'Active',
-      created_at: profile.created_at,
-      updated_at: profile.updated_at,
-      phi_data: profile.phi_data
-    }));
-
-    // We need to fetch user information for each client
-    const clientsWithUserInfo = await Promise.all(
-      clients.map(async (client) => {
-        try {
-          // Get user info for this client
-          if (!client.user_id) return client;
-          
-          const { data: userData, error } = await supabase.functions.invoke('get-user-info', {
-            body: { userId: client.user_id }
-          });
-          
-          if (error || !userData) {
-            console.error('Error fetching user info for client:', client.id, error);
-            return client;
-          }
-          
-          // Merge the user info with the client data
-          return {
-            ...client,
-            first_name: userData.firstName || client.first_name,
-            last_name: userData.lastName || client.last_name,
-            email: userData.email,
-            full_name: userData.fullName
-          };
-        } catch (error) {
-          console.error('Error processing client user info:', error);
-          return client;
-        }
-      })
-    );
-
-    return clientsWithUserInfo || [];
-  },
-
-  // Get a single client by ID
-  async getClient(id: string): Promise<Client> {
-    // First check if the current therapist has access to this client
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    // Verify therapist-client relationship
-    const { data: relationship, error: relationshipError } = await supabase
-      .from('therapist_clients')
-      .select('*')
-      .eq('therapist_id', user.id)
-      .eq('client_id', id)
-      .maybeSingle();
-
-    if (relationshipError || !relationship) {
-      throw new Error('Client not found or you do not have access');
-    }
-
-    // Now get the client profile
-    const { data: client, error } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (!client.user_id) {
-      return client as Client;
-    }
-    
-    // Get user info for this client
-    const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
-      body: { userId: client.user_id }
-    });
-    
-    if (userError || !userData) {
-      console.error('Error fetching user info for client:', client.id, userError);
-      return client as Client;
-    }
-    
-    // Merge the user info with the client data
-    return {
-      ...client,
-      first_name: userData.firstName || client.first_name,
-      last_name: userData.lastName || client.last_name,
-      email: userData.email,
-      full_name: userData.fullName
-    } as Client;
-  },
-
-  // Create a new client with HIPAA compliance and user account
-  async createClient(client: ClientInput): Promise<Client> {
-    // Get current user id
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
     try {
-      console.log('Creating client with new user architecture:', client);
-      
-      // Use the database function to create a client with a linked user
-      const { data, error } = await supabase
-        .rpc('create_client_with_user', {
-          therapist_id_param: user.id,
-          first_name_param: client.first_name,
-          last_name_param: client.last_name,
-          email_param: client.email || null,
-          phone_param: client.phone || null,
-          address_param: client.address || null,
-          emergency_contact_param: client.emergency_contact || null,
-          status_param: client.status || 'Active',
-          phi_data_param: client.phi_data || null,
-          consent_date_param: client.consent_date || null,
-          consent_version_param: client.consent_version || '1.0'
-        });
-        
-      if (error) {
-        console.error('Error in create_client_with_user function:', error);
-        throw new Error(error.message);
+      // Get the current therapist ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("No user found");
+        return [];
       }
       
-      console.log('Client created successfully with function:', data);
+      // Get clients from therapist_clients relationship table
+      const { data: relationships, error: relError } = await supabase
+        .from('therapist_clients')
+        .select('client_id, status')
+        .eq('therapist_id', user.id);
       
-      // Retrieve the created client record
-      if (data && typeof data === 'object' && 'client_id' in data) {
-        const clientId = data.client_id as string;
-        
-        return await this.getClient(clientId);
-      } else {
-        throw new Error('Invalid response from create_client_with_user function');
+      if (relError) {
+        console.error('Error fetching client relationships:', relError);
+        return [];
       }
-    } catch (error: any) {
-      console.error('Error creating client:', error);
-      throw error;
-    }
-  },
-
-  // Update an existing client
-  async updateClient(id: string, updates: Partial<ClientInput>): Promise<Client> {
-    // We need to separate user info updates from client table updates
-    const { first_name, last_name, email, ...clientUpdates } = updates;
-    
-    // First update the client record
-    const { data: updatedClient, error } = await supabase
-      .from('client_profiles')
-      .update({
-        first_name,
-        last_name,
-        ...clientUpdates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-    
-    // Now get client with user info
-    return this.getClient(id);
-  },
-
-  // Delete a client
-  async deleteClient(id: string): Promise<void> {
-    try {
-      // Use our Edge Function to handle cascade deletion
-      const { data, error } = await supabase.functions.invoke('manage-delete-cascade', {
-        body: { clientId: id }
+      
+      if (!relationships || relationships.length === 0) {
+        console.log('No client relationships found');
+        return [];
+      }
+      
+      const clientIds = relationships.map(rel => rel.client_id);
+      
+      // Get full client information for each client ID
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .in('id', clientIds);
+      
+      if (clientsError) {
+        console.error('Error fetching client profiles:', clientsError);
+        return [];
+      }
+      
+      const clients = clientsData.map(client => {
+        // Get relationship for this client
+        const relationship = relationships.find(rel => rel.client_id === client.id);
+        
+        return {
+          id: client.id,
+          first_name: client.first_name || '',
+          last_name: client.last_name || '',
+          phone: client.phone,
+          date_of_birth: client.date_of_birth,
+          address: client.address,
+          emergency_contact: client.emergency_contact,
+          status: relationship?.status || client.status || 'Active',
+          created_at: client.created_at,
+          updated_at: client.updated_at,
+          user_id: client.user_id,
+          phi_data: client.phi_data
+        };
       });
       
-      if (error) {
-        console.error('Error invoking manage-delete-cascade function:', error);
-        throw new Error(error.message);
+      // Now get email info for clients with user accounts
+      const userIds = clients.filter(c => c.user_id).map(c => c.user_id);
+      
+      if (userIds.length > 0) {
+        // For email info, you would typically get this from auth.users
+        // but since we can't directly query that, we can use get-user-info edge function
+        // or a custom RPC function to retrieve that data
+        // For this example, we'll leave email as undefined
       }
       
-      if (!data || !data.success) {
-        throw new Error(data?.error || 'Failed to delete client');
+      // Get appointments for each client
+      for (const client of clients) {
+        const { data: appointments, error: appError } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('client_id', client.id)
+          .order('start_time', { ascending: false });
+          
+        if (!appError && appointments) {
+          client.appointments = appointments;
+        }
       }
       
-      console.log('Client deleted successfully:', data.message);
-    } catch (error: any) {
-      console.error('Error deleting client:', error);
-      throw error;
-    }
-  },
-
-  // Get client with their appointments
-  async getClientWithAppointments(id: string): Promise<Client & { appointments: any[] }> {
-    // First verify therapist-client relationship
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    // Get client profile
-    const { data: clientProfile, error: clientError } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (clientError) {
-      throw new Error(clientError.message);
-    }
-
-    // Get appointments for this client
-    const { data: appointments, error: appointmentsError } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('client_id', id);
-
-    if (appointmentsError) {
-      console.error('Error fetching appointments:', appointmentsError);
-      throw new Error(appointmentsError.message);
-    }
-    
-    // Restructure data to match expected format
-    const clientData = {
-      ...clientProfile,
-      appointments: appointments || []
-    } as Client & { appointments: any[] };
-    
-    if (!clientData.user_id) return clientData;
-    
-    // Get user info for this client
-    const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
-      body: { userId: clientData.user_id }
-    });
-    
-    if (userError || !userData) {
-      console.error('Error fetching user info for client:', clientData.id, userError);
-      return clientData;
-    }
-    
-    // Merge the user info with the client data
-    return {
-      ...clientData,
-      first_name: userData.firstName || clientData.first_name,
-      last_name: userData.lastName || clientData.last_name,
-      email: userData.email,
-      full_name: userData.fullName
-    };
-  },
-
-  // Store sensitive PHI data
-  async updateClientPHI(id: string, phiData: any): Promise<void> {
-    const { error } = await supabase
-      .from('client_profiles')
-      .update({
-        phi_data: phiData,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-  },
-
-  // Record client consent
-  async recordConsent(id: string, version: string): Promise<void> {
-    const { error } = await supabase
-      .from('client_profiles')
-      .update({
-        consent_date: new Date().toISOString(),
-        consent_version: version,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(error.message);
+      return clients;
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      return [];
     }
   },
   
-  // Send an invitation to a client to claim their account
-  async sendClientInvitation(clientId: string, email: string): Promise<{ success: boolean; inviteCode?: string; message?: string }> {
+  // Get a single client by ID
+  async getClient(clientId: string): Promise<Client | null> {
     try {
-      // Get current user id (the therapist)
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get client information
+      const { data: client, error } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .eq('id', clientId)
+        .single();
       
-      if (!user) {
-        return { success: false, message: 'User not authenticated' };
+      if (error) {
+        console.error('Error fetching client:', error);
+        return null;
       }
       
-      return { success: true, message: 'Client account info updated' };
-    } catch (error: any) {
-      console.error('Error sending client invitation:', error);
-      return { success: false, message: error.message || 'An error occurred' };
+      // Get client relationship to get status
+      const { data: relationship, error: relError } = await supabase
+        .from('therapist_clients')
+        .select('*')
+        .eq('client_id', clientId)
+        .maybeSingle();
+        
+      // Get all appointments for this client
+      const { data: appointments, error: appError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('start_time', { ascending: false });
+      
+      const clientWithAppointments: Client = {
+        id: client.id,
+        user_id: client.user_id,
+        first_name: client.first_name || '',
+        last_name: client.last_name || '',
+        phone: client.phone,
+        date_of_birth: client.date_of_birth,
+        address: client.address,
+        emergency_contact: client.emergency_contact,
+        status: relationship?.status || client.status || 'Active',
+        created_at: client.created_at,
+        updated_at: client.updated_at,
+        phi_data: client.phi_data,
+        appointments: !appError ? appointments : []
+      };
+      
+      // Get email from auth user if available
+      if (client.user_id) {
+        // For email info, you would typically get this from auth.users
+        // but since we can't directly query that, we can use an edge function
+        // For this example, we'll leave email as undefined
+      }
+      
+      return clientWithAppointments;
+      
+    } catch (error) {
+      console.error('Error in getClient:', error);
+      return null;
     }
+  },
+  
+  // Create a new client
+  async createClient(clientData: Partial<Client>): Promise<{ success: boolean; client?: Client; message?: string }> {
+    try {
+      // Get the current therapist ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, message: "Not authenticated as a therapist" };
+      }
+      
+      // Insert the client profile
+      const { data: insertedClient, error: insertError } = await supabase
+        .from('client_profiles')
+        .insert({
+          first_name: clientData.first_name,
+          last_name: clientData.last_name,
+          phone: clientData.phone,
+          date_of_birth: clientData.date_of_birth,
+          address: clientData.address,
+          emergency_contact: clientData.emergency_contact,
+          status: clientData.status || 'Active',
+          phi_data: clientData.phi_data || {}
+        })
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Error creating client:', insertError);
+        return { success: false, message: insertError.message };
+      }
+      
+      // Create relationship between therapist and client
+      const { error: relError } = await supabase
+        .from('therapist_clients')
+        .insert({
+          therapist_id: user.id,
+          client_id: insertedClient.id,
+          status: clientData.status || 'Active'
+        });
+        
+      if (relError) {
+        console.error('Error creating therapist-client relationship:', relError);
+        
+        // If relationship creation fails, delete the client to maintain consistency
+        const { error: deleteError } = await supabase
+          .from('client_profiles')
+          .delete()
+          .eq('id', insertedClient.id);
+          
+        if (deleteError) {
+          console.error('Error cleaning up client after failed relationship creation:', deleteError);
+        }
+        
+        return { success: false, message: relError.message };
+      }
+      
+      return { 
+        success: true, 
+        client: {
+          ...insertedClient,
+          status: clientData.status || 'Active'
+        }
+      };
+    } catch (error: any) {
+      console.error('Error in createClient:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Update an existing client
+  async updateClient(clientId: string, clientData: Partial<Client>): Promise<{ success: boolean; client?: Client; message?: string }> {
+    try {
+      // Update the client profile
+      const { data: updatedClient, error: updateError } = await supabase
+        .from('client_profiles')
+        .update({
+          first_name: clientData.first_name,
+          last_name: clientData.last_name,
+          phone: clientData.phone,
+          date_of_birth: clientData.date_of_birth,
+          address: clientData.address,
+          emergency_contact: clientData.emergency_contact,
+          phi_data: clientData.phi_data,
+          status: clientData.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clientId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error('Error updating client:', updateError);
+        return { success: false, message: updateError.message };
+      }
+      
+      // If status changed, update the relationship status too
+      if (clientData.status) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: relError } = await supabase
+            .from('therapist_clients')
+            .update({ status: clientData.status })
+            .eq('client_id', clientId)
+            .eq('therapist_id', user.id);
+            
+          if (relError) {
+            console.error('Error updating therapist-client relationship:', relError);
+            // Continue anyway, this is not critical
+          }
+        }
+      }
+      
+      return { 
+        success: true, 
+        client: {
+          ...updatedClient,
+          status: clientData.status || updatedClient.status || 'Active'
+        }
+      };
+    } catch (error: any) {
+      console.error('Error in updateClient:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Delete a client
+  async deleteClient(clientId: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Get the current therapist ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, message: "Not authenticated as a therapist" };
+      }
+      
+      // First remove the therapist-client relationship
+      const { error: relError } = await supabase
+        .from('therapist_clients')
+        .delete()
+        .eq('client_id', clientId)
+        .eq('therapist_id', user.id);
+        
+      if (relError) {
+        console.error('Error removing therapist-client relationship:', relError);
+        return { success: false, message: relError.message };
+      }
+      
+      // Then delete the client profile
+      const { error: deleteError } = await supabase
+        .from('client_profiles')
+        .delete()
+        .eq('id', clientId);
+        
+      if (deleteError) {
+        console.error('Error deleting client:', deleteError);
+        return { success: false, message: deleteError.message };
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error in deleteClient:', error);
+      return { success: false, message: error.message };
+    }
+  },
+  
+  // Create an appointment for a client
+  async createAppointment(
+    clientId: string, 
+    appointmentData: Partial<AppointmentDetails>
+  ): Promise<{ success: boolean; appointment?: AppointmentDetails; message?: string }> {
+    try {
+      // Get the current therapist ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, message: "Not authenticated as a therapist" };
+      }
+      
+      // Validate start and end times
+      if (!appointmentData.start_time || !appointmentData.end_time) {
+        return { success: false, message: "Start time and end time are required" };
+      }
+      
+      // Insert the appointment
+      const { data: appointment, error } = await supabase
+        .from('appointments')
+        .insert({
+          therapist_id: user.id,
+          client_id: clientId,
+          title: appointmentData.title || 'Therapy Session',
+          start_time: appointmentData.start_time,
+          end_time: appointmentData.end_time,
+          status: appointmentData.status || 'Scheduled',
+          notes: appointmentData.notes
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating appointment:', error);
+        return { success: false, message: error.message };
+      }
+      
+      return { 
+        success: true, 
+        appointment
+      };
+    } catch (error: any) {
+      console.error('Error in createAppointment:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  async generateInviteLink(client: Client): Promise<{ success: boolean; inviteLink?: string; message?: string }> {
+    // Placeholder for invite link generation feature
+    return { success: false, message: "Invite link generation not implemented yet" };
   }
 };
