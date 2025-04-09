@@ -45,8 +45,8 @@ serve(async (req) => {
     
     // Check if this is a GET or POST request
     if (req.method === 'POST') {
-      const { userId: reqUserId } = await req.json();
-      userId = reqUserId;
+      const body = await req.json();
+      userId = body.userId;
     } else {
       // For GET requests, check URL parameters
       const url = new URL(req.url);

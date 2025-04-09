@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Client {
@@ -59,7 +58,7 @@ export const clientService = {
           if (!client.user_id) return client;
           
           const { data: userData, error } = await supabase.functions.invoke('get-user-info', {
-            params: { userId: client.user_id }
+            body: { userId: client.user_id }
           });
           
           if (error || !userData) {
@@ -101,7 +100,7 @@ export const clientService = {
     
     // Get user info for this client
     const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
-      params: { userId: client.user_id }
+      body: { userId: client.user_id }
     });
     
     if (userError || !userData) {
@@ -235,7 +234,7 @@ export const clientService = {
     
     // Get user info for this client
     const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
-      query: { userId: data.user_id }
+      body: { userId: data.user_id }
     });
     
     if (userError || !userData) {
