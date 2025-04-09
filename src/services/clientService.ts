@@ -47,24 +47,46 @@ export const clientService = {
       throw new Error('User not authenticated');
     }
     
-    // Get clients associated with this therapist through therapist_clients
-    const { data, error } = await supabase
+    // First get the therapist-client relationships
+    const { data: relationships, error: relError } = await supabase
       .from('therapist_clients')
-      .select(`
-        client_id,
-        client_profiles!inner(*)
-      `)
-      .eq('therapist_id', user.id)
-      .order('client_id');
+      .select('client_id, therapist_id')
+      .eq('therapist_id', user.id);
+
+    if (relError) {
+      throw new Error(relError.message);
+    }
+
+    if (!relationships || relationships.length === 0) {
+      return [];
+    }
+
+    // Get client profiles for all client IDs
+    const clientIds = relationships.map(rel => rel.client_id);
+    
+    const { data: clientProfiles, error } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .in('id', clientIds);
 
     if (error) {
       throw new Error(error.message);
     }
 
     // Map results to expected Client interface
-    const clients = data.map(item => ({
-      id: item.client_id,
-      ...item.client_profiles,
+    const clients = clientProfiles.map(profile => ({
+      id: profile.id,
+      user_id: profile.user_id,
+      phone: profile.phone,
+      date_of_birth: profile.date_of_birth,
+      address: profile.address,
+      emergency_contact: profile.emergency_contact,
+      status: profile.status || 'Active',
+      created_at: profile.created_at,
+      updated_at: profile.updated_at,
+      phi_data: profile.phi_data,
+      first_name: profile.first_name,
+      last_name: profile.last_name
     }));
 
     // We need to fetch user information for each client
@@ -86,8 +108,8 @@ export const clientService = {
           // Merge the user info with the client data
           return {
             ...client,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
+            first_name: userData.firstName || client.first_name,
+            last_name: userData.lastName || client.last_name,
             email: userData.email,
             full_name: userData.fullName
           };
@@ -133,7 +155,9 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    if (!client.user_id) return client;
+    if (!client.user_id) {
+      return client as Client;
+    }
     
     // Get user info for this client
     const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info', {
@@ -142,17 +166,17 @@ export const clientService = {
     
     if (userError || !userData) {
       console.error('Error fetching user info for client:', client.id, userError);
-      return client;
+      return client as Client;
     }
     
     // Merge the user info with the client data
     return {
       ...client,
-      first_name: userData.firstName,
-      last_name: userData.lastName,
+      first_name: userData.firstName || client.first_name,
+      last_name: userData.lastName || client.last_name,
       email: userData.email,
       full_name: userData.fullName
-    };
+    } as Client;
   },
 
   // Create a new client with HIPAA compliance and user account
@@ -214,6 +238,8 @@ export const clientService = {
       .from('client_profiles')
       .update({
         ...clientUpdates,
+        first_name: first_name,
+        last_name: last_name,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -261,27 +287,33 @@ export const clientService = {
       throw new Error('User not authenticated');
     }
 
-    // Get client with appointments
-    const { data, error } = await supabase
-      .from('therapist_clients')
-      .select(`
-        client_profiles!inner(*),
-        appointments(*)
-      `)
-      .eq('therapist_id', user.id)
-      .eq('client_id', id)
+    // Get client profile
+    const { data: clientProfile, error: clientError } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .eq('id', id)
       .single();
 
-    if (error) {
-      throw new Error(error.message);
+    if (clientError) {
+      throw new Error(clientError.message);
+    }
+
+    // Get appointments for this client
+    const { data: appointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('client_id', id);
+
+    if (appointmentsError) {
+      console.error('Error fetching appointments:', appointmentsError);
+      throw new Error(appointmentsError.message);
     }
     
     // Restructure data to match expected format
     const clientData = {
-      ...data.client_profiles,
-      id: id,
-      appointments: data.appointments || []
-    };
+      ...clientProfile,
+      appointments: appointments || []
+    } as Client & { appointments: any[] };
     
     if (!clientData.user_id) return clientData;
     
@@ -298,8 +330,8 @@ export const clientService = {
     // Merge the user info with the client data
     return {
       ...clientData,
-      first_name: userData.firstName,
-      last_name: userData.lastName,
+      first_name: userData.firstName || clientData.first_name,
+      last_name: userData.lastName || clientData.last_name,
       email: userData.email,
       full_name: userData.fullName
     };

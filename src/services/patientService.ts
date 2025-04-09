@@ -108,8 +108,8 @@ export const patientService = {
       return {
         id: clientData.id,
         user_id: user.id,
-        first_name: userData.firstName || '',
-        last_name: userData.lastName || '',
+        first_name: userData.firstName || clientData.first_name || '',
+        last_name: userData.lastName || clientData.last_name || '',
         email: userData.email || '',
         date_of_birth: clientData.date_of_birth,
         phone: clientData.phone,
@@ -117,9 +117,9 @@ export const patientService = {
         emergency_contact: clientData.emergency_contact,
         insurance_provider: insuranceProvider,
         insurance_policy_number: insurancePolicyNumber,
-        status: clientData.status,
+        status: clientData.status || 'Active',
         created_at: clientData.created_at,
-        updated_at: clientData.updated_at
+        updated_at: clientData.updated_at || clientData.created_at
       };
     } catch (error) {
       console.error('Error in getPatientProfile:', error);
@@ -168,7 +168,7 @@ export const patientService = {
       // Get therapist relationship
       const { data: relationship, error: relError } = await supabase
         .from('therapist_clients')
-        .select('therapist_id')
+        .select('*')
         .eq('client_id', clientData.id)
         .maybeSingle();
         
