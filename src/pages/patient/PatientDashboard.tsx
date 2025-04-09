@@ -16,6 +16,7 @@ import {
   ArrowRight,
   BookOpen,
   Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const PatientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState({
     therapist: null,
     upcomingAppointments: [],
@@ -35,11 +37,13 @@ const PatientDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const data = await patientService.getPatientDashboardData();
         setDashboardData(data);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setError('Failed to load your dashboard data');
         toast({
           title: "Error loading dashboard data",
           description: "Please try again later",
@@ -61,6 +65,59 @@ const PatientDashboard = () => {
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-therapy-purple" />
             <p className="text-muted-foreground">Loading your dashboard...</p>
+          </div>
+        </main>
+        <Separator />
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 p-6 overflow-auto bg-gray-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 max-w-lg text-center">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+            <h2 className="text-xl font-semibold">Oops! Something went wrong</h2>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </div>
+        </main>
+        <Separator />
+        <Footer />
+      </div>
+    );
+  }
+
+  // If there's no therapist yet
+  if (!dashboardData.therapist && dashboardData.upcomingAppointments.length === 0 && dashboardData.recentAppointments.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 p-6 overflow-auto bg-gray-50">
+          <div className="max-w-6xl mx-auto space-y-8">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Welcome to your therapy dashboard</h1>
+              <p className="text-muted-foreground">
+                Looks like you're getting started! You currently don't have a therapist assigned.
+              </p>
+            </div>
+            
+            <Card className="p-8 text-center">
+              <div className="flex flex-col items-center gap-4 max-w-lg mx-auto">
+                <div className="w-16 h-16 rounded-full bg-therapy-light-purple flex items-center justify-center">
+                  <CalendarIcon className="h-8 w-8 text-therapy-purple" />
+                </div>
+                <h2 className="text-xl font-semibold">No therapist assigned yet</h2>
+                <p className="text-muted-foreground">
+                  Once you're matched with a therapist, you'll see your appointment schedule 
+                  and therapy information here.
+                </p>
+                <Button className="mt-4">Browse Therapists</Button>
+              </div>
+            </Card>
           </div>
         </main>
         <Separator />

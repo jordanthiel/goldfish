@@ -41,15 +41,26 @@ export const patientService = {
       throw new Error('User not authenticated');
     }
 
-    // Get associated therapist
+    // Check if user exists in clients table
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('therapist_id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (clientError) {
-      console.error('Error fetching client data:', clientError);
+    // If the client doesn't exist in the system yet, return empty data
+    // This avoids the error when there's no matching client record
+    if (clientError || !clientData) {
+      console.error('Client not found in system:', clientError || 'No client record found');
+      return {
+        therapist: null,
+        upcomingAppointments: [],
+        recentAppointments: []
+      };
+    }
+
+    // If there's no therapist assigned yet, return empty data
+    if (!clientData.therapist_id) {
       return {
         therapist: null,
         upcomingAppointments: [],
@@ -125,6 +136,19 @@ export const patientService = {
     
     if (!user) {
       throw new Error('User not authenticated');
+    }
+
+    // Check if user exists in clients table first
+    const { data: clientExists } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // If client doesn't exist, return empty array
+    if (!clientExists) {
+      console.log('Client not found in system, returning empty appointments list');
+      return [];
     }
 
     const { data, error } = await supabase
@@ -232,16 +256,27 @@ export const patientService = {
       throw new Error('User not authenticated');
     }
 
-    // Get associated therapist
+    // Check if user exists in clients table first
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
       .select('therapist_id, first_name, last_name')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (clientError) {
-      console.error('Error fetching client data:', clientError);
+    if (clientError || !clientData) {
+      console.error('Client not found in system:', clientError || 'No client record found');
       return null;
+    }
+
+    // If no therapist assigned yet, return minimal data
+    if (!clientData.therapist_id) {
+      return {
+        therapist: null,
+        patient: {
+          name: `${clientData.first_name || 'New'} ${clientData.last_name || 'Patient'}`,
+        },
+        conversations: []
+      };
     }
 
     // Get therapist details
@@ -265,7 +300,7 @@ export const patientService = {
         initials: therapist.full_name ? therapist.full_name.split(' ').map(n => n[0]).join('') : "TH"
       },
       patient: {
-        name: `${clientData.first_name} ${clientData.last_name}`,
+        name: `${clientData.first_name || 'New'} ${clientData.last_name || 'Patient'}`,
       },
       conversations: [
         {
