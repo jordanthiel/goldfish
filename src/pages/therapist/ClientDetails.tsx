@@ -40,32 +40,49 @@ const ClientDetails = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [noteContent, setNoteContent] = useState("");
   const [latestNote, setLatestNote] = useState<SessionNote | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [notes, setNotes] = useState<SessionNote[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<SessionNote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  const {
-    data: clientData,
-    isLoading,
-    error
-  } = useQuery({
-    queryKey: ['client', id],
-    queryFn: () => id ? clientService.getClientWithAppointments(id) : Promise.reject('No client ID provided'),
-    enabled: !!id
-  });
-
   useEffect(() => {
-    const fetchLatestNote = async () => {
-      if (!id) return;
+    const fetchClientData = async () => {
+      setIsLoading(true);
       try {
-        const notes = await noteService.getClientNotes(id);
-        if (notes.length > 0) {
-          setLatestNote(notes[0]);
+        if (id) {
+          // Get client data
+          const clientData = await clientService.getClient(id);
+          
+          if (clientData) {
+            setClient(clientData);
+            
+            // Get client notes
+            const notesData = await noteService.getClientNotes(id);
+            setNotes(notesData);
+            
+            // Get upcoming appointments
+            if (clientData.appointments) {
+              const upcoming = clientData.appointments
+                .filter((apt: any) => new Date(apt.start_time) > new Date())
+                .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+              
+              setUpcomingAppointments(upcoming);
+            }
+          } else {
+            setError('Client not found');
+          }
         }
-      } catch (error) {
-        console.error('Error fetching latest note:', error);
+      } catch (err) {
+        console.error('Error fetching client data:', err);
+        setError('Failed to load client data');
+      } finally {
+        setIsLoading(false);
       }
     };
-
-    fetchLatestNote();
+    
+    fetchClientData();
   }, [id]);
 
   const createMarkup = (htmlContent: string) => {
@@ -137,6 +154,36 @@ const ClientDetails = () => {
     navigate(`/therapist/session/${appointmentId}`);
   };
 
+  const handleAddNote = async (content: string) => {
+    try {
+      const newNote = await noteService.createNote({
+        client_id: id || '',
+        content: content,
+        is_private: true
+      });
+      
+      // Refresh notes
+      const updatedNotes = await noteService.getClientNotes(id || '');
+      setNotes(updatedNotes);
+      
+      // Show success message
+      toast({
+        title: 'Note Added',
+        description: 'Client note has been successfully added',
+      });
+      
+      // Reset state
+      setAddingNote(false);
+    } catch (error) {
+      console.error('Error adding note:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add client note',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -153,7 +200,7 @@ const ClientDetails = () => {
     );
   }
 
-  if (!clientData) {
+  if (!client) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -175,10 +222,10 @@ const ClientDetails = () => {
     );
   }
 
-  const clientName = `${clientData.first_name} ${clientData.last_name}`;
-  const clientInitials = `${clientData.first_name[0]}${clientData.last_name[0]}`.toUpperCase();
+  const clientName = `${client.first_name} ${client.last_name}`;
+  const clientInitials = `${client.first_name[0]}${client.last_name[0]}`.toUpperCase();
   
-  const sortedAppointments = [...(clientData.appointments || [])].sort((a, b) => 
+  const sortedAppointments = [...(client.appointments || [])].sort((a, b) => 
     new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
   
@@ -209,7 +256,7 @@ const ClientDetails = () => {
                   <div>
                     <h1 className="text-3xl font-bold tracking-tight">{clientName}</h1>
                     <p className="text-muted-foreground">
-                      Client ID: {clientData.id} • Added on {new Date(clientData.created_at).toLocaleDateString()}
+                      Client ID: {client.id} • Added on {new Date(client.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -238,34 +285,34 @@ const ClientDetails = () => {
                           <AvatarFallback className="bg-therapy-purple text-white text-xl">{clientInitials}</AvatarFallback>
                         </Avatar>
                         <Badge className={`mb-2 ${
-                          clientData.status === 'Active' 
+                          client.status === 'Active' 
                             ? 'bg-green-100 text-green-800 hover:bg-green-100 hover:text-green-800'
                             : 'bg-gray-100 text-gray-800 hover:bg-gray-100 hover:text-gray-800'
                         }`}>
-                          {clientData.status}
+                          {client.status}
                         </Badge>
                       </div>
                       
                       <div className="space-y-3">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Email</p>
-                          <p>{clientData.email || 'Not provided'}</p>
+                          <p>{client.email || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                          <p>{clientData.phone || 'Not provided'}</p>
+                          <p>{client.phone || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
-                          <p>{clientData.date_of_birth || 'Not provided'}</p>
+                          <p>{client.date_of_birth || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Address</p>
-                          <p>{clientData.address || 'Not provided'}</p>
+                          <p>{client.address || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Emergency Contact</p>
-                          <p>{clientData.emergency_contact || 'Not provided'}</p>
+                          <p>{client.emergency_contact || 'Not provided'}</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Next Appointment</p>

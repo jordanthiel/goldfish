@@ -39,36 +39,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkPendingInvitations = async (email: string) => {
     try {
-      console.log("Checking for pending invitations for email:", email);
+      const { data, error } = await supabase.functions.invoke('check-client-invitations', {
+        body: { email }
+      });
       
-      try {
-        const { error } = await supabase.rpc('check_pending_invitations', { 
-          email_param: email 
-        });
-        
-        if (error) {
-          console.log("Client invitations system not set up yet:", error.message);
-          return;
-        }
-      } catch (error) {
-        console.log("Client invitations system not available:", error);
-        return;
+      if (error) {
+        console.error('Error checking invitations:', error);
+        return [];
       }
       
-      try {
-        const result = await patientService.claimPatientAccount("");
-        
-        if (result && result.success) {
-          toast({
-            title: "Account linked",
-            description: "Your account has been successfully linked to your therapist.",
-          });
-        }
-      } catch (claimError) {
-        console.error("Error claiming patient account:", claimError);
-      }
+      return data.invitations || [];
     } catch (error) {
-      console.error("Error in invitation check:", error);
+      console.error('Error in checkPendingInvitations:', error);
+      return [];
     }
   };
 

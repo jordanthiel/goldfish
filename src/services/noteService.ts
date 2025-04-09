@@ -121,6 +121,40 @@ export const noteService = {
     }
   },
   
+  // Get client notes by client ID (alias for getNotesByClient for backward compatibility)
+  async getClientNotes(clientId: string): Promise<SessionNote[]> {
+    return this.getNotesByClient(clientId);
+  },
+  
+  // Get notes by appointment ID
+  async getAppointmentNotes(appointmentId: string): Promise<SessionNote[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error('No authenticated user');
+        return [];
+      }
+      
+      const { data: notes, error } = await supabase
+        .from('session_notes')
+        .select('*')
+        .eq('appointment_id', appointmentId)
+        .eq('therapist_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching notes by appointment ID:', error);
+        return [];
+      }
+      
+      return notes || [];
+    } catch (error) {
+      console.error('Error in getAppointmentNotes:', error);
+      return [];
+    }
+  },
+  
   // Get a single note by ID
   async getNote(noteId: string): Promise<SessionNote | null> {
     try {
@@ -151,16 +185,16 @@ export const noteService = {
   },
   
   // Create a new note
-  async createNote(noteData: Partial<SessionNote>): Promise<{ success: boolean; note?: SessionNote; message?: string }> {
+  async createNote(noteData: Partial<SessionNote>): Promise<SessionNote> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        return { success: false, message: 'No authenticated user' };
+        throw new Error('No authenticated user');
       }
       
       if (!noteData.client_id || !noteData.content) {
-        return { success: false, message: 'Client ID and content are required' };
+        throw new Error('Client ID and content are required');
       }
       
       const { data: note, error } = await supabase
@@ -177,26 +211,23 @@ export const noteService = {
         
       if (error) {
         console.error('Error creating note:', error);
-        return { success: false, message: error.message };
+        throw new Error(error.message);
       }
       
-      return { success: true, note };
+      return note;
     } catch (error: any) {
       console.error('Error in createNote:', error);
-      return { success: false, message: error.message };
+      throw new Error(error.message || 'Failed to create note');
     }
   },
   
   // Update an existing note
-  async updateNote(
-    noteId: string, 
-    noteData: Partial<SessionNote>
-  ): Promise<{ success: boolean; note?: SessionNote; message?: string }> {
+  async updateNote(noteId: string, noteData: Partial<SessionNote>): Promise<SessionNote> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        return { success: false, message: 'No authenticated user' };
+        throw new Error('No authenticated user');
       }
       
       const { data: note, error } = await supabase
@@ -213,13 +244,13 @@ export const noteService = {
         
       if (error) {
         console.error('Error updating note:', error);
-        return { success: false, message: error.message };
+        throw new Error(error.message);
       }
       
-      return { success: true, note };
+      return note;
     } catch (error: any) {
       console.error('Error in updateNote:', error);
-      return { success: false, message: error.message };
+      throw new Error(error.message || 'Failed to update note');
     }
   },
   

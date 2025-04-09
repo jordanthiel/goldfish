@@ -180,6 +180,11 @@ export const clientService = {
     }
   },
   
+  // Alias method for backward compatibility
+  async getClientWithAppointments(clientId: string): Promise<Client | null> {
+    return this.getClient(clientId);
+  },
+  
   // Create a new client
   async createClient(clientData: Partial<Client>): Promise<{ success: boolean; client?: Client; message?: string }> {
     try {
@@ -386,6 +391,44 @@ export const clientService = {
       };
     } catch (error: any) {
       console.error('Error in createAppointment:', error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  // Send an invitation to a client via email
+  async sendClientInvitation(clientId: string, email: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // Get the current therapist ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, message: "Not authenticated as a therapist" };
+      }
+      
+      // Call the create_client_invitation function
+      const { data, error } = await supabase.rpc('create_client_invitation', {
+        therapist_id_param: user.id,
+        client_id_param: clientId,
+        email_param: email
+      });
+      
+      if (error) {
+        console.error('Error creating client invitation:', error);
+        return { success: false, message: error.message };
+      }
+      
+      // Send the invitation email
+      const { data: emailResult, error: emailError } = await supabase.rpc('send_client_invitation_email', {
+        invite_id: data.id
+      });
+      
+      if (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        return { success: false, message: emailError.message };
+      }
+      
+      return { success: true, message: "Invitation sent successfully" };
+    } catch (error: any) {
+      console.error('Error in sendClientInvitation:', error);
       return { success: false, message: error.message };
     }
   },
