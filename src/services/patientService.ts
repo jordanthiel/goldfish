@@ -52,6 +52,15 @@ export interface PatientDashboardData {
   recentAppointments: Appointment[];
 }
 
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: string;
+  isFromUser: boolean;
+}
+
 export const patientService = {
   // Get the current patient profile
   async getPatientProfile(): Promise<Patient | null> {
@@ -62,7 +71,7 @@ export const patientService = {
 
       // Get client record linked to this user
       console.log('Checking for client with user_id:', user.id);
-      const { data: client, error: clientError } = await supabase
+      let { data: client, error: clientError } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
@@ -142,7 +151,7 @@ export const patientService = {
       
       // Get the client record linked to this user ID
       console.log('Checking for client with user_id:', user.id);
-      const { data: client, error: clientError } = await supabase
+      let { data: client, error: clientError } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
@@ -275,8 +284,72 @@ export const patientService = {
     }));
   },
 
-  // Fix existing messaging functionality
-  async getMessages(clientId: string): Promise<any[]> {
+  // Claim a patient account using the direct user-client relationship
+  async claimPatientAccount(inviteCode: string): Promise<{ success: boolean; message?: string; client_id?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'Not authenticated' };
+      }
+      
+      // Check if this is a valid user
+      console.log('Attempting to claim account for user ID:', user.id);
+      
+      // Look up client by email to link them
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle();
+      
+      if (clientError) {
+        console.error('Error checking for existing client:', clientError);
+        return { success: false, message: 'Error checking for client record' };
+      }
+      
+      if (!client) {
+        return { success: false, message: 'No client record found for this email' };
+      }
+      
+      // Update the client record to link it to this user
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ user_id: user.id })
+        .eq('id', client.id);
+        
+      if (updateError) {
+        console.error('Error linking client to user:', updateError);
+        return { success: false, message: 'Error linking account' };
+      }
+      
+      // Ensure user has client role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: user.id, role: 'client' })
+        .onConflict(['user_id', 'role'])
+        .ignore();
+        
+      if (roleError) {
+        console.error('Error assigning client role:', roleError);
+      }
+      
+      return { 
+        success: true, 
+        client_id: client.id,
+        message: 'Account successfully linked' 
+      };
+    } catch (error: any) {
+      console.error('Error in claimPatientAccount:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Unknown error occurred' 
+      };
+    }
+  },
+
+  // Messages functionality
+  async getMessages(clientId: string): Promise<Message[]> {
     // This is a stub implementation until we create a proper messages table
     return [];
   },

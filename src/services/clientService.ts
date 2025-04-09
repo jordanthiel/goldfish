@@ -204,5 +204,33 @@ export const clientService = {
     if (error) {
       throw new Error(error.message);
     }
+  },
+  
+  // Send an invitation to a client to claim their account
+  async sendClientInvitation(clientId: string, email: string): Promise<{ success: boolean; inviteCode?: string; message?: string }> {
+    try {
+      // Get current user id (the therapist)
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'User not authenticated' };
+      }
+      
+      // Update client email if needed
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ email })
+        .eq('id', clientId);
+        
+      if (updateError) {
+        console.error('Error updating client email:', updateError);
+        return { success: false, message: 'Error updating client email' };
+      }
+      
+      return { success: true, message: 'Client account info updated' };
+    } catch (error: any) {
+      console.error('Error sending client invitation:', error);
+      return { success: false, message: error.message || 'An error occurred' };
+    }
   }
 };

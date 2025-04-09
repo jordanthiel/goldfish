@@ -8,18 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Send, User } from 'lucide-react';
-import { patientService } from '@/services/patientService';
+import { patientService, Message } from '@/services/patientService';
 import { useAuth } from '@/context/AuthContext';
-
-// Message interface
-interface Message {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  timestamp: string;
-  isFromUser: boolean;
-}
 
 const PatientMessages = () => {
   const [message, setMessage] = useState('');
