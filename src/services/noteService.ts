@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Client } from '@/services/clientService';
 
@@ -69,7 +68,7 @@ const getNotes = async (): Promise<SessionNoteWithClient[]> => {
           id: client.id,
           first_name: client.first_name || '',
           last_name: client.last_name || '',
-          email: client.email || '', // Make sure to include email with a fallback
+          email: client.email || '', // Add a fallback for email
           status: client.status || 'Active',
           created_at: client.created_at,
           // Add other required client fields with defaults

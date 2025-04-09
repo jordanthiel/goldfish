@@ -1,140 +1,61 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 
-// Update the context types
-interface AuthContextType {
-  user: any | null;
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+
+// Define the shape of our auth context
+export interface AuthContextType {
+  user: User | null;
+  session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, metadata?: any) => Promise<{ success: boolean; error?: string }>;
+  userRole: string | null;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, meta?: any) => Promise<{ error: any; data?: any }>;
   signOut: () => Promise<void>;
-  userRoles: string[];
-  isClient: boolean;
-  isTherapist: boolean;
-  isAdmin: boolean;
-  checkHasRole: (role: string) => boolean;
-  checkClaim: (key: string, value?: any) => boolean;
-  getSession: () => Promise<any>;
-  userRole: string; // Add userRole property to match what's used in components
+  setUserRole: (role: string) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create the auth context
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  loading: true,
+  userRole: null,
+  signIn: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
+  signOut: async () => {},
+  setUserRole: () => {}
+});
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [userRole, setUserRole] = useState<string>(''); // Add userRole state
-  const navigate = useNavigate();
+// Provider component
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  // Function to check for pending client invitations for a user
-  const checkPendingInvitations = async (userId: string, userEmail: string) => {
-    try {
-      // Use a direct query instead of trying to access a non-existent table
-      const { data: invitations, error } = await supabase
-        .from('client_profiles') // Use client_profiles instead of client_invitations
-        .select('*')
-        .eq('email', userEmail)
-        .is('claimed', false);
-      
-      if (error) throw error;
-      
-      // Process any pending invitations
-      if (invitations && invitations.length > 0) {
-        console.log('Found pending invitations:', invitations);
-        
-        // We would handle pending invitations here
-        // For example, auto-claim them or show a notification to the user
-      }
-    } catch (error) {
-      console.error('Error checking pending invitations:', error);
-    }
-  };
-
-  // Function to sync user auth state with our state
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setLoading(true);
-      
-      if (session && session.user) {
-        setUser(session.user);
-        
-        try {
-          // Get user roles
-          const { data: roles, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id);
-            
-          if (error) throw error;
-          
-          const roleNames = roles.map(r => r.role);
-          setUserRoles(roleNames);
-          
-          // Set primary userRole based on priority (admin > therapist > client)
-          if (roleNames.includes('admin')) {
-            setUserRole('admin');
-          } else if (roleNames.includes('therapist')) {
-            setUserRole('therapist');
-          } else if (roleNames.includes('client')) {
-            setUserRole('client');
-          } else {
-            setUserRole('');
-          }
-          
-          // Check for pending invitations after login
-          if (event === 'SIGNED_IN') {
-            await checkPendingInvitations(session.user.id, session.user.email || '');
-          }
-        } catch (error) {
-          console.error('Error getting user roles:', error);
-          setUserRoles([]);
-          setUserRole('');
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserRole(session.user.id);
+        } else {
+          setUserRole(null);
         }
-      } else {
-        setUser(null);
-        setUserRoles([]);
-        setUserRole('');
       }
-      
-      setLoading(false);
-    });
+    );
 
-    // Check current session on mount
+    // Get current session
     const initializeAuth = async () => {
-      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
       
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session && session.user) {
-          setUser(session.user);
-          
-          // Get user roles
-          const { data: roles, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id);
-            
-          if (error) throw error;
-          
-          const roleNames = roles.map(r => r.role);
-          setUserRoles(roleNames);
-          
-          // Set primary userRole based on priority
-          if (roleNames.includes('admin')) {
-            setUserRole('admin');
-          } else if (roleNames.includes('therapist')) {
-            setUserRole('therapist');
-          } else if (roleNames.includes('client')) {
-            setUserRole('client');
-          } else {
-            setUserRole('');
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
+      if (session?.user) {
+        await fetchUserRole(session.user.id);
       }
       
       setLoading(false);
@@ -142,116 +63,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
+    // Cleanup function
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  // Sign in with email and password
+  // Fetch user role from database
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole(null);
+        return;
+      }
+
+      if (data) {
+        setUserRole(data.role);
+      } else {
+        setUserRole(null);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserRole:', error);
+      setUserRole(null);
+    }
+  };
+
+  // Sign in function
   const signIn = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
 
-      if (error) throw error;
-      
-      return { success: true };
-    } catch (error: any) {
+      if (!error && data?.user) {
+        await fetchUserRole(data.user.id);
+      }
+
+      return { error };
+    } catch (error) {
       console.error('Error signing in:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Failed to sign in. Please check your credentials.' 
-      };
+      return { error };
     }
   };
 
-  // Sign up with email and password
-  const signUp = async (email: string, password: string, metadata?: any) => {
+  // Sign up function
+  const signUp = async (email: string, password: string, meta?: any) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: metadata,
-        },
+          data: meta || {}
+        }
       });
 
-      if (error) throw error;
-      
-      return { success: true };
-    } catch (error: any) {
+      return { error, data };
+    } catch (error) {
       console.error('Error signing up:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Failed to sign up. Please try again.' 
-      };
+      return { error };
     }
   };
 
-  // Sign out
+  // Sign out function
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      navigate('/');
+      setUserRole(null);
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  // Check if the user has a specific role
-  const checkHasRole = (role: string) => {
-    return userRoles.includes(role);
+  // Context value
+  const value = {
+    user,
+    session,
+    loading,
+    userRole,
+    signIn,
+    signUp,
+    signOut,
+    setUserRole
   };
 
-  // Check if the user has a specific claim
-  const checkClaim = (key: string, value?: any) => {
-    if (!user) return false;
-    
-    const claims = user.app_metadata;
-    if (!claims) return false;
-    
-    return value !== undefined ? claims[key] === value : !!claims[key];
-  };
-
-  // Get the current session
-  const getSession = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      return session;
-    } catch (error) {
-      console.error('Error getting session:', error);
-      return null;
-    }
-  };
-
-  // Computed properties
-  const isClient = checkHasRole('client');
-  const isTherapist = checkHasRole('therapist');
-  const isAdmin = checkHasRole('admin');
-
-  return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-      userRoles,
-      userRole, // Add userRole to the context value
-      isClient,
-      isTherapist,
-      isAdmin,
-      checkHasRole,
-      checkClaim,
-      getSession,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// Hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

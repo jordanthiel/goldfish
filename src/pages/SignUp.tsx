@@ -1,72 +1,105 @@
-import React, { useState } from 'react';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { Icons } from '@/components/Icons';
-import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 
-const signUpSchema = z.object({
-  firstName: z.string().min(1, { message: 'First name is required' }),
-  lastName: z.string().min(1, { message: 'Last name is required' }),
-  email: z.string().email({ message: 'Please enter a valid email' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
-});
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
 
 const SignUp = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { signUp } = useAuth();
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const form = useForm({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-    },
-  });
-
-  const onSubmit = async (values) => {
-    setIsLoading(true);
-    try {
-      const result = await signUp(values.email, values.password, {
-        first_name: values.firstName,
-        last_name: values.lastName,
-        full_name: `${values.firstName} ${values.lastName}`
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate input fields
+    if (!email || !password || !confirmPassword || !firstName || !lastName) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all fields',
+        variant: 'destructive',
       });
-
-      if (result.success) {
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Validate password length
+    if (password.length < 8) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 8 characters long',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Validate password confirmation
+    if (password !== confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'Passwords do not match',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      const { error, data } = await signUp(
+        email, 
+        password, 
+        {
+          full_name: `${firstName} ${lastName}`,
+          first_name: firstName,
+          last_name: lastName
+        }
+      );
+      
+      if (error) {
         toast({
-          title: 'Sign up successful!',
-          description: 'You have successfully created an account.',
-        });
-        navigate('/dashboard');
-      } else {
-        toast({
-          title: 'Sign up failed.',
-          description: result.error || 'Something went wrong. Please try again.',
+          title: 'Error',
+          description: error.message || 'Failed to create account',
           variant: 'destructive',
         });
+        return;
       }
-    } catch (error) {
+      
       toast({
-        title: 'Sign up failed.',
-        description: 'Something went wrong. Please try again.',
+        title: 'Success',
+        description: 'Account created successfully! You can now sign in.',
+      });
+      
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign up error:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
         variant: 'destructive',
       });
     } finally {
@@ -74,107 +107,135 @@ const SignUp = () => {
     }
   };
 
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleShowConfirmPassword = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
   return (
-    <div className="container relative hidden h-[calc(100vh-64px)] flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
-      <div className="relative flex-col hidden h-full p-6 text-lg sm:flex lg:flex-col justify-center bg-muted">
-        <div className="px-6 mt-10">
-          <h1 className="text-3xl font-semibold text-center">Welcome to Therapy Portal</h1>
-          <p className="mt-4 text-gray-600 text-center">
-            Your all-in-one solution for managing your therapy practice and connecting with clients.
-          </p>
-        </div>
-        <div className="absolute inset-0 bg-zinc-900/20" />
-        <Link to="/login" className="absolute bottom-4 right-4 underline underline-offset-4 hover:text-gray-900">
-          Already have an account?
-        </Link>
-      </div>
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold">Create an account</h1>
-            <p className="text-sm text-muted-foreground">
-              Enter your email and password to register.
-            </p>
-          </div>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-therapy-light-purple to-white p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Create an Account</CardTitle>
+          <CardDescription className="text-center">
+            Enter your information to create an account
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input 
+                  id="firstName"
+                  placeholder="John"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input 
+                  id="lastName"
+                  placeholder="Doe"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email"
+                type="email"
+                placeholder="john.doe@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
               />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="mail@example.com" type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Password" type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button disabled={isLoading} className="w-full">
-                {isLoading ? (
-                  <>
-                    <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  'Sign up'
-                )}
-              </Button>
-            </form>
-          </Form>
-          <p className="px-8 text-sm text-muted-foreground">
-            By clicking continue, you agree to our{' '}
-            <Link to="#" className="underline underline-offset-4 hover:text-gray-900">
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input 
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={toggleShowPassword}
+                >
+                  {showPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
+                <Input 
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={toggleShowConfirmPassword}
+                >
+                  {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                </Button>
+              </div>
+            </div>
+            
+            <Button type="submit" className="w-full btn-gradient" disabled={isLoading}>
+              {isLoading ? 'Creating account...' : 'Create Account'}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center text-sm">
+            By creating an account, you agree to our{' '}
+            <a href="#" className="text-therapy-purple hover:underline">
               Terms of Service
-            </Link>{' '}
+            </a>{' '}
             and{' '}
-            <Link to="#" className="underline underline-offset-4 hover:text-gray-900">
+            <a href="#" className="text-therapy-purple hover:underline">
               Privacy Policy
+            </a>
+          </div>
+        </CardContent>
+        
+        <CardFooter className="flex flex-col">
+          <Separator className="mb-4" />
+          <p className="text-center text-sm">
+            Already have an account?{' '}
+            <Link to="/login" className="text-therapy-purple hover:underline font-medium">
+              Sign In
             </Link>
-            .
           </p>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 };
