@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { patientService } from '@/services/patientService';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
 
 const PatientDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -33,13 +33,16 @@ const PatientDashboard = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
+        console.log("Fetching patient dashboard data for user:", user?.email);
         const data = await patientService.getPatientDashboardData();
+        console.log("Dashboard data received:", data);
         setDashboardData(data);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -54,8 +57,12 @@ const PatientDashboard = () => {
       }
     };
 
-    fetchData();
-  }, [toast]);
+    if (user) {
+      fetchData();
+    } else {
+      console.log("No user logged in, waiting for auth");
+    }
+  }, [toast, user]);
 
   if (isLoading) {
     return (
@@ -91,7 +98,6 @@ const PatientDashboard = () => {
     );
   }
 
-  // If there's no therapist yet
   if (!dashboardData.therapist && dashboardData.upcomingAppointments.length === 0 && dashboardData.recentAppointments.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -103,6 +109,15 @@ const PatientDashboard = () => {
               <p className="text-muted-foreground">
                 Looks like you're getting started! You currently don't have a therapist assigned.
               </p>
+              {user && (
+                <div className="mt-2 p-4 bg-blue-50 rounded-md">
+                  <p className="text-sm text-blue-600">Your email: {user.email}</p>
+                  <p className="text-sm text-blue-600">User ID: {user.id}</p>
+                  <p className="text-sm text-blue-600">
+                    If you were expecting to see your therapist, please ask them to add you as a client.
+                  </p>
+                </div>
+              )}
             </div>
             
             <Card className="p-8 text-center">
@@ -143,7 +158,7 @@ const PatientDashboard = () => {
               </p>
             </div>
             
-            {nextAppointment && (
+            {dashboardData.upcomingAppointments.length > 0 && (
               <div className="rounded-lg bg-white p-4 border shadow-sm">
                 <p className="text-sm font-medium text-muted-foreground mb-1">Your next appointment</p>
                 <div className="flex items-center gap-3">
@@ -151,17 +166,17 @@ const PatientDashboard = () => {
                     <CalendarIcon className="h-5 w-5 text-therapy-purple" />
                   </div>
                   <div>
-                    <p className="font-semibold">{format(new Date(nextAppointment.start_time), 'PPP')}</p>
+                    <p className="font-semibold">{format(new Date(dashboardData.upcomingAppointments[0].start_time), 'PPP')}</p>
                     <p className="text-sm">
-                      {format(new Date(nextAppointment.start_time), 'h:mm a')} 
-                      {therapist && ` with ${therapist.full_name || 'Your Therapist'}`}
+                      {format(new Date(dashboardData.upcomingAppointments[0].start_time), 'h:mm a')} 
+                      {dashboardData.therapist && ` with ${dashboardData.therapist.full_name || 'Your Therapist'}`}
                     </p>
                   </div>
                   <Button 
                     variant="default" 
                     size="sm" 
                     className="ml-2"
-                    onClick={() => navigate(`/patient/appointments/${nextAppointment.id}`)}
+                    onClick={() => navigate(`/patient/appointments/${dashboardData.upcomingAppointments[0].id}`)}
                   >
                     Join
                   </Button>
@@ -251,16 +266,16 @@ const PatientDashboard = () => {
                 <CardTitle>Your Therapist</CardTitle>
               </CardHeader>
               <CardContent>
-                {therapist ? (
+                {dashboardData.therapist ? (
                   <div className="flex flex-col items-center text-center">
                     <Avatar className="h-24 w-24 mb-4">
-                      <AvatarImage src={therapist.profile_image_url || "/placeholder.svg"} />
+                      <AvatarImage src={dashboardData.therapist.profile_image_url || "/placeholder.svg"} />
                       <AvatarFallback className="bg-therapy-purple text-white text-xl">
-                        {therapist.full_name ? therapist.full_name.split(' ').map(n => n[0]).join('') : "T"}
+                        {dashboardData.therapist.full_name ? dashboardData.therapist.full_name.split(' ').map(n => n[0]).join('') : "T"}
                       </AvatarFallback>
                     </Avatar>
-                    <h3 className="font-semibold text-lg">{therapist.full_name || "Your Therapist"}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{therapist.specialty || "Licensed Clinical Psychologist"}</p>
+                    <h3 className="font-semibold text-lg">{dashboardData.therapist.full_name || "Your Therapist"}</h3>
+                    <p className="text-sm text-muted-foreground mb-4">{dashboardData.therapist.specialty || "Licensed Clinical Psychologist"}</p>
                     
                     <div className="grid grid-cols-2 gap-2 w-full mt-2">
                       <Button 
@@ -274,6 +289,7 @@ const PatientDashboard = () => {
                       <Button 
                         className="w-full"
                         onClick={() => {
+                          const nextAppointment = dashboardData.upcomingAppointments.length > 0 ? dashboardData.upcomingAppointments[0] : null;
                           if (nextAppointment) {
                             navigate(`/patient/appointments/${nextAppointment.id}`);
                           } else {

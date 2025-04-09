@@ -42,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to check and process any pending client invitations
   const checkPendingInvitations = async (email: string) => {
     try {
+      console.log("Checking for pending invitations for email:", email);
+      
       // Fetch any pending invitations for this email
       const { data: invitations, error } = await supabase
         .from('client_invitations')
@@ -70,6 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (claimError) {
           console.error("Error claiming patient account:", claimError);
         }
+      } else {
+        console.log("No pending invitations found for email:", email);
       }
     } catch (error) {
       console.error("Error in invitation check:", error);
@@ -237,12 +241,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If invite code is provided, process it
       if (inviteCode && data.user) {
         try {
-          await patientService.claimPatientAccount(inviteCode);
+          console.log("Processing invite code during login:", inviteCode);
+          const result = await patientService.claimPatientAccount(inviteCode);
           
-          toast({
-            title: "Account linked",
-            description: "Your account has been successfully linked to your therapist.",
-          });
+          if (result.success) {
+            toast({
+              title: "Account linked",
+              description: "Your account has been successfully linked to your therapist.",
+            });
+            
+            // Make sure user has client role
+            if (!userRoles.some(r => r.role === 'client')) {
+              try {
+                await roleService.addRole(data.user.id, 'client');
+                console.log("Added client role to user");
+                // Update userRole state
+                setUserRole('client');
+              } catch (roleError) {
+                console.error("Error adding client role:", roleError);
+              }
+            }
+          }
         } catch (inviteError: any) {
           console.error("Error processing invite during login:", inviteError);
           toast({

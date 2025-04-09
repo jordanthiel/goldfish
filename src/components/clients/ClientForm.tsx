@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -31,6 +32,9 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { clientService } from '@/services/clientService';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertCircle, Mail } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const clientSchema = z.object({
   first_name: z.string().min(1, { message: 'First name is required' }),
@@ -40,6 +44,7 @@ const clientSchema = z.object({
   address: z.string().optional().or(z.literal('')),
   emergency_contact: z.string().optional().or(z.literal('')),
   status: z.string().default('Active'),
+  send_invitation: z.boolean().default(true),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -64,6 +69,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
     address: client.address || '',
     emergency_contact: client.emergency_contact || '',
     status: client.status || 'Active',
+    send_invitation: true,
   } : {
     first_name: '',
     last_name: '',
@@ -72,12 +78,16 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
     address: '',
     emergency_contact: '',
     status: 'Active',
+    send_invitation: true,
   };
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues,
   });
+
+  const emailValue = form.watch('email');
+  const sendInvitation = form.watch('send_invitation');
 
   const onSubmit = async (values: ClientFormValues) => {
     if (!user) return;
@@ -92,6 +102,23 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
           title: 'Client updated',
           description: `${values.first_name} ${values.last_name}'s information has been updated.`,
         });
+        
+        // If email was added or changed and send_invitation is true, send invitation
+        if (values.email && values.email !== client.email && values.send_invitation) {
+          try {
+            await clientService.sendClientInvitation(client.id);
+            toast({
+              title: 'Invitation sent',
+              description: `An invitation email has been sent to ${values.email}.`,
+            });
+          } catch (inviteError: any) {
+            toast({
+              title: 'Error sending invitation',
+              description: inviteError.message || 'Failed to send invitation email.',
+              variant: 'destructive',
+            });
+          }
+        }
       } else {
         // Add new client - ensure first_name and last_name are set
         const clientData = {
@@ -100,12 +127,20 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
           last_name: values.last_name
         };
         
-        await clientService.createClient(clientData);
+        // When creating a new client, the invitation is sent automatically if email is provided
+        const newClient = await clientService.createClient(clientData);
         
         toast({
           title: 'Client added',
           description: `${values.first_name} ${values.last_name} has been added to your client list.`,
         });
+        
+        if (values.email && values.send_invitation) {
+          toast({
+            title: 'Invitation prepared',
+            description: `An invitation will be sent to ${values.email}.`,
+          });
+        }
       }
 
       form.reset(defaultValues);
@@ -179,6 +214,41 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
                 </FormItem>
               )}
             />
+            
+            {emailValue && (
+              <FormField
+                control={form.control}
+                name="send_invitation"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Send client invitation email
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        This will allow the client to create an account and access their portal.
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {emailValue && sendInvitation && (
+              <Alert>
+                <Mail className="h-4 w-4" />
+                <AlertTitle>Information</AlertTitle>
+                <AlertDescription>
+                  An invitation will be sent to {emailValue}. The client will be able to create an account and access their portal.
+                </AlertDescription>
+              </Alert>
+            )}
             
             <FormField
               control={form.control}

@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 import {
   Form,
   FormControl,
@@ -15,119 +14,111 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { 
-  RadioGroup,
-  RadioGroupItem
-} from '@/components/ui/radio-group';
 import { useAuth } from '@/context/AuthContext';
-import RootLayout from '@/components/layout/RootLayout';
-import { UserCircle2, Users } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 
-const loginSchema = z.object({
+const formSchema = z.object({
   email: z.string().email({
     message: 'Please enter a valid email address.',
   }),
-  password: z.string().min(1, {
-    message: 'Password is required.',
-  }),
-  role: z.enum(['therapist', 'client'], {
-    required_error: 'Please select a role.',
+  password: z.string().min(6, {
+    message: 'Password must be at least 6 characters.',
   }),
 });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 const Login = () => {
-  const { signIn, loading, user } = useAuth();
-  const [authError, setAuthError] = useState<string | null>(null);
+  const { signIn } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  
-  // Redirect if user is already logged in
+  const location = useLocation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeRole, setActiveRole] = useState<'therapist' | 'client'>('therapist');
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState<string | null>(null);
+
+  // Parse query parameters
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
+    const searchParams = new URLSearchParams(location.search);
+    const email = searchParams.get('email');
+    const invite = searchParams.get('invite');
+    
+    if (email) {
+      setInviteEmail(email);
+      form.setValue('email', email);
     }
-  }, [user, navigate]);
-  
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    
+    if (invite) {
+      console.log("Found invite code in URL:", invite);
+      setInviteCode(invite);
+      setActiveRole('client'); // Auto-set to client role when invite is present
+    }
+  }, [location]);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
-      role: 'therapist',
     },
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setAuthError(null);
+  const onSubmit = async (values: FormValues) => {
+    setIsSubmitting(true);
     try {
-      await signIn(data.email, data.password, data.role);
+      await signIn(values.email, values.password, activeRole, inviteCode || undefined);
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
     } catch (error: any) {
-      console.error("Login error:", error);
-      setAuthError(error.message);
-      
-      // Show a more user-friendly toast for role errors
-      if (error.message.includes("don't have access")) {
-        toast({
-          title: "Role access error",
-          description: "Your account doesn't have the selected role. Please try a different role or contact support.",
-          variant: "destructive",
-        });
-      }
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <RootLayout>
-      <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold">Welcome back</h1>
-            <p className="mt-2 text-gray-600">
-              Log in to your Goldfish account
-            </p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+          <CardDescription>
+            {inviteCode 
+              ? "Enter your password to claim your patient account" 
+              : "Enter your credentials to access your account"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {inviteCode && inviteEmail && (
+            <Alert className="mb-4">
+              <AlertDescription>
+                Your therapist has invited you to join their patient portal. This account will be linked to <strong>{inviteEmail}</strong>.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {!inviteCode && (
+            <Tabs value={activeRole} onValueChange={(value) => setActiveRole(value as 'therapist' | 'client')} className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="therapist">Therapist</TabsTrigger>
+                <TabsTrigger value="client">Patient</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>I am a:</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-6"
-                      >
-                        <div className="flex items-center space-x-2 rounded-md border p-4 cursor-pointer hover:bg-muted transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                          <FormControl>
-                            <RadioGroupItem value="therapist" id="therapist" className="sr-only" />
-                          </FormControl>
-                          <UserCircle2 className="h-5 w-5 text-primary" />
-                          <label htmlFor="therapist" className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                            Therapist
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2 rounded-md border p-4 cursor-pointer hover:bg-muted transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                          <FormControl>
-                            <RadioGroupItem value="client" id="client" className="sr-only" />
-                          </FormControl>
-                          <Users className="h-5 w-5 text-primary" />
-                          <label htmlFor="client" className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                            Client
-                          </label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"
@@ -135,13 +126,19 @@ const Login = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="jane@example.com" {...field} />
+                      <Input 
+                        placeholder="name@example.com" 
+                        type="email" 
+                        autoComplete="email"
+                        disabled={!!inviteEmail}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -149,46 +146,51 @@ const Login = () => {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input 
+                        placeholder="••••••••" 
+                        type="password" 
+                        autoComplete="current-password"
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              {authError && (
-                <div className="text-sm font-medium text-destructive">
-                  {authError}
-                </div>
-              )}
-              
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  <Link to="/forgot-password" className="text-therapy-purple hover:underline">
-                    Forgot your password?
-                  </Link>
-                </div>
-              </div>
-              
-              <div>
-                <Button type="submit" className="w-full btn-gradient" disabled={loading}>
-                  {loading ? 'Logging in...' : 'Log In'}
-                </Button>
-              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : "Sign in"}
+              </Button>
             </form>
           </Form>
-
-          <div className="text-center text-sm">
-            <p>
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-therapy-purple font-medium hover:underline">
-                Sign up
-              </Link>
-            </p>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-sm text-center text-muted-foreground">
+            Don't have an account?{" "}
+            <Link 
+              to={inviteCode && inviteEmail 
+                ? `/signup?email=${encodeURIComponent(inviteEmail)}&invite=${inviteCode}` 
+                : "/signup"} 
+              className="text-therapy-purple hover:underline"
+            >
+              Sign up
+            </Link>
           </div>
-        </div>
-      </div>
-    </RootLayout>
+          <Button variant="link" className="px-0">
+            Forgot your password?
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 

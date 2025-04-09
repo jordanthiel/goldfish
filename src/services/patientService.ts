@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PatientAppointment {
@@ -34,15 +33,17 @@ export interface ResourceItem {
 export const patientService = {
   // Get patient data including therapist info
   async getPatientDashboardData() {
+    console.log("Fetching patient dashboard data");
+    
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
+      console.error("User not authenticated");
       throw new Error('User not authenticated');
     }
 
     // First check if the user's email matches any client email in the system
-    // This allows linking patients to therapists by email rather than just user ID
     const userEmail = user.email;
     
     if (!userEmail) {
@@ -54,6 +55,8 @@ export const patientService = {
       };
     }
 
+    console.log("Checking for client with email:", userEmail);
+    
     // Check if the email exists in the clients table
     const { data: clientByEmail, error: emailError } = await supabase
       .from('clients')
@@ -65,11 +68,10 @@ export const patientService = {
       console.error('Error checking client by email:', emailError);
     }
 
-    // If found by email but not linked to auth user yet, we still proceed with this client
-    const clientData = clientByEmail;
-
+    console.log("Client found by email:", clientByEmail);
+    
     // If no client record found at all
-    if (!clientData) {
+    if (!clientByEmail) {
       console.log('No client record found for this user email:', userEmail);
       return {
         therapist: null,
@@ -79,7 +81,8 @@ export const patientService = {
     }
 
     // If there's no therapist assigned yet, return empty data
-    if (!clientData.therapist_id) {
+    if (!clientByEmail.therapist_id) {
+      console.log('No therapist assigned for client');
       return {
         therapist: null,
         upcomingAppointments: [],
@@ -87,23 +90,29 @@ export const patientService = {
       };
     }
 
+    console.log("Fetching therapist info for ID:", clientByEmail.therapist_id);
+    
     // Get therapist details
     const { data: therapist, error: therapistError } = await supabase
       .from('therapist_profiles')
       .select('*')
-      .eq('id', clientData.therapist_id)
+      .eq('id', clientByEmail.therapist_id)
       .single();
 
     if (therapistError) {
       console.error('Error fetching therapist:', therapistError);
     }
 
-    // Get upcoming appointments - using email to link rather than just auth.id
+    console.log("Therapist found:", therapist);
+    
+    // Get upcoming appointments
     const now = new Date().toISOString();
+    console.log("Fetching upcoming appointments for client ID:", clientByEmail.id);
+    
     const { data: upcomingAppointments, error: upcomingError } = await supabase
       .from('appointments')
       .select('*')
-      .eq('client_id', clientData.id)
+      .eq('client_id', clientByEmail.id)
       .gte('start_time', now)
       .order('start_time', { ascending: true });
 
@@ -111,14 +120,18 @@ export const patientService = {
       console.error('Error fetching upcoming appointments:', upcomingError);
     }
 
+    console.log(`Found ${upcomingAppointments?.length || 0} upcoming appointments`);
+    
     // Get recent appointments
+    console.log("Fetching recent appointments for client ID:", clientByEmail.id);
+    
     const { data: recentAppointments, error: recentError } = await supabase
       .from('appointments')
       .select(`
         *,
         session_notes (content)
       `)
-      .eq('client_id', clientData.id)
+      .eq('client_id', clientByEmail.id)
       .lt('end_time', now)
       .order('start_time', { ascending: false })
       .limit(3);
@@ -127,6 +140,8 @@ export const patientService = {
       console.error('Error fetching recent appointments:', recentError);
     }
 
+    console.log(`Found ${recentAppointments?.length || 0} recent appointments`);
+    
     // Process appointments to add duration and type
     const processAppointments = (appointments) => {
       return appointments?.map(appointment => {
@@ -142,11 +157,15 @@ export const patientService = {
       }) || [];
     };
 
-    return {
+    const result = {
       therapist: therapist || null,
       upcomingAppointments: processAppointments(upcomingAppointments || []),
       recentAppointments: processAppointments(recentAppointments || [])
     };
+    
+    console.log("Returning dashboard data with therapist:", result.therapist?.full_name || "None");
+    
+    return result;
   },
 
   // Get all patient appointments
@@ -418,6 +437,8 @@ export const patientService = {
 
   // Claim patient account by invite code
   async claimPatientAccount(inviteCode: string) {
+    console.log("Attempting to claim patient account with invite code:", inviteCode);
+    
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -425,22 +446,28 @@ export const patientService = {
     }
 
     // Verify the invite code
+    console.log("Verifying invite code");
     const { data: verifyData, error: verifyError } = await supabase
       .rpc('verify_invite_code', {
         invite_code_param: inviteCode
       });
     
     if (verifyError) {
+      console.error("Error verifying invite code:", verifyError);
       throw new Error(verifyError.message);
     }
     
-    // Check if 'valid' exists in verifyData and it's true
-    const validInvite = verifyData && typeof verifyData === 'object' && 'valid' in verifyData && verifyData.valid === true;
+    // Check if verifyData is an object and has valid: true
+    const validInvite = verifyData && typeof verifyData === 'object' && 
+      'valid' in verifyData && verifyData.valid === true;
     
     if (!validInvite) {
+      console.error("Invalid invitation data:", verifyData);
       throw new Error('Invalid or expired invitation code');
     }
 
+    console.log("Invite code valid, accepting invitation");
+    
     // Accept the invitation and link with user account
     const { data: acceptData, error: acceptError } = await supabase
       .rpc('accept_client_invitation', {
@@ -449,24 +476,27 @@ export const patientService = {
       });
 
     if (acceptError) {
+      console.error("Error accepting invitation:", acceptError);
       throw new Error(acceptError.message);
     }
     
-    // Check if 'success' exists in acceptData and it's true
-    const successfulAccept = acceptData && typeof acceptData === 'object' && 'success' in acceptData && acceptData.success === true;
+    // Check if acceptData is an object and has success: true
+    const successfulAccept = acceptData && typeof acceptData === 'object' && 
+      'success' in acceptData && acceptData.success === true;
     
     if (!successfulAccept) {
+      console.error("Failed to accept invitation:", acceptData);
       throw new Error('Failed to claim account');
     }
 
+    console.log("Successfully claimed account:", acceptData);
+    
     // Extract therapist_id and client_id from acceptData
-    const therapistId = acceptData && typeof acceptData === 'object' && 'therapist_id' in acceptData 
-      ? acceptData.therapist_id as string 
-      : null;
+    const therapistId = acceptData && typeof acceptData === 'object' && 
+      'therapist_id' in acceptData ? acceptData.therapist_id as string : null;
       
-    const clientId = acceptData && typeof acceptData === 'object' && 'client_id' in acceptData 
-      ? acceptData.client_id as string 
-      : null;
+    const clientId = acceptData && typeof acceptData === 'object' && 
+      'client_id' in acceptData ? acceptData.client_id as string : null;
 
     // Return success and therapist info
     return {

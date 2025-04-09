@@ -26,6 +26,7 @@ import PatientProfile from "./pages/patient/PatientProfile";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientMessages from "./pages/patient/PatientMessages";
 import PatientResources from "./pages/patient/PatientResources";
+import ClaimAccount from "./pages/patient/ClaimAccount"; // New component for claiming account
 
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/young" element={<YoungLandingPage />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

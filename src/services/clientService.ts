@@ -96,16 +96,17 @@ export const clientService = {
 
     // If email is provided, check if the user exists and create an invitation if needed
     if (client.email) {
-      // Check if a user with this email already exists
-      const { data: existingUser, error: userCheckError } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('email', client.email)
-        .maybeSingle();
-
-      // Create client invitation to link this client with their user account
       try {
-        // Use the Supabase function to create an invitation
+        // Check if a user with this email already exists in auth.users
+        const { data: existingUser, error: userCheckError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('email', client.email)
+          .maybeSingle();
+
+        console.log('Checking for existing user with email:', client.email, existingUser);
+
+        // Create client invitation to link this client with their user account
         const { data: inviteData, error: inviteError } = await supabase
           .rpc('create_client_invitation', {
             therapist_id_param: user.id,
@@ -116,16 +117,14 @@ export const clientService = {
         if (inviteError) {
           console.error('Error creating client invitation:', inviteError);
         } else {
-          // Send invitation email (in a real implementation, you would use a server-side function)
           console.log('Client invitation created:', inviteData);
           
-          // Type check and get the id
-          const inviteId = inviteData && typeof inviteData === 'object' && 'id' in inviteData 
-            ? inviteData.id as string 
-            : null;
+          // Check if inviteData is an object and has an id property
+          const inviteId = inviteData && typeof inviteData === 'object' ? 
+            (inviteData as any).id : null;
             
           if (inviteId) {
-            // Optionally send email notification via RPC function
+            // Send email notification via RPC function
             const { data: emailData, error: emailError } = await supabase
               .rpc('send_client_invitation_email', {
                 invite_id: inviteId
@@ -265,9 +264,8 @@ export const clientService = {
     }
 
     // Type check and get the id
-    const inviteId = inviteData && typeof inviteData === 'object' && 'id' in inviteData 
-      ? inviteData.id as string 
-      : null;
+    const inviteId = inviteData && typeof inviteData === 'object' ? 
+      (inviteData as any).id : null;
       
     if (!inviteId) {
       throw new Error('Invalid invite data returned');
