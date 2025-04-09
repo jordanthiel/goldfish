@@ -429,9 +429,16 @@ export const patientService = {
       .rpc('verify_invite_code', {
         invite_code_param: inviteCode
       });
-
-    if (verifyError || !verifyData.valid) {
-      throw new Error(verifyError?.message || 'Invalid or expired invitation code');
+    
+    if (verifyError) {
+      throw new Error(verifyError.message);
+    }
+    
+    // Check if 'valid' exists in verifyData and it's true
+    const validInvite = verifyData && typeof verifyData === 'object' && 'valid' in verifyData && verifyData.valid === true;
+    
+    if (!validInvite) {
+      throw new Error('Invalid or expired invitation code');
     }
 
     // Accept the invitation and link with user account
@@ -441,15 +448,31 @@ export const patientService = {
         user_id_param: user.id
       });
 
-    if (acceptError || !acceptData.success) {
-      throw new Error(acceptError?.message || 'Failed to claim account');
+    if (acceptError) {
+      throw new Error(acceptError.message);
     }
+    
+    // Check if 'success' exists in acceptData and it's true
+    const successfulAccept = acceptData && typeof acceptData === 'object' && 'success' in acceptData && acceptData.success === true;
+    
+    if (!successfulAccept) {
+      throw new Error('Failed to claim account');
+    }
+
+    // Extract therapist_id and client_id from acceptData
+    const therapistId = acceptData && typeof acceptData === 'object' && 'therapist_id' in acceptData 
+      ? acceptData.therapist_id as string 
+      : null;
+      
+    const clientId = acceptData && typeof acceptData === 'object' && 'client_id' in acceptData 
+      ? acceptData.client_id as string 
+      : null;
 
     // Return success and therapist info
     return {
       success: true,
-      therapistId: acceptData.therapist_id,
-      clientId: acceptData.client_id
+      therapistId,
+      clientId
     };
   }
 };

@@ -119,16 +119,25 @@ export const clientService = {
           // Send invitation email (in a real implementation, you would use a server-side function)
           console.log('Client invitation created:', inviteData);
           
-          // Optionally send email notification via RPC function
-          const { data: emailData, error: emailError } = await supabase
-            .rpc('send_client_invitation_email', {
-              invite_id: inviteData.id
-            });
+          // Type check and get the id
+          const inviteId = inviteData && typeof inviteData === 'object' && 'id' in inviteData 
+            ? inviteData.id as string 
+            : null;
             
-          if (emailError) {
-            console.error('Error sending invitation email:', emailError);
+          if (inviteId) {
+            // Optionally send email notification via RPC function
+            const { data: emailData, error: emailError } = await supabase
+              .rpc('send_client_invitation_email', {
+                invite_id: inviteId
+              });
+              
+            if (emailError) {
+              console.error('Error sending invitation email:', emailError);
+            } else {
+              console.log('Invitation email notification prepared:', emailData);
+            }
           } else {
-            console.log('Invitation email notification prepared:', emailData);
+            console.error('Invalid invite data format:', inviteData);
           }
         }
       } catch (inviteError) {
@@ -255,10 +264,19 @@ export const clientService = {
       throw new Error(inviteError.message);
     }
 
+    // Type check and get the id
+    const inviteId = inviteData && typeof inviteData === 'object' && 'id' in inviteData 
+      ? inviteData.id as string 
+      : null;
+      
+    if (!inviteId) {
+      throw new Error('Invalid invite data returned');
+    }
+
     // Send invitation email via RPC function
     const { data: emailData, error: emailError } = await supabase
       .rpc('send_client_invitation_email', {
-        invite_id: inviteData.id
+        invite_id: inviteId
       });
         
     if (emailError) {

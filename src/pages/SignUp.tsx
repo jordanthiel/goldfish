@@ -77,18 +77,32 @@ export default function SignUp() {
           invite_code_param: inviteCode
         });
       
-      if (error || !data.valid) {
+      if (error) {
         toast({
           title: "Invalid invitation code",
-          description: error?.message || "This invitation is invalid or expired",
+          description: error.message,
           variant: "destructive"
         });
+        setIsVerifyingInvite(false);
+        return;
+      }
+      
+      // Check if 'valid' exists in data and it's true
+      const validInvite = data && typeof data === 'object' && 'valid' in data && data.valid === true;
+      
+      if (!validInvite) {
+        toast({
+          title: "Invalid invitation code",
+          description: "This invitation is invalid or expired",
+          variant: "destructive"
+        });
+        setIsVerifyingInvite(false);
         return;
       }
 
-      // Set the email from the invitation
-      if (data.email) {
-        form.setValue('email', data.email);
+      // Set the email from the invitation if it exists
+      if (data && typeof data === 'object' && 'email' in data) {
+        form.setValue('email', data.email as string);
         setInviteInfo(data);
         
         toast({
