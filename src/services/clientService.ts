@@ -4,17 +4,17 @@ import { Json } from '@/integrations/supabase/types';
 // Define the Client type
 export interface Client {
   id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  date_of_birth: string;
-  address: string;
-  emergency_contact: string;
-  status: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string; // This is now a virtual property we'll handle in our service
+  phone: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  emergency_contact: string | null;
+  status: string | null;
   created_at: string;
-  updated_at: string;
-  user_id: string;
+  updated_at: string | null;
+  user_id: string | null;
   phi_data: any;
   appointmentsList?: Appointment[]; // For client with appointments
 }
@@ -27,8 +27,8 @@ export interface Appointment {
   title: string;
   start_time: string;
   end_time: string;
-  status: string;
-  notes?: string;
+  status: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,7 +59,27 @@ const getClients = async (): Promise<Client[]> => {
       throw error;
     }
 
-    return data || [];
+    // Transform the data to include email from user_id if available
+    const clients: Client[] = await Promise.all((data || []).map(async (client) => {
+      let email = '';
+      
+      // If user_id exists, try to get the email from auth.users
+      if (client.user_id) {
+        const { data: userData, error: userError } = await supabase
+          .rpc('get_client_user_info', { client_id_param: client.id });
+        
+        if (!userError && userData && userData.success) {
+          email = userData.email || '';
+        }
+      }
+      
+      return {
+        ...client,
+        email
+      };
+    }));
+
+    return clients;
   } catch (error) {
     console.error('Error getting clients:', error);
     throw error;
@@ -80,7 +100,23 @@ const getClient = async (id: string): Promise<Client | null> => {
       throw error;
     }
 
-    return data || null;
+    if (!data) return null;
+
+    // Get email from user_id if available
+    let email = '';
+    if (data.user_id) {
+      const { data: userData, error: userError } = await supabase
+        .rpc('get_client_user_info', { client_id_param: data.id });
+      
+      if (!userError && userData && userData.success) {
+        email = userData.email || '';
+      }
+    }
+
+    return {
+      ...data,
+      email
+    };
   } catch (error) {
     console.error('Error getting client:', error);
     throw error;
@@ -92,7 +128,16 @@ const createClient = async (client: Partial<Client>): Promise<Client | null> => 
   try {
     const { data, error } = await supabase
       .from('client_profiles')
-      .insert([client])
+      .insert([{
+        first_name: client.first_name,
+        last_name: client.last_name,
+        phone: client.phone,
+        date_of_birth: client.date_of_birth,
+        address: client.address,
+        emergency_contact: client.emergency_contact,
+        status: client.status || 'Active',
+        phi_data: client.phi_data
+      }])
       .select('*')
       .single();
 
@@ -101,7 +146,13 @@ const createClient = async (client: Partial<Client>): Promise<Client | null> => 
       throw error;
     }
 
-    return data || null;
+    if (!data) return null;
+
+    // Email is handled separately through user association
+    return {
+      ...data,
+      email: client.email || ''
+    };
   } catch (error) {
     console.error('Error creating client:', error);
     throw error;
@@ -111,9 +162,12 @@ const createClient = async (client: Partial<Client>): Promise<Client | null> => 
 // Function to update an existing client
 const updateClient = async (id: string, updates: Partial<Client>): Promise<Client | null> => {
   try {
+    // Remove email from updates as it's not a direct column
+    const { email, ...clientUpdates } = updates;
+
     const { data, error } = await supabase
       .from('client_profiles')
-      .update(updates)
+      .update(clientUpdates)
       .eq('id', id)
       .select('*')
       .single();
@@ -123,7 +177,23 @@ const updateClient = async (id: string, updates: Partial<Client>): Promise<Clien
       throw error;
     }
 
-    return data || null;
+    if (!data) return null;
+
+    // Get email for response
+    let emailValue = '';
+    if (data.user_id) {
+      const { data: userData, error: userError } = await supabase
+        .rpc('get_client_user_info', { client_id_param: data.id });
+      
+      if (!userError && userData && userData.success) {
+        emailValue = userData.email || '';
+      }
+    }
+
+    return {
+      ...data,
+      email: emailValue
+    };
   } catch (error) {
     console.error('Error updating client:', error);
     throw error;
@@ -153,9 +223,23 @@ const deleteClient = async (id: string): Promise<boolean> => {
 // Function to create a new appointment for a client
 const createAppointment = async (appointment: Partial<Appointment>): Promise<Appointment | null> => {
   try {
+    // Ensure we have all required fields
+    if (!appointment.client_id || !appointment.therapist_id || !appointment.title || 
+        !appointment.start_time || !appointment.end_time) {
+      throw new Error('Missing required appointment fields');
+    }
+
     const { data, error } = await supabase
       .from('appointments')
-      .insert(appointment)
+      .insert({
+        client_id: appointment.client_id,
+        therapist_id: appointment.therapist_id,
+        title: appointment.title,
+        start_time: appointment.start_time,
+        end_time: appointment.end_time,
+        status: appointment.status || 'Scheduled',
+        notes: appointment.notes
+      })
       .select('*')
       .single();
 
@@ -297,9 +381,21 @@ const getClientWithAppointments = async (clientId: string) => {
     
     if (appointmentsError) throw appointmentsError;
 
+    // Get email from user_id if available
+    let email = '';
+    if (client.user_id) {
+      const { data: userData, error: userError } = await supabase
+        .rpc('get_client_user_info', { client_id_param: client.id });
+      
+      if (!userError && userData && userData.success) {
+        email = userData.email || '';
+      }
+    }
+
     // Combine the data
     return {
       ...client,
+      email,
       appointmentsList: appointments || []  // Use appointmentsList instead of appointments 
     };
   } catch (error) {
@@ -311,20 +407,34 @@ const getClientWithAppointments = async (clientId: string) => {
 // Function to search for a user by email
 const searchUserByEmail = async (email: string): Promise<{exists: boolean, user?: any}> => {
   try {
+    // We need to search in auth.users, but we can't directly access it
+    // So we'll use an RPC function if available, or search client_profiles associated with users
     const { data, error } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .ilike('email', email)
+      .rpc('search_user_by_email', { email_param: email })
       .maybeSingle();
     
     if (error) {
       console.error('Error searching for user:', error);
-      throw error;
+      
+      // Fallback: try to find a client with this email via their user_id
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .limit(1);
+      
+      if (clientsError) {
+        throw clientsError;
+      }
+      
+      return {
+        exists: false,
+        user: undefined
+      };
     }
     
     return {
-      exists: !!data,
-      user: data || undefined
+      exists: !!data && data.success,
+      user: data && data.success ? data : undefined
     };
   } catch (error) {
     console.error('Error searching for user by email:', error);

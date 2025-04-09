@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -48,7 +47,6 @@ const ClientDetails = () => {
   
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch client data
   useEffect(() => {
     const fetchClientData = async () => {
       if (!clientId) return;
@@ -57,16 +55,17 @@ const ClientDetails = () => {
         setLoading(true);
         setError(null);
         
-        // Get client with appointments
         const clientData = await clientService.getClientWithAppointments(clientId);
-        setClient(clientData);
         
-        // Extract appointments from client data
+        setClient({
+          ...clientData,
+          email: clientData.email || '',
+        });
+        
         if (clientData.appointmentsList) {
           setAppointments(clientData.appointmentsList);
         }
         
-        // Get notes separately
         const clientNotes = await noteService.getClientNotes(clientId);
         setNotes(clientNotes);
       } catch (err) {
@@ -85,18 +84,20 @@ const ClientDetails = () => {
     fetchClientData();
   }, [clientId, toast]);
 
-  // Handle editing a client
   const handleEditClient = () => {
     setClientFormOpen(true);
   };
 
-  // Handle client form saving
   const handleClientSaved = async () => {
     if (!clientId) return;
     
     try {
       const updatedClient = await clientService.getClientWithAppointments(clientId);
-      setClient(updatedClient);
+      
+      setClient({
+        ...updatedClient,
+        email: updatedClient.email || '',
+      });
       
       if (updatedClient?.appointmentsList) {
         setAppointments(updatedClient.appointmentsList);
@@ -115,19 +116,16 @@ const ClientDetails = () => {
     }
   };
 
-  // Handle adding a new note
   const handleAddNote = () => {
     setSelectedNote(null);
     setNoteEditOpen(true);
   };
 
-  // Handle editing an existing note
   const handleEditNote = (note: SessionNote) => {
     setSelectedNote(note);
     setNoteEditOpen(true);
   };
 
-  // Handle saving a note
   const handleSaveNote = async (noteData: any) => {
     if (!clientId) return;
     
@@ -135,20 +133,17 @@ const ClientDetails = () => {
       let savedNote;
       
       if (selectedNote) {
-        // Update existing note
         savedNote = await noteService.updateNote(selectedNote.id, {
           ...noteData,
           client_id: clientId,
         });
       } else {
-        // Create new note
         savedNote = await noteService.createNote({
           ...noteData,
           client_id: clientId,
         });
       }
       
-      // Refresh notes list
       const updatedNotes = await noteService.getClientNotes(clientId);
       setNotes(updatedNotes);
       
@@ -167,13 +162,11 @@ const ClientDetails = () => {
     }
   };
 
-  // Handle deleting a note
   const handleDeleteNote = async (noteId: string) => {
     try {
       const result = await noteService.deleteNote(noteId);
       
       if (result.success) {
-        // Refresh notes list
         const updatedNotes = await noteService.getClientNotes(clientId!);
         setNotes(updatedNotes);
         
@@ -193,7 +186,6 @@ const ClientDetails = () => {
     }
   };
 
-  // Handle starting a new session
   const handleStartSession = () => {
     toast({
       title: 'Not implemented',
@@ -201,7 +193,6 @@ const ClientDetails = () => {
     });
   };
 
-  // Handle sending a message to client
   const handleSendMessage = () => {
     toast({
       title: 'Not implemented',
@@ -209,7 +200,6 @@ const ClientDetails = () => {
     });
   };
 
-  // Format a date for display
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'PPP');
@@ -218,7 +208,6 @@ const ClientDetails = () => {
     }
   };
 
-  // If loading, show loading spinner
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -227,7 +216,6 @@ const ClientDetails = () => {
     );
   }
 
-  // If error or no client found, show error message
   if (error || !client) {
     return (
       <div className="container mx-auto py-6">
@@ -280,7 +268,6 @@ const ClientDetails = () => {
           </TabsTrigger>
         </TabsList>
         
-        {/* Profile Tab */}
         <TabsContent value="profile">
           <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
             <Card className="md:col-span-2">
@@ -401,7 +388,6 @@ const ClientDetails = () => {
           </div>
         </TabsContent>
         
-        {/* Appointments Tab */}
         <TabsContent value="appointments">
           <Card>
             <CardHeader>
@@ -481,7 +467,6 @@ const ClientDetails = () => {
           </Card>
         </TabsContent>
         
-        {/* Notes Tab */}
         <TabsContent value="notes">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium">Client Notes</h3>
@@ -492,13 +477,11 @@ const ClientDetails = () => {
           
           <ClientNotesList 
             clientId={clientId || ''} 
-            notes={notes}
             onEditNote={handleEditNote}
             onDeleteNote={handleDeleteNote}
           />
         </TabsContent>
         
-        {/* Settings Tab */}
         <TabsContent value="settings">
           <Card>
             <CardHeader>
@@ -547,7 +530,6 @@ const ClientDetails = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Client Edit Form */}
       <ClientForm 
         open={clientFormOpen} 
         onOpenChange={setClientFormOpen} 
@@ -555,7 +537,6 @@ const ClientDetails = () => {
         onClientSaved={handleClientSaved} 
       />
       
-      {/* Note Edit Dialog */}
       <NoteEditDialog
         open={noteEditOpen}
         onOpenChange={setNoteEditOpen}

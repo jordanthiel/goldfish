@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,7 +17,7 @@ import { SessionNote } from '@/services/noteService';
 export interface NoteEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  note: SessionNote;
+  note: SessionNote | null;
   clientId: string;
   onSave: (noteData: any) => Promise<void>;
 }
@@ -32,6 +32,17 @@ const NoteEditDialog: React.FC<NoteEditDialogProps> = ({
   const [content, setContent] = useState(note?.content || '');
   const [isPrivate, setIsPrivate] = useState(note?.is_private || false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Update content and isPrivate when note changes
+  useEffect(() => {
+    if (note) {
+      setContent(note.content || '');
+      setIsPrivate(note.is_private || false);
+    } else {
+      setContent('');
+      setIsPrivate(false);
+    }
+  }, [note]);
 
   const handleSave = async () => {
     if (!content.trim()) return;

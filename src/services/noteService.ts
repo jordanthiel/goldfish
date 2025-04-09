@@ -62,22 +62,31 @@ const getNotes = async (): Promise<SessionNoteWithClient[]> => {
         continue;
       }
       
+      // Get email from user_id if available
+      let email = '';
+      if (client.user_id) {
+        const { data: userData, error: userError } = await supabase
+          .rpc('get_client_user_info', { client_id_param: client.id });
+        
+        if (!userError && userData && userData.success) {
+          email = userData.email || '';
+        }
+      }
+      
       notesWithClients.push({
         ...note,
         client: {
-          id: client.id,
-          first_name: client.first_name || '',
-          last_name: client.last_name || '',
-          email: client.email || '', // Add a fallback for email
-          status: client.status || 'Active',
-          created_at: client.created_at,
+          ...client,
+          email,
           // Add other required client fields with defaults
           phone: client.phone || '',
           date_of_birth: client.date_of_birth || '',
           address: client.address || '',
           emergency_contact: client.emergency_contact || '',
-          updated_at: client.updated_at,
-          user_id: client.user_id || '',
+          status: client.status || 'Active',
+          first_name: client.first_name || '',
+          last_name: client.last_name || '',
+          updated_at: client.updated_at || client.created_at,
           phi_data: client.phi_data || null
         }
       });

@@ -193,17 +193,20 @@ const SessionNotes = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEditedNote = async (note: SessionNoteWithClient, newContent: string) => {
+  const handleSaveEditedNote = async (noteData: any) => {
     try {
-      await noteService.updateNote(note.id, {
-        content: newContent
+      if (!noteData.id) return;
+      
+      await noteService.updateNote(noteData.id, {
+        content: noteData.content,
+        is_private: noteData.is_private
       });
 
       const updatedNotes = await noteService.getNotes();
       setNotes(updatedNotes);
       
-      if (selectedNote && selectedNote.id === note.id) {
-        const updatedNote = updatedNotes.find(n => n.id === note.id);
+      if (selectedNote && selectedNote.id === noteData.id) {
+        const updatedNote = updatedNotes.find(n => n.id === noteData.id);
         if (updatedNote) {
           setSelectedNote(updatedNote);
         }
@@ -489,11 +492,9 @@ const SessionNotes = () => {
       <NoteEditDialog
         note={noteToEdit}
         open={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setNoteToEdit(null);
-        }}
+        onOpenChange={setIsEditDialogOpen}
         onSave={handleSaveEditedNote}
+        clientId={noteToEdit?.client_id || ''}
       />
     </div>
   );
