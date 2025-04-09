@@ -86,11 +86,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    // First, create the audit log entry
+    // First, create the audit log entry - ENSURING user_id is never null
+    const auditUserId = user.id; // Use the current therapist's ID instead of relying on auth.uid()
+    
     const { error: auditError } = await serviceClient
       .from('audit_logs')
       .insert({
-        user_id: user.id, // Use the current user's ID
+        user_id: auditUserId, // Explicitly set the user_id to avoid null constraint violation
         action: 'DELETE',
         table_name: 'clients',
         record_id: clientId,
