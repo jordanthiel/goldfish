@@ -71,7 +71,7 @@ export const patientService = {
 
       // Get client record linked to this user
       console.log('Checking for client with user_id:', user.id);
-      let { data: client, error: clientError } = await supabase
+      const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
@@ -82,48 +82,41 @@ export const patientService = {
         return null;
       }
       
-      if (!client) {
+      if (!clientData) {
         console.log('No client record found for this user ID:', user.id);
-        // Fallback to email check for backwards compatibility
-        const { data: clientByEmail, error: emailError } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('email', user.email)
-          .maybeSingle();
-          
-        if (emailError || !clientByEmail) {
-          console.log('No client record found for this user email either:', user.email);
-          return null;
-        }
-        
-        client = clientByEmail;
+        return null;
       }
+      
+      // Get user metadata from auth.users
+      const userMetadata = user.user_metadata || {};
+      const firstName = userMetadata.first_name || '';
+      const lastName = userMetadata.last_name || '';
       
       // Extract insurance information safely from phi_data
       let insuranceProvider: string | undefined;
       let insurancePolicyNumber: string | undefined;
       
-      if (client.phi_data && typeof client.phi_data === 'object') {
-        const phiData = client.phi_data as Record<string, any>;
+      if (clientData.phi_data && typeof clientData.phi_data === 'object') {
+        const phiData = clientData.phi_data as Record<string, any>;
         insuranceProvider = phiData.insurance_provider as string | undefined;
         insurancePolicyNumber = phiData.insurance_policy_number as string | undefined;
       }
       
       return {
-        id: client.id,
+        id: clientData.id,
         user_id: user.id,
-        first_name: client.first_name,
-        last_name: client.last_name,
+        first_name: firstName,
+        last_name: lastName,
         email: user.email || '',
-        date_of_birth: client.date_of_birth,
-        phone: client.phone,
-        address: client.address,
-        emergency_contact: client.emergency_contact,
+        date_of_birth: clientData.date_of_birth,
+        phone: clientData.phone,
+        address: clientData.address,
+        emergency_contact: clientData.emergency_contact,
         insurance_provider: insuranceProvider,
         insurance_policy_number: insurancePolicyNumber,
-        status: client.status,
-        created_at: client.created_at,
-        updated_at: client.updated_at
+        status: clientData.status,
+        created_at: clientData.created_at,
+        updated_at: clientData.updated_at
       };
     } catch (error) {
       console.error('Error in getPatientProfile:', error);
@@ -151,7 +144,7 @@ export const patientService = {
       
       // Get the client record linked to this user ID
       console.log('Checking for client with user_id:', user.id);
-      let { data: client, error: clientError } = await supabase
+      const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('*')
         .eq('user_id', user.id)
@@ -162,35 +155,19 @@ export const patientService = {
         return dashboardData;
       }
       
-      // If no client found by user_id, try by email (backwards compatibility)
-      if (!client) {
-        console.log('No client record found by user_id, checking email:', user.email);
-        const { data: clientByEmail, error: emailError } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('email', user.email)
-          .maybeSingle();
-          
-        if (emailError || !clientByEmail) {
-          console.log('No client record found for this user');
-          return dashboardData;
-        }
-        
-        console.log('Found client record by email:', clientByEmail);
-        dashboardData.therapist = await this.getTherapistInfo(clientByEmail.therapist_id);
-        dashboardData.upcomingAppointments = await this.getUpcomingAppointments(clientByEmail.id);
-        dashboardData.recentAppointments = await this.getRecentAppointments(clientByEmail.id);
+      if (!clientData) {
+        console.log('No client record found for this user');
         return dashboardData;
       }
       
-      console.log('Found client record by user_id:', client);
+      console.log('Found client record by user_id:', clientData);
       
       // Get therapist info
-      dashboardData.therapist = await this.getTherapistInfo(client.therapist_id);
+      dashboardData.therapist = await this.getTherapistInfo(clientData.therapist_id);
       
       // Get upcoming and recent appointments
-      dashboardData.upcomingAppointments = await this.getUpcomingAppointments(client.id);
-      dashboardData.recentAppointments = await this.getRecentAppointments(client.id);
+      dashboardData.upcomingAppointments = await this.getUpcomingAppointments(clientData.id);
+      dashboardData.recentAppointments = await this.getRecentAppointments(clientData.id);
       
     } catch (error) {
       console.error('Error in getPatientDashboardData:', error);
@@ -300,7 +277,7 @@ export const patientService = {
       const { data: client, error: clientError } = await supabase
         .from('clients')
         .select('*')
-        .eq('email', user.email)
+        .eq('user_id', user.id)
         .maybeSingle();
       
       if (clientError) {
@@ -312,26 +289,14 @@ export const patientService = {
         return { success: false, message: 'No client record found for this email' };
       }
       
-      // Update the client record to link it to this user
-      const { error: updateError } = await supabase
-        .from('clients')
-        .update({ user_id: user.id })
-        .eq('id', client.id);
-        
-      if (updateError) {
-        console.error('Error linking client to user:', updateError);
-        return { success: false, message: 'Error linking account' };
-      }
-      
       // Ensure user has client role
       const { error: roleError } = await supabase
         .from('user_roles')
-        .insert({ user_id: user.id, role: 'client' })
-        .onConflict(['user_id', 'role'])
-        .ignore();
+        .insert({ user_id: user.id, role: 'client' });
         
       if (roleError) {
         console.error('Error assigning client role:', roleError);
+        // Continue anyway since this might be a duplicate role
       }
       
       return { 

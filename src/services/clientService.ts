@@ -5,9 +5,6 @@ export interface Client {
   id: string;
   therapist_id: string;
   user_id?: string;
-  first_name: string;
-  last_name: string;
-  email?: string;
   phone?: string;
   date_of_birth?: string;
   address?: string;
@@ -15,11 +12,16 @@ export interface Client {
   status: string;
   created_at: string;
   updated_at: string;
-  // New HIPAA-compliant fields
+  // HIPAA-compliant fields
   phi_data?: any;
   consent_date?: string;
   consent_version?: string;
   encryption_key_id?: string;
+  // User information (fetched from auth.users)
+  first_name?: string; 
+  last_name?: string;
+  email?: string;
+  full_name?: string;
 }
 
 export interface ClientInput {
@@ -31,7 +33,7 @@ export interface ClientInput {
   address?: string;
   emergency_contact?: string;
   status?: string;
-  // New HIPAA-compliant fields
+  // HIPAA-compliant fields
   phi_data?: any;
   consent_date?: string;
   consent_version?: string;
@@ -43,18 +45,46 @@ export const clientService = {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .order('last_name');
+      .order('id');
 
     if (error) {
       throw new Error(error.message);
     }
 
-    return data || [];
+    // We need to fetch user information for each client
+    const clientsWithUserInfo = await Promise.all(
+      (data || []).map(async (client) => {
+        try {
+          // Get user info for this client
+          const { data: userData, error: userError } = await supabase
+            .rpc('get_client_user_info', { client_id_param: client.id });
+            
+          if (userError || !userData || !userData.success) {
+            console.error('Error fetching user info for client:', client.id, userError || userData?.message);
+            return client;
+          }
+          
+          // Merge the user info with the client data
+          return {
+            ...client,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            email: userData.email,
+            full_name: userData.full_name
+          };
+        } catch (error) {
+          console.error('Error processing client user info:', error);
+          return client;
+        }
+      })
+    );
+
+    return clientsWithUserInfo || [];
   },
 
   // Get a single client by ID
   async getClient(id: string): Promise<Client> {
-    const { data, error } = await supabase
+    const { data: client, error } = await supabase
       .from('clients')
       .select('*')
       .eq('id', id)
@@ -64,7 +94,23 @@ export const clientService = {
       throw new Error(error.message);
     }
 
-    return data;
+    // Get user info for this client
+    const { data: userData, error: userError } = await supabase
+      .rpc('get_client_user_info', { client_id_param: client.id });
+      
+    if (userError || !userData || !userData.success) {
+      console.error('Error fetching user info for client:', client.id, userError || userData?.message);
+      return client;
+    }
+    
+    // Merge the user info with the client data
+    return {
+      ...client,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      email: userData.email,
+      full_name: userData.full_name
+    };
   },
 
   // Create a new client with HIPAA compliance and user account
@@ -106,17 +152,7 @@ export const clientService = {
       if (data && typeof data === 'object' && 'client_id' in data) {
         const clientId = data.client_id as string;
         
-        const { data: clientData, error: clientError } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('id', clientId)
-          .single();
-          
-        if (clientError) {
-          throw new Error(clientError.message);
-        }
-        
-        return clientData;
+        return await this.getClient(clientId);
       } else {
         throw new Error('Invalid response from create_client_with_user function');
       }
@@ -128,10 +164,14 @@ export const clientService = {
 
   // Update an existing client
   async updateClient(id: string, updates: Partial<ClientInput>): Promise<Client> {
-    const { data, error } = await supabase
+    // We need to separate user info updates from client table updates
+    const { first_name, last_name, email, ...clientUpdates } = updates;
+    
+    // First update the client record
+    const { data: updatedClient, error } = await supabase
       .from('clients')
       .update({
-        ...updates,
+        ...clientUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -141,8 +181,9 @@ export const clientService = {
     if (error) {
       throw new Error(error.message);
     }
-
-    return data;
+    
+    // Now get client with user info
+    return this.getClient(id);
   },
 
   // Delete a client
@@ -171,8 +212,24 @@ export const clientService = {
     if (error) {
       throw new Error(error.message);
     }
-
-    return data;
+    
+    // Get user info for this client
+    const { data: userData, error: userError } = await supabase
+      .rpc('get_client_user_info', { client_id_param: data.id });
+      
+    if (userError || !userData || !userData.success) {
+      console.error('Error fetching user info for client:', data.id, userError || userData?.message);
+      return data;
+    }
+    
+    // Merge the user info with the client data
+    return {
+      ...data,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      email: userData.email,
+      full_name: userData.full_name
+    };
   },
 
   // Store sensitive PHI data
@@ -214,17 +271,6 @@ export const clientService = {
       
       if (!user) {
         return { success: false, message: 'User not authenticated' };
-      }
-      
-      // Update client email if needed
-      const { error: updateError } = await supabase
-        .from('clients')
-        .update({ email })
-        .eq('id', clientId);
-        
-      if (updateError) {
-        console.error('Error updating client email:', updateError);
-        return { success: false, message: 'Error updating client email' };
       }
       
       return { success: true, message: 'Client account info updated' };

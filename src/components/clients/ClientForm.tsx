@@ -106,7 +106,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
         // If email was added or changed and send_invitation is true, send invitation
         if (values.email && values.email !== client.email && values.send_invitation) {
           try {
-            await clientService.sendClientInvitation(client.id);
+            await clientService.sendClientInvitation(client.id, values.email);
             toast({
               title: 'Invitation sent',
               description: `An invitation email has been sent to ${values.email}.`,

@@ -217,12 +217,9 @@ export type Database = {
           consent_version: string | null
           created_at: string
           date_of_birth: string | null
-          email: string | null
           emergency_contact: string | null
           encryption_key_id: string | null
-          first_name: string
           id: string
-          last_name: string
           phi_data: Json | null
           phone: string | null
           status: string | null
@@ -236,12 +233,9 @@ export type Database = {
           consent_version?: string | null
           created_at?: string
           date_of_birth?: string | null
-          email?: string | null
           emergency_contact?: string | null
           encryption_key_id?: string | null
-          first_name: string
           id?: string
-          last_name: string
           phi_data?: Json | null
           phone?: string | null
           status?: string | null
@@ -255,12 +249,9 @@ export type Database = {
           consent_version?: string | null
           created_at?: string
           date_of_birth?: string | null
-          email?: string | null
           emergency_contact?: string | null
           encryption_key_id?: string | null
-          first_name?: string
           id?: string
-          last_name?: string
           phi_data?: Json | null
           phone?: string | null
           status?: string | null
@@ -465,6 +456,10 @@ export type Database = {
       generate_invite_code: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_client_user_info: {
+        Args: { client_id_param: string }
+        Returns: Json
       }
       get_user_roles: {
         Args: { user_id_param: string }
