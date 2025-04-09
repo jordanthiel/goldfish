@@ -1,248 +1,83 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { Send, FileText, Paperclip, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { patientService } from '@/services/patientService';
+import { MessageSquare, Send, User } from 'lucide-react';
 
+// This is a stub implementation until proper messaging is implemented
 const PatientMessages = () => {
-  const [newMessage, setNewMessage] = useState("");
-  const [messagesData, setMessagesData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
   const { toast } = useToast();
-  
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setLoading(true);
-      try {
-        const data = await patientService.getPatientMessages();
-        setMessagesData(data);
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-        toast({
-          title: "Failed to load messages",
-          description: "Please try again later",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchMessages();
-  }, [toast]);
-  
-  // Function to handle sending a new message
+
   const handleSendMessage = () => {
-    if (newMessage.trim() === "") {
-      return;
-    }
+    if (!message.trim()) return;
     
-    console.log("Sending message:", newMessage);
     toast({
-      title: "Message sent",
-      description: "Your message has been sent to your therapist."
+      title: "Feature in development",
+      description: "Messaging functionality is coming soon!",
     });
     
-    // In a real app, this would add the message to the conversation and send it to the server
-    setNewMessage("");
+    setMessage('');
   };
-
-  // Function to handle file attachment
-  const handleAttachment = () => {
-    console.log("Attaching file");
-    toast({
-      title: "Feature coming soon",
-      description: "File attachment will be available in a future update."
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 p-6 overflow-auto bg-gray-50 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-therapy-purple" />
-            <p className="text-muted-foreground">Loading your messages...</p>
-          </div>
-        </main>
-        <Separator />
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!messagesData) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 p-6 overflow-auto bg-gray-50">
-          <div className="max-w-6xl mx-auto text-center py-12">
-            <h1 className="text-3xl font-bold tracking-tight mb-4">No message data available</h1>
-            <p className="text-muted-foreground mb-6">
-              We're having trouble loading your messages.
-            </p>
-            <Button 
-              onClick={() => window.location.reload()}
-              className="mx-auto"
-            >
-              Try Again
-            </Button>
-          </div>
-        </main>
-        <Separator />
-        <Footer />
-      </div>
-    );
-  }
-
-  const therapist = messagesData.therapist;
-  const conversation = messagesData.conversations[0]; // Currently displaying only one conversation
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
       <main className="flex-1 p-6 overflow-auto bg-gray-50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
             <p className="text-muted-foreground">
-              Secure messaging with your therapist.
+              Communicate with your therapist between sessions
             </p>
           </div>
           
-          <Separator className="my-6" />
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-270px)]">
-            {/* Sidebar - Message threads (simplified with just one therapist) */}
-            <Card className="col-span-1 overflow-hidden">
-              <div className="p-4 bg-therapy-purple text-white">
-                <h2 className="font-semibold">Conversations</h2>
-              </div>
-              <div className="h-full overflow-y-auto">
-                <div className="p-3 border-b bg-muted/30">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={therapist.avatar || undefined} />
-                      <AvatarFallback className="bg-therapy-purple text-white">
-                        {therapist.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{therapist.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(conversation.messages[conversation.messages.length - 1].timestamp, 'MMM d, h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          <Card className="flex flex-col h-[calc(100vh-220px)]">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Your Therapist
+              </CardTitle>
+            </CardHeader>
             
-            {/* Main message area */}
-            <Card className="col-span-1 md:col-span-3 flex flex-col">
-              {/* Conversation header */}
-              <div className="p-4 border-b flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src={therapist.avatar || undefined} />
-                  <AvatarFallback className="bg-therapy-purple text-white">
-                    {therapist.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">{therapist.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Licensed Clinical Psychologist
+            <CardContent className="flex-1 overflow-auto p-4 flex flex-col">
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center p-8">
+                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="font-semibold text-lg mb-2">No messages yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Send your first message to start a conversation with your therapist.
                   </p>
                 </div>
               </div>
               
-              {/* Message area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {conversation.messages.map((message) => (
-                  <div 
-                    key={message.id}
-                    className={`flex ${message.sender === 'patient' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div 
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        message.sender === 'patient'
-                          ? 'bg-therapy-purple text-white'
-                          : 'bg-white border'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <p className={`text-xs ${message.sender === 'patient' ? 'text-purple-200' : 'text-muted-foreground'}`}>
-                          {message.sender === 'patient' ? 'You' : therapist.name}
-                        </p>
-                        <p className={`text-xs ml-2 ${message.sender === 'patient' ? 'text-purple-200' : 'text-muted-foreground'}`}>
-                          {format(message.timestamp, 'h:mm a')}
-                        </p>
-                      </div>
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      {message.attachment && (
-                        <div className="mt-2 flex items-center">
-                          <FileText className={`h-4 w-4 mr-1 ${message.sender === 'patient' ? 'text-white' : 'text-therapy-purple'}`} />
-                          <a 
-                            href="#" 
-                            className={`text-sm underline ${message.sender === 'patient' ? 'text-white' : 'text-therapy-purple'}`}
-                          >
-                            {message.attachment}
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="border-t pt-4 flex gap-2">
+                <Textarea
+                  placeholder="Type your message here..."
+                  className="flex-1 resize-none"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                />
+                <Button onClick={handleSendMessage}>
+                  <Send className="h-4 w-4" />
+                </Button>
               </div>
-              
-              {/* Message input */}
-              <div className="p-3 border-t">
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleAttachment} 
-                    className="text-muted-foreground"
-                  >
-                    <Paperclip className="h-5 w-5" />
-                  </Button>
-                  <Input
-                    placeholder="Type your message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleSendMessage}>
-                    <Send className="h-4 w-4 mr-1" />
-                    Send
-                  </Button>
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground text-center">
-                  Messages are end-to-end encrypted and securely stored according to HIPAA guidelines.
-                </div>
-              </div>
-            </Card>
-          </div>
-          
-          <div className="mt-6 p-4 bg-blue-50 text-blue-800 rounded-lg">
-            <p className="text-sm">
-              <strong>Note:</strong> This messaging system is for non-urgent communication only. For emergencies, please call 911 or your local emergency number.
-            </p>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
-      
       <Separator />
       <Footer />
     </div>

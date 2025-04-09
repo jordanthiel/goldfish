@@ -1,86 +1,56 @@
 
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Video, 
-  ChevronDown, 
-  ChevronRight, 
-  CheckCircle2,
-  Search,
-  FileText,
-  Loader2
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { patientService, PatientAppointment } from '@/services/patientService';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar, CalendarDay } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Appointment, patientService } from '@/services/patientService';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { useAuth } from '@/context/AuthContext';
+import { Loader2, AlertCircle, Video, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
+// Temporary stub implementation until this is implemented properly
 const PatientAppointments = () => {
-  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
-  const [activeTab, setActiveTab] = useState('upcoming');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedAppointment, setExpandedAppointment] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    const loadAppointments = async () => {
-      setLoading(true);
+    const fetchAppointments = async () => {
       try {
-        const data = await patientService.getPatientAppointments();
-        setAppointments(data);
+        setIsLoading(true);
+        // Using the existing dashboard data function to get appointments
+        const data = await patientService.getPatientDashboardData();
+        // Combine upcoming and recent appointments
+        const allAppointments = [
+          ...data.upcomingAppointments,
+          ...data.recentAppointments
+        ];
+        setAppointments(allAppointments);
       } catch (error) {
-        console.error('Error loading appointments:', error);
+        console.error("Error fetching appointments:", error);
         toast({
-          title: "Failed to load appointments",
+          title: "Error loading appointments",
           description: "Please try again later",
           variant: "destructive"
         });
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    loadAppointments();
-  }, [toast]);
+    if (user) {
+      fetchAppointments();
+    }
+  }, [user, toast]);
 
-  const now = new Date();
-  
-  const upcomingAppointments = appointments
-    .filter(app => new Date(app.start_time) > now)
-    .filter(app => 
-      app.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.type?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-  
-  const pastAppointments = appointments
-    .filter(app => new Date(app.end_time) < now)
-    .filter(app => 
-      app.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.type?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-
-  const toggleExpand = (id: string) => {
-    setExpandedAppointment(expandedAppointment === id ? null : id);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -99,190 +69,150 @@ const PatientAppointments = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
       <main className="flex-1 p-6 overflow-auto bg-gray-50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Your Appointments</h1>
             <p className="text-muted-foreground">
-              Manage your therapy sessions and appointment history
+              View and manage your therapy sessions
             </p>
           </div>
           
-          <Separator className="my-6" />
-          
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
-            <Input
-              placeholder="Search appointments..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="upcoming">Upcoming ({upcomingAppointments.length})</TabsTrigger>
-              <TabsTrigger value="past">Past ({pastAppointments.length})</TabsTrigger>
+          <Tabs defaultValue="upcoming" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+              <TabsTrigger value="past">Past Sessions</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="upcoming" className="space-y-6">
-              {upcomingAppointments.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingAppointments.map((appointment) => (
-                    <Card key={appointment.id} className="overflow-hidden">
-                      <div onClick={() => toggleExpand(appointment.id)} className="cursor-pointer">
-                        <CardHeader className="py-4 flex flex-row items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-therapy-light-purple flex items-center justify-center">
-                              <CalendarIcon className="h-5 w-5 text-therapy-purple" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg">{appointment.title}</CardTitle>
-                              <CardDescription>
-                                {format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy • h:mm a')}
-                              </CardDescription>
+            <TabsContent value="upcoming" className="space-y-4">
+              {appointments.filter(apt => new Date(apt.start_time) > new Date()).length > 0 ? (
+                appointments
+                  .filter(apt => new Date(apt.start_time) > new Date())
+                  .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                  .map(appointment => (
+                    <Card key={appointment.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-full bg-therapy-light-purple flex items-center justify-center">
+                            <Video className="h-6 w-6 text-therapy-purple" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                              <div>
+                                <h3 className="font-semibold text-lg">{appointment.title || 'Therapy Session'}</h3>
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <CalendarIcon className="h-4 w-4" />
+                                  <span>{format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy')}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    {format(new Date(appointment.start_time), 'h:mm a')} - 
+                                    {format(new Date(appointment.end_time), 'h:mm a')}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant={
+                                appointment.status === 'Scheduled' ? 'outline' :
+                                appointment.status === 'Completed' ? 'secondary' :
+                                appointment.status === 'Cancelled' ? 'destructive' : 'default'
+                              }>
+                                {appointment.status}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 mr-3">
-                              {appointment.status}
-                            </Badge>
-                            {expandedAppointment === appointment.id ? 
-                              <ChevronDown className="h-5 w-5" /> : 
-                              <ChevronRight className="h-5 w-5" />
-                            }
-                          </div>
-                        </CardHeader>
-                      </div>
-                      
-                      {expandedAppointment === appointment.id && (
-                        <CardContent className="pb-4">
-                          <div className="border-t pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Duration:</span>
-                                <span className="text-sm font-medium">{appointment.duration} minutes</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Video className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Type:</span>
-                                <span className="text-sm font-medium">{appointment.type}</span>
-                              </div>
-                            </div>
-                            
-                            {appointment.notes && (
-                              <div className="mb-4">
-                                <h4 className="text-sm font-medium mb-1">Session Notes:</h4>
-                                <p className="text-sm">{appointment.notes}</p>
-                              </div>
-                            )}
-                            
-                            <div className="flex flex-wrap gap-2 mt-4">
-                              <Button size="sm">Join Session</Button>
-                              <Button size="sm" variant="outline">Reschedule</Button>
-                              <Button size="sm" variant="outline">Cancel</Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      )}
+                        </div>
+                      </CardContent>
                     </Card>
-                  ))}
-                </div>
+                  ))
               ) : (
-                <div className="text-center py-12">
-                  <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-lg mb-2">No upcoming appointments</h3>
-                  <p className="text-muted-foreground mb-4">
-                    You don't have any appointments scheduled for the future.
-                  </p>
-                  <Button>Schedule an Appointment</Button>
-                </div>
+                <Card>
+                  <CardContent className="p-6 text-center py-10 flex flex-col items-center">
+                    <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-lg mb-2">No upcoming appointments</h3>
+                    <p className="text-muted-foreground mb-4">
+                      You don't have any scheduled appointments yet.
+                    </p>
+                    <Button>Schedule a Session</Button>
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
             
-            <TabsContent value="past" className="space-y-6">
-              {pastAppointments.length > 0 ? (
-                <div className="space-y-4">
-                  {pastAppointments.map((appointment) => (
-                    <Card key={appointment.id} className="overflow-hidden">
-                      <div onClick={() => toggleExpand(appointment.id)} className="cursor-pointer">
-                        <CardHeader className="py-4 flex flex-row items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-therapy-soft-pink flex items-center justify-center">
-                              <CheckCircle2 className="h-5 w-5 text-therapy-pink" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg">{appointment.title}</CardTitle>
-                              <CardDescription>
-                                {format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy • h:mm a')}
-                              </CardDescription>
+            <TabsContent value="past" className="space-y-4">
+              {appointments.filter(apt => new Date(apt.start_time) <= new Date()).length > 0 ? (
+                appointments
+                  .filter(apt => new Date(apt.start_time) <= new Date())
+                  .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+                  .map(appointment => (
+                    <Card key={appointment.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-full bg-therapy-soft-pink flex items-center justify-center">
+                            <Video className="h-6 w-6 text-therapy-pink" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                              <div>
+                                <h3 className="font-semibold text-lg">{appointment.title || 'Therapy Session'}</h3>
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <CalendarIcon className="h-4 w-4" />
+                                  <span>{format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy')}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    {format(new Date(appointment.start_time), 'h:mm a')} - 
+                                    {format(new Date(appointment.end_time), 'h:mm a')}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant={
+                                appointment.status === 'Scheduled' ? 'outline' :
+                                appointment.status === 'Completed' ? 'secondary' :
+                                appointment.status === 'Cancelled' ? 'destructive' : 'default'
+                              }>
+                                {appointment.status}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 mr-3">
-                              Completed
-                            </Badge>
-                            {expandedAppointment === appointment.id ? 
-                              <ChevronDown className="h-5 w-5" /> : 
-                              <ChevronRight className="h-5 w-5" />
-                            }
-                          </div>
-                        </CardHeader>
-                      </div>
-                      
-                      {expandedAppointment === appointment.id && (
-                        <CardContent className="pb-4">
-                          <div className="border-t pt-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Duration:</span>
-                                <span className="text-sm font-medium">{appointment.duration} minutes</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Video className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Type:</span>
-                                <span className="text-sm font-medium">{appointment.type}</span>
-                              </div>
-                            </div>
-                            
-                            {appointment.notes && (
-                              <div className="mb-4">
-                                <h4 className="text-sm font-medium mb-1">Session Notes:</h4>
-                                <p className="text-sm">{appointment.notes}</p>
-                              </div>
-                            )}
-                            
-                            <div className="flex flex-wrap gap-2 mt-4">
-                              <Button size="sm" variant="outline">
-                                <FileText className="h-4 w-4 mr-2" />
-                                View Detailed Notes
-                              </Button>
-                              <Button size="sm" variant="outline">Book Follow-up</Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      )}
+                        </div>
+                      </CardContent>
                     </Card>
-                  ))}
-                </div>
+                  ))
               ) : (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-lg mb-2">No past appointments</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Once you've completed appointments, they'll appear here.
-                  </p>
-                </div>
+                <Card>
+                  <CardContent className="p-6 text-center py-10 flex flex-col items-center">
+                    <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-lg mb-2">No past appointments</h3>
+                    <p className="text-muted-foreground mb-4">
+                      You haven't had any therapy sessions yet.
+                    </p>
+                  </CardContent>
+                </Card>
               )}
+            </TabsContent>
+            
+            <TabsContent value="calendar">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Appointment Calendar</CardTitle>
+                  <CardDescription>
+                    View all your scheduled appointments on a calendar
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Calendar 
+                    mode="single"
+                    className="rounded-md border"
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
       </main>
-      
       <Separator />
       <Footer />
     </div>

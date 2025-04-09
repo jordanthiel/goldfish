@@ -66,7 +66,7 @@ export const clientService = {
     return data;
   },
 
-  // Create a new client with HIPAA compliance and invitation if email is provided
+  // Create a new client with HIPAA compliance and user account
   async createClient(client: ClientInput): Promise<Client> {
     // Get current user id
     const { data: { user } } = await supabase.auth.getUser();
@@ -75,76 +75,55 @@ export const clientService = {
       throw new Error('User not authenticated');
     }
     
-    // Insert the client record
-    const { data, error } = await supabase
-      .from('clients')
-      .insert({
-        ...client,
-        status: client.status || 'Active',
-        therapist_id: user.id,
-        consent_date: client.consent_date || new Date().toISOString(),
-        consent_version: client.consent_version || '1.0'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // If email is provided, check if the user exists and create an invitation if needed
-    if (client.email) {
-      try {
-        // Check if a user with this email already exists in auth users
-        const { data: existingUsers, error: userCheckError } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'client');
-
-        if (userCheckError) {
-          console.error('Error checking existing users:', userCheckError);
-        }
-
-        let existingUserId = null;
-
-        // If there are users, we need to check their emails
-        if (existingUsers && existingUsers.length > 0) {
-          // For each user ID, get their email
-          for (const userRole of existingUsers) {
-            const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userRole.user_id);
-            
-            if (!userError && userData?.user && userData.user.email === client.email) {
-              existingUserId = userData.user.id;
-              console.log('Found existing user with email:', client.email, existingUserId);
-              break;
-            }
-          }
-        }
-
-        console.log('Checking for existing user with email:', client.email, existingUserId);
-
-        // Create client invitation to link this client with their user account
-        const { data: inviteData, error: inviteError } = await supabase
-          .rpc('create_client_invitation', {
-            therapist_id_param: user.id,
-            client_id_param: data.id,
-            email_param: client.email
-          });
-
-        if (inviteError) {
-          console.error('Error creating client invitation:', inviteError);
-        } else {
-          console.log('Client invitation created:', inviteData);
+    try {
+      console.log('Creating client with new user architecture:', client);
+      
+      // Use the new database function to create a client with a user
+      const { data: functionData, error: functionError } = await supabase
+        .rpc('create_client_with_user', {
+          therapist_id_param: user.id,
+          first_name_param: client.first_name,
+          last_name_param: client.last_name,
+          email_param: client.email || null,
+          phone_param: client.phone || null,
+          address_param: client.address || null,
+          emergency_contact_param: client.emergency_contact || null,
+          status_param: client.status || 'Active',
+          phi_data_param: client.phi_data || null,
+          consent_date_param: client.consent_date || null,
+          consent_version_param: client.consent_version || '1.0'
+        });
+        
+      if (functionError) {
+        console.error('Error in create_client_with_user function:', functionError);
+        throw new Error(functionError.message);
+      }
+      
+      console.log('Client created successfully with function:', functionData);
+      
+      // Now retrieve the created client record
+      if (functionData && typeof functionData === 'object' && 'client_id' in functionData) {
+        const clientId = functionData.client_id as string;
+        
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', clientId)
+          .single();
           
-          // Check if inviteData has an id property
-          const inviteId = inviteData && typeof inviteData === 'object' ? 
-            inviteData.id : null;
+        if (clientError) {
+          throw new Error(clientError.message);
+        }
+        
+        // If email is provided and we got back an invite_code, prepare email notification
+        if (client.email && functionData.invite_code) {
+          try {
+            const inviteCode = functionData.invite_code as string;
             
-          if (inviteId) {
             // Send email notification via RPC function
             const { data: emailData, error: emailError } = await supabase
               .rpc('send_client_invitation_email', {
-                invite_id: inviteId
+                invite_id: inviteCode
               });
               
             if (emailError) {
@@ -152,16 +131,19 @@ export const clientService = {
             } else {
               console.log('Invitation email notification prepared:', emailData);
             }
-          } else {
-            console.error('Invalid invite data format:', inviteData);
+          } catch (inviteError) {
+            console.error('Error in invitation process:', inviteError);
           }
         }
-      } catch (inviteError) {
-        console.error('Error in invitation process:', inviteError);
+        
+        return clientData;
+      } else {
+        throw new Error('Invalid response from create_client_with_user function');
       }
+    } catch (error: any) {
+      console.error('Error creating client:', error);
+      throw error;
     }
-
-    return data;
   },
 
   // Update an existing client
@@ -285,7 +267,7 @@ export const clientService = {
       throw new Error('Invalid invite data returned');
     }
     
-    const inviteId = 'id' in inviteData ? inviteData.id : null;
+    const inviteId = 'id' in inviteData ? inviteData.id as string : null;
       
     if (!inviteId) {
       throw new Error('Invalid invite data returned');

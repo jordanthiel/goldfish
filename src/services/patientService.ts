@@ -78,6 +78,18 @@ export const patientService = {
         return null;
       }
       
+      // Extract insurance information safely from phi_data
+      let insuranceProvider: string | undefined;
+      let insurancePolicyNumber: string | undefined;
+      
+      if (client.phi_data && typeof client.phi_data === 'object') {
+        insuranceProvider = typeof client.phi_data === 'object' ? 
+          (client.phi_data.insurance_provider as string) : undefined;
+          
+        insurancePolicyNumber = typeof client.phi_data === 'object' ? 
+          (client.phi_data.insurance_policy_number as string) : undefined;
+      }
+      
       return {
         id: client.id,
         user_id: user.id,
@@ -88,8 +100,8 @@ export const patientService = {
         phone: client.phone,
         address: client.address,
         emergency_contact: client.emergency_contact,
-        insurance_provider: client.phi_data?.insurance_provider,
-        insurance_policy_number: client.phi_data?.insurance_policy_number,
+        insurance_provider: insuranceProvider,
+        insurance_policy_number: insurancePolicyNumber,
         status: client.status,
         created_at: client.created_at,
         updated_at: client.updated_at

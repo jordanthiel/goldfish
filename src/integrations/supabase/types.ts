@@ -168,6 +168,7 @@ export type Database = {
       }
       client_invitations: {
         Row: {
+          claimed: boolean | null
           client_id: string
           created_at: string
           email: string
@@ -178,6 +179,7 @@ export type Database = {
           therapist_id: string
         }
         Insert: {
+          claimed?: boolean | null
           client_id: string
           created_at?: string
           email: string
@@ -188,6 +190,7 @@ export type Database = {
           therapist_id: string
         }
         Update: {
+          claimed?: boolean | null
           client_id?: string
           created_at?: string
           email?: string
@@ -437,6 +440,22 @@ export type Database = {
           therapist_id_param: string
           client_id_param: string
           email_param: string
+        }
+        Returns: Json
+      }
+      create_client_with_user: {
+        Args: {
+          therapist_id_param: string
+          first_name_param: string
+          last_name_param: string
+          email_param: string
+          phone_param?: string
+          address_param?: string
+          emergency_contact_param?: string
+          status_param?: string
+          phi_data_param?: Json
+          consent_date_param?: string
+          consent_version_param?: string
         }
         Returns: Json
       }
