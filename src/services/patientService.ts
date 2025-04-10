@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
 
 export interface PatientProfile {
   id: string;
@@ -31,10 +30,17 @@ export interface AppointmentStatus {
   cancelled: number;
 }
 
+export interface PatientDashboardData {
+  upcomingAppointments: any[];
+  recentAppointments: any[];
+  appointmentStats: AppointmentStatus;
+}
+
 // Simulate getting the patient profile
 const getPatientProfile = async (): Promise<PatientProfile> => {
   try {
-    const { user } = useAuth();
+    // Get current user from Supabase
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       throw new Error('User not authenticated');
@@ -74,6 +80,7 @@ const getPatientProfile = async (): Promise<PatientProfile> => {
 // Fetch messages for a patient from Supabase
 const getMessages = async (patientId: string): Promise<Message[]> => {
   try {
+    // Check if messages table exists
     const { data: messagesData, error } = await supabase
       .from('messages')
       .select('*')
@@ -158,9 +165,69 @@ const getAppointmentStats = async (): Promise<AppointmentStatus> => {
   };
 };
 
+// Get patient dashboard data
+const getPatientDashboardData = async (patientId: string): Promise<PatientDashboardData> => {
+  // For now, return mock data
+  return {
+    upcomingAppointments: [
+      {
+        id: 'a1',
+        title: 'Therapy Session',
+        therapistName: 'Dr. Sarah Johnson',
+        start: new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString(), // tomorrow
+        end: new Date(new Date().getTime() + 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
+        status: 'Scheduled'
+      },
+      {
+        id: 'a2',
+        title: 'Follow-up Session',
+        therapistName: 'Dr. Sarah Johnson',
+        start: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week later
+        end: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
+        status: 'Scheduled'
+      }
+    ],
+    recentAppointments: [
+      {
+        id: 'a3',
+        title: 'Initial Consultation',
+        therapistName: 'Dr. Sarah Johnson',
+        start: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago
+        end: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
+        status: 'Completed'
+      }
+    ],
+    appointmentStats: {
+      upcoming: 2,
+      completed: 5,
+      cancelled: 0
+    }
+  };
+};
+
+// Function to handle claiming a patient account
+const claimPatientAccount = async (inviteCode: string, userData: any): Promise<boolean> => {
+  try {
+    // This would normally involve:
+    // 1. Verifying the invite code
+    // 2. Creating or updating the user record
+    // 3. Setting up proper permissions
+    
+    // For this demo, we'll simulate a successful response
+    console.log('Claiming account with invite code:', inviteCode, 'and user data:', userData);
+    
+    return true;
+  } catch (error) {
+    console.error('Error claiming patient account:', error);
+    return false;
+  }
+};
+
 export const patientService = {
   getPatientProfile,
   getMessages,
   sendMessage,
-  getAppointmentStats
+  getAppointmentStats,
+  getPatientDashboardData,
+  claimPatientAccount
 };

@@ -11,6 +11,7 @@ import AppointmentCalendar from '@/components/calendar/AppointmentCalendar';
 import SessionNotes from '@/components/notes/SessionNotes';
 import VideoConsultation from '@/components/video/VideoConsultation';
 import InsuranceClaims from '@/components/claims/InsuranceClaims';
+import TherapistMessages from '@/components/messages/TherapistMessages';
 import { Button } from '@/components/ui/button';
 import { backfillUserData } from '@/utils/backfillUserData';
 import { useAuth } from '@/context/AuthContext';
@@ -37,6 +38,8 @@ const Dashboard = () => {
     if (path.includes('/dashboard/notes')) return 'notes';
     if (path.includes('/dashboard/video')) return 'video';
     if (path.includes('/dashboard/claims')) return 'claims';
+    if (path.includes('/dashboard/messages')) return 'messages';
+    if (path.includes('/dashboard/settings')) return 'settings';
     return 'overview'; // Default tab
   };
   
@@ -85,6 +88,16 @@ const Dashboard = () => {
         return <VideoConsultation />;
       case 'claims':
         return <InsuranceClaims />;
+      case 'messages':
+        return <TherapistMessages />;
+      case 'settings':
+        // For now, just show a placeholder
+        return (
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
+            <p className="text-muted-foreground">Manage your account and practice settings</p>
+          </div>
+        );
       default:
         return (
           <>
