@@ -3,185 +3,178 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Appointment {
   id: string;
-  title: string;
   therapist_id: string;
   client_id: string;
+  title: string;
   start_time: string;
   end_time: string;
-  status: string;
-  notes?: string;
+  status: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
-  client?: {
-    first_name: string;
-    last_name: string;
-    email?: string;
-    phone?: string;
+}
+
+export interface AppointmentWithClient extends Appointment {
+  client_profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
   };
 }
 
-export interface AppointmentInput {
-  title: string;
-  client_id: string;
-  start_time: string;
-  end_time: string;
-  status?: string;
-  notes?: string;
-}
-
-export const appointmentService = {
-  // Get all appointments for the current user
-  async getAppointments(): Promise<Appointment[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+// Get all appointments for a therapist
+export const getTherapistAppointments = async (therapistId: string): Promise<AppointmentWithClient[]> => {
+  try {
     const { data, error } = await supabase
       .from('appointments')
       .select(`
         *,
-        client_profiles (first_name, last_name))
+        client_profiles(first_name, last_name, phone)
       `)
-      .eq('therapist_id', user.id)
-      .order('start_time');
+      .eq('therapist_id', therapistId)
+      .order('start_time', { ascending: true });
+
     if (error) {
-      throw new Error(error.message);
+      console.error('Error fetching appointments:', error);
+      throw error;
     }
 
     return data || [];
-  },
+  } catch (error) {
+    console.error('Error in getTherapistAppointments:', error);
+    return [];
+  }
+};
 
-  // Get appointments within a date range
-  async getAppointmentsInRange(startDate: Date, endDate: Date): Promise<Appointment[]> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+// Get appointments for a specific date range
+export const getAppointmentsByDateRange = async (
+  therapistId: string,
+  startDate: string,
+  endDate: string
+): Promise<AppointmentWithClient[]> => {
+  try {
     const { data, error } = await supabase
       .from('appointments')
       .select(`
         *,
-        client_profiles (
-          first_name,
-          last_name,
-          phone
-        )
+        client_profiles(first_name, last_name, phone)
       `)
-      .eq('therapist_id', user.id)
-      .gte('start_time', startDate.toISOString())
-      .lte('end_time', endDate.toISOString())
-      .order('start_time');
+      .eq('therapist_id', therapistId)
+      .gte('start_time', startDate)
+      .lte('end_time', endDate)
+      .order('start_time', { ascending: true });
 
     if (error) {
-      throw new Error(error.message);
+      console.error('Error fetching appointments by date range:', error);
+      throw error;
     }
 
     return data || [];
-  },
+  } catch (error) {
+    console.error('Error in getAppointmentsByDateRange:', error);
+    return [];
+  }
+};
 
-  // Get a single appointment by ID
-  async getAppointment(id: string): Promise<Appointment> {
-    const { data: { user } } = await supabase.auth.getUser();
-    console.log('id', id)
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+// Create a new appointment
+export const createAppointment = async (appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>): Promise<Appointment> => {
+  try {
     const { data, error } = await supabase
       .from('appointments')
-      .select(`
-        *,
-        client_profiles (
-          first_name,
-          last_name,
-          phone
-        )
-      `)
-      .eq('id', id)
-      .eq('therapist_id', user.id)
-      .single();
-    console.log('data', data)
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data;
-  },
-
-  // Create a new appointment
-  async createAppointment(appointment: AppointmentInput): Promise<Appointment> {
-    // Get current user id
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
-    const { data, error } = await supabase
-      .from('appointments')
-      .insert({
-        ...appointment,
-        therapist_id: user.id,
-        status: appointment.status || 'Scheduled'
-      })
+      .insert([appointment])
       .select()
       .single();
 
     if (error) {
-      throw new Error(error.message);
+      console.error('Error creating appointment:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('No data returned from insert operation');
     }
 
     return data;
-  },
+  } catch (error) {
+    console.error('Error in createAppointment:', error);
+    throw error;
+  }
+};
 
-  // Update an existing appointment
-  async updateAppointment(id: string, updates: Partial<AppointmentInput>): Promise<Appointment> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+// Update an existing appointment
+export const updateAppointment = async (id: string, updates: Partial<Appointment>): Promise<Appointment> => {
+  try {
     const { data, error } = await supabase
       .from('appointments')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id)
-      .eq('therapist_id', user.id)
       .select()
       .single();
 
     if (error) {
-      throw new Error(error.message);
+      console.error('Error updating appointment:', error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('No data returned from update operation');
     }
 
     return data;
-  },
+  } catch (error) {
+    console.error('Error in updateAppointment:', error);
+    throw error;
+  }
+};
 
-  // Delete an appointment
-  async deleteAppointment(id: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-    
+// Delete an appointment
+export const deleteAppointment = async (id: string): Promise<void> => {
+  try {
     const { error } = await supabase
       .from('appointments')
       .delete()
-      .eq('id', id)
-      .eq('therapist_id', user.id);
+      .eq('id', id);
 
     if (error) {
-      throw new Error(error.message);
+      console.error('Error deleting appointment:', error);
+      throw error;
     }
+  } catch (error) {
+    console.error('Error in deleteAppointment:', error);
+    throw error;
   }
+};
+
+// Get a single appointment by ID
+export const getAppointmentById = async (id: string): Promise<AppointmentWithClient | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        client_profiles(first_name, last_name, phone)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching appointment:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getAppointmentById:', error);
+    return null;
+  }
+};
+
+// Export service
+export const appointmentService = {
+  getTherapistAppointments,
+  getAppointmentsByDateRange,
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
+  getAppointmentById
 };

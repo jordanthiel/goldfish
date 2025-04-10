@@ -1,118 +1,93 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export interface AuditLog {
+// Type for note access logs
+export interface NoteAccessLog {
   id: string;
+  note_id: string;
   user_id: string;
-  action: string;
-  table_name: string;
-  record_id: string;
-  old_data?: any;
-  new_data?: any;
-  ip_address?: string;
-  user_agent?: string;
+  access_type: string;
+  accessed_at: string;
   created_at: string;
 }
 
-export const auditService = {
-  // Get audit logs (only accessible to admins due to RLS policies)
-  async getAuditLogs(): Promise<AuditLog[]> {
-    // Use explicit typing to work around TypeScript limitations
-    try {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false }) as any;
+// Log access to a note
+const logNoteAccess = async (noteId?: string, accessType: string = 'view'): Promise<void> => {
+  if (!noteId) return;
   
-      if (error) {
-        console.error('Error fetching audit logs:', error);
-        return [];
-      }
-  
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching audit logs:', error);
-      return [];
-    }
-  },
-
-  // Get audit logs for a specific record
-  async getRecordAuditLogs(tableName: string, recordId: string): Promise<AuditLog[]> {
-    // Use explicit typing to work around TypeScript limitations
-    try {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('table_name', tableName)
-        .eq('record_id', recordId)
-        .order('created_at', { ascending: false }) as any;
-  
-      if (error) {
-        console.error('Error fetching record audit logs:', error);
-        return [];
-      }
-  
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching record audit logs:', error);
-      return [];
-    }
-  },
-
-  // Log note access (manual logging for specific actions not covered by triggers)
-  async logNoteAccess(noteId: string, accessType: string): Promise<void> {
-    try {
-      // Get current user id
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        console.warn('User not authenticated, skipping access logging');
-        return;
-      }
-      
-      // Use explicit typing to work around TypeScript limitations
-      const { error } = await supabase
-        .from('note_access_logs')
-        .insert({
-          note_id: noteId,
-          access_type: accessType,
-          user_id: user.id
-        }) as any;
-  
-      if (error) {
-        // Log the error but don't throw - this allows the app to continue functioning
-        // even if logging fails due to RLS policies
-        console.error('Error logging note access:', error);
-      }
-    } catch (error) {
-      // Just log the error without throwing to prevent disrupting the user experience
+  try {
+    const { error } = await supabase
+      .from('note_access_logs')
+      .insert({
+        note_id: noteId,
+        access_type: accessType,
+        accessed_at: new Date().toISOString()
+      });
+    
+    if (error) {
       console.error('Error logging note access:', error);
     }
-  },
-
-  // Get access logs for a note
-  async getNoteAccessLogs(noteId: string): Promise<any[]> {
-    try {
-      // Fix the query format for joining with users table
-      const { data, error } = await supabase
-        .from('note_access_logs')
-        // .select(`
-        //   *,
-        //   users:user_id(email)
-        // `)
-        .select('*')
-        .eq('note_id', noteId)
-        .order('accessed_at', { ascending: false });
-  
-      if (error) {
-        console.error('Error fetching note access logs:', error);
-        return [];
-      }
-  
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching note access logs:', error);
-      return [];
-    }
+  } catch (error) {
+    console.error('Error in logNoteAccess:', error);
   }
+};
+
+// Get access logs for a note
+const getNoteAccessLogs = async (noteId: string): Promise<NoteAccessLog[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('note_access_logs')
+      .select('*')
+      .eq('note_id', noteId)
+      .order('accessed_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching note access logs:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getNoteAccessLogs:', error);
+    return [];
+  }
+};
+
+// Audit log functions (mock implementations until we have the proper table)
+const logAuditEvent = async (event: {
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  details?: any;
+}): Promise<void> => {
+  try {
+    console.log('Audit log event:', event);
+    // This would insert into a real audit_logs table in production
+  } catch (error) {
+    console.error('Error in logAuditEvent:', error);
+  }
+};
+
+// Get audit logs (mock implementation)
+const getAuditLogs = async (filters?: {
+  resourceType?: string;
+  resourceId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<any[]> => {
+  try {
+    console.log('Getting audit logs with filters:', filters);
+    // This would query a real audit_logs table in production
+    return [];
+  } catch (error) {
+    console.error('Error in getAuditLogs:', error);
+    return [];
+  }
+};
+
+export const auditService = {
+  logNoteAccess,
+  getNoteAccessLogs,
+  logAuditEvent,
+  getAuditLogs
 };

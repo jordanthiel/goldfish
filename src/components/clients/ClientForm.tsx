@@ -43,6 +43,8 @@ const clientSchema = z.object({
   address: z.string().optional().or(z.literal('')),
   emergency_contact: z.string().optional().or(z.literal('')),
   status: z.string().default('Active'),
+  date_of_birth: z.string().optional().or(z.literal('')),
+  user_id: z.string().optional().or(z.literal('')),
   send_invitation: z.boolean().default(true),
 });
 
@@ -71,6 +73,8 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
     address: client.address || '',
     emergency_contact: client.emergency_contact || '',
     status: client.status || 'Active',
+    date_of_birth: client.date_of_birth || '',
+    user_id: client.user_id || '',
     send_invitation: true,
   } : {
     first_name: '',
@@ -80,6 +84,8 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
     address: '',
     emergency_contact: '',
     status: 'Active',
+    date_of_birth: '',
+    user_id: '',
     send_invitation: true,
   };
 
@@ -187,7 +193,8 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
         const clientData = {
           ...values,
           first_name: values.first_name,
-          last_name: values.last_name
+          last_name: values.last_name,
+          user_id: user.id  // Set the current user as the therapist ID
         };
         
         // When creating a new client, the invitation is sent automatically if email is provided
@@ -200,7 +207,7 @@ const ClientForm = ({ open, onOpenChange, client, onClientSaved }: ClientFormPro
         
         if (values.email && values.send_invitation && newClient) {
           try {
-            const result = await clientService.sendClientInvitationById(newClient.id, values.email);
+            const result = await clientService.sendClientInvitationById(newClient.client_id, values.email);
             if (result.success) {
               toast({
                 title: 'Invitation sent',
