@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CalendarDays, MessageSquare, Clock } from 'lucide-react';
@@ -20,9 +19,9 @@ const DashboardOverview = () => {
     if (!user) throw new Error("User not authenticated");
     
     // Fetch clients count
-    const clients = await clientService.getClients();
+    const clients = await clientService.getClients(user.id);
     const clientsCount = clients.length;
-    
+    console.log('clients', clients);
     // Fetch upcoming appointments for next 7 days
     const today = new Date();
     const endOfWeek = new Date();
@@ -42,10 +41,10 @@ const DashboardOverview = () => {
       .slice(0, 3);
     
     // Fetch recent notes
-    const allNotes = await noteService.getNotes();
-    const recentNotes = allNotes
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 3);
+    // const allNotes = await noteService.getNotes();
+    // const recentNotes = allNotes
+    //   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    //   .slice(0, 3);
     
     // Calculate hours booked for current month
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -113,11 +112,13 @@ const DashboardOverview = () => {
     // For message change we'll use a placeholder since we don't have a messages feature yet
     const messagesChange = "-";
     
+    console.log('Fetched clients data:', clients);
+    
     return {
       clientsCount: clientsCount || 0,
       upcomingAppointments: upcomingAppointments || [],
       recentAppointments: recentAppointments || [],
-      recentNotes: recentNotes || [],
+      // recentNotes: recentNotes || [],
       hoursBooked: Math.round(hoursBooked * 10) / 10, // round to 1 decimal
       newClientsThisMonth: thisMonthClients.length || 0,
       clientsChange: clientsChange > 0 ? `+${clientsChange}%` : `${clientsChange}%`,
@@ -133,6 +134,7 @@ const DashboardOverview = () => {
     enabled: !!user,
     refetchOnWindowFocus: false,
   });
+  console.log('dashdata', dashboardData);
 
   // Handle errors
   useEffect(() => {

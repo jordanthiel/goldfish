@@ -146,13 +146,11 @@ export const patientService = {
       }
       
       // Get the client record linked to this user ID
-      console.log('Checking for client with user_id:', user.id);
       const { data: clientData, error: clientError } = await supabase
         .from('client_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .maybeSingle();
-        
       if (clientError) {
         console.error('Error fetching client by user_id:', clientError);
         return dashboardData;
@@ -163,7 +161,6 @@ export const patientService = {
         return dashboardData;
       }
       
-      console.log('Found client record by user_id:', clientData);
       
       // Get therapist relationship
       const { data: relationship, error: relError } = await supabase
@@ -171,7 +168,6 @@ export const patientService = {
         .select('*')
         .eq('client_id', clientData.id)
         .maybeSingle();
-        
       if (relError || !relationship) {
         console.error('Error fetching therapist relationship:', relError);
         return dashboardData;
@@ -198,7 +194,7 @@ export const patientService = {
       .select('*')
       .eq('id', therapistId)
       .maybeSingle();
-      
+
     if (therapistError || !therapist) {
       console.error('Error fetching therapist:', therapistError);
       return null;

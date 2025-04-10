@@ -17,6 +17,7 @@ import { noteService } from '@/services/noteService';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useAuth } from '@/context/AuthContext';
 
 // Working hours
 const workingHours = [
@@ -37,6 +38,7 @@ const timeSlots = Array.from({ length: 9 }, (_, i) => {
 
 const AppointmentCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { user } = useAuth();
   const [currentView, setCurrentView] = useState('week');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -69,10 +71,10 @@ const AppointmentCalendar = () => {
   
   // Fetch clients for dropdown
   const { data: clientsData = [] } = useQuery({
-    queryKey: ['clients'],
+    queryKey: ['therapist_clients'],
     queryFn: async () => {
       const clientService = (await import('@/services/clientService')).clientService;
-      return clientService.getClients();
+      return clientService.getClients(user.id);
     }
   });
   
@@ -167,6 +169,7 @@ const AppointmentCalendar = () => {
     endDate.setHours(endHours, endMinutes, 0);
     
     // Create appointment object
+    console.log('formData', formData)
     const appointmentData: AppointmentInput = {
       title,
       client_id,
@@ -585,9 +588,9 @@ const AppointmentCalendar = () => {
                   <SelectValue placeholder="Select a client" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.first_name} {client.last_name}
+                  {clientsData.map((client) => (
+                    <SelectItem key={client.id} value={client.client_profile.id.toString()}>
+                      {client.client_profile.first_name} {client.client_profile.last_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -68,6 +68,7 @@ serve(async (req) => {
 
     // If a userId is provided, check if current user is an admin
     if (userId) {
+      console.log('this user!!', userId)
       const { data: roleData } = await supabaseClient
         .from('user_roles')
         .select('role')

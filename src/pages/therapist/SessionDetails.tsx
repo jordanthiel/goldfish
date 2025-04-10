@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useToast } from '@/hooks/use-toast';
@@ -13,13 +13,14 @@ import {
   Clock, 
   ArrowLeft,
   User,
-  Shield
+  Shield,
+  ChevronRight
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { appointmentService, Appointment } from '@/services/appointmentService';
 import { noteService, SessionNote } from '@/services/noteService';
 import { auditService } from '@/services/auditService';
-import RichTextEditor from '@/components/notes/RichTextEditor';
+import SessionNoteItem from '@/components/notes/SessionNoteItem';
 
 interface AccessLog {
   access_type: string;
@@ -35,11 +36,9 @@ const SessionDetails = () => {
   
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [note, setNote] = useState<SessionNote | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [notes, setNotes] = useState<SessionNote[]>([]);
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [showAccessLogs, setShowAccessLogs] = useState(false);
-  const [allClientNotes, setAllClientNotes] = useState<SessionNote[]>([]);
   
   useEffect(() => {
     if (!id) return;
@@ -52,25 +51,15 @@ const SessionDetails = () => {
         
         try {
           const appointmentNotes = await noteService.getAppointmentNotes(id);
+          setNotes(appointmentNotes);
           
           if (appointmentNotes.length > 0) {
-            setNote(appointmentNotes[0]);
-            
             try {
               const logs = await auditService.getNoteAccessLogs(appointmentNotes[0].id);
               setAccessLogs(logs);
             } catch (error) {
               console.error("Error fetching access logs:", error);
               setAccessLogs([]);
-            }
-          } 
-          
-          if (appointmentData && appointmentData.client_id) {
-            const clientNotes = await noteService.getClientNotes(appointmentData.client_id);
-            setAllClientNotes(clientNotes);
-            
-            if (appointmentNotes.length === 0 && clientNotes.length > 0) {
-              console.log(`No appointment-specific notes found, but found ${clientNotes.length} client notes`);
             }
           }
         } catch (error) {
@@ -91,54 +80,31 @@ const SessionDetails = () => {
     
     fetchSessionData();
   }, [id, toast]);
-  
-  const handleSaveNote = async (content: string) => {
+
+  const handleCreateNote = async () => {
     if (!appointment) return;
     
     try {
-      setIsSaving(true);
+      const newNote = await noteService.createNote({
+        client_id: appointment.client_id,
+        appointment_id: appointment.id,
+        content: '',
+        is_private: true
+      });
       
-      if (note) {
-        const updatedNote = await noteService.updateNote(note.id, { content });
-        setNote(updatedNote);
-        
-        setAllClientNotes(prevNotes => 
-          prevNotes.map(n => n.id === updatedNote.id ? updatedNote : n)
-        );
-        
-        try {
-          const logs = await auditService.getNoteAccessLogs(note.id);
-          setAccessLogs(logs);
-        } catch (error) {
-          console.error("Error fetching access logs:", error);
-        }
-      } else {
-        const newNote = await noteService.createNote({
-          client_id: appointment.client_id,
-          content,
-          appointment_id: appointment.id,
-          is_private: true
-        });
-        setNote(newNote);
-        
-        setAllClientNotes(prevNotes => [newNote, ...prevNotes]);
-        
-        try {
-          const logs = await auditService.getNoteAccessLogs(newNote.id);
-          setAccessLogs(logs);
-        } catch (error) {
-          console.error("Error fetching access logs:", error);
-        }
-      }
+      navigate(`/therapist/notes/${newNote.id}`);
+      
+      toast({
+        title: "Note created",
+        description: "You can now start editing your note."
+      });
     } catch (error) {
-      console.error("Error saving note:", error);
+      console.error("Error creating note:", error);
       toast({
         title: "Error",
-        description: "Failed to save session notes",
+        description: "Failed to create note.",
         variant: "destructive"
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -172,20 +138,6 @@ const SessionDetails = () => {
       </div>
     );
   }
-  
-  const formatSessionTime = (startTime: string, endTime: string) => {
-    const start = parseISO(startTime);
-    const end = parseISO(endTime);
-    return `${format(start, 'h:mm a')} - ${format(end, 'h:mm a')}`;
-  };
-  
-  const formatNoteDate = (date: string) => {
-    return format(parseISO(date), 'MMM d, yyyy');
-  };
-  
-  const createMarkup = (htmlContent: string) => {
-    return { __html: htmlContent };
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -201,12 +153,12 @@ const SessionDetails = () => {
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">{appointment?.title}</h1>
                 <p className="text-muted-foreground">
-                  Session with {appointment?.client?.first_name} {appointment?.client?.last_name}
+                  Session with {appointment?.client_profiles?.first_name} {appointment?.client_profiles?.last_name}
                 </p>
               </div>
             </div>
             
-            {note && (
+            {notes.length > 0 && (
               <Button
                 variant="outline"
                 className="flex items-center gap-2"
@@ -220,7 +172,7 @@ const SessionDetails = () => {
           
           <Separator />
           
-          {showAccessLogs && note && (
+          {showAccessLogs && notes.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>HIPAA Access Logs</CardTitle>
@@ -262,13 +214,13 @@ const SessionDetails = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src="/placeholder.svg" alt={`${appointment.client?.first_name} ${appointment.client?.last_name}`} />
+                    <AvatarImage src="/placeholder.svg" alt={`${appointment.client_profiles?.first_name} ${appointment.client_profiles?.last_name}`} />
                     <AvatarFallback className="bg-therapy-purple text-white">
                       {appointment.client?.first_name?.[0]}{appointment.client?.last_name?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{appointment.client?.first_name} {appointment.client?.last_name}</p>
+                    <p className="font-semibold">{appointment.client_profiles?.first_name} {appointment.client_profiles?.last_name}</p>
                     <Badge variant="outline" className="mt-1">
                       {appointment.status}
                     </Badge>
@@ -286,12 +238,12 @@ const SessionDetails = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{formatSessionTime(appointment.start_time, appointment.end_time)}</span>
+                      <span>{format(parseISO(appointment.start_time), 'h:mm a')} - {format(parseISO(appointment.end_time), 'h:mm a')}</span>
                     </div>
-                    {appointment.client?.email && (
+                    {appointment.client_profiles?.email && (
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span>{appointment.client.email}</span>
+                        <span>{appointment.client_profiles.email}</span>
                       </div>
                     )}
                   </div>
@@ -305,23 +257,6 @@ const SessionDetails = () => {
                     {appointment.title}
                   </Badge>
                 </div>
-                
-                {allClientNotes.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-medium mb-2">All Patient Notes</h3>
-                      <div className="max-h-60 overflow-y-auto">
-                        {allClientNotes.map((clientNote) => (
-                          <div key={clientNote.id} className="mb-2 text-sm border-b pb-2">
-                            <p className="font-medium">{formatNoteDate(clientNote.created_at)}</p>
-                            <div className="line-clamp-2 text-muted-foreground" dangerouslySetInnerHTML={createMarkup(clientNote.content)} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
                 
                 <div className="mt-4">
                   <Button 
@@ -337,10 +272,17 @@ const SessionDetails = () => {
             
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle>Session Notes</CardTitle>
-                <CardDescription>
-                  Take detailed notes during your session with {appointment?.client?.first_name}
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Session Notes</CardTitle>
+                    <CardDescription>
+                      Notes from your session with {appointment?.client_profiles?.first_name} {appointment?.client_profiles?.last_name}
+                    </CardDescription>
+                  </div>
+                  <Button onClick={handleCreateNote}>
+                    Add Note
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="bg-yellow-50 p-3 mb-4 rounded-md text-sm">
@@ -352,24 +294,24 @@ const SessionDetails = () => {
                   </p>
                 </div>
                 
-                <RichTextEditor 
-                  initialContent={note?.content || ""}
-                  onSave={handleSaveNote}
-                  autoSave={true}
-                  autoSaveInterval={2000}
-                />
-              </CardContent>
-              <CardFooter className="text-sm text-muted-foreground">
-                {note ? 
-                  `Last updated: ${format(parseISO(note.updated_at), 'MMMM d, yyyy h:mm a')}` : 
-                  "No notes saved yet for this appointment"
-                }
-                {allClientNotes.length > 0 && !note && (
-                  <span className="ml-2">
-                    (Patient has {allClientNotes.length} {allClientNotes.length === 1 ? 'note' : 'notes'} in total)
-                  </span>
+                {notes.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-muted-foreground mb-4">No notes have been created for this session yet.</p>
+                    <Button onClick={handleCreateNote}>
+                      Create First Note
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {notes.map(note => (
+                      <SessionNoteItem
+                        key={note.id}
+                        note={note}
+                      />
+                    ))}
+                  </div>
                 )}
-              </CardFooter>
+              </CardContent>
             </Card>
           </div>
         </div>

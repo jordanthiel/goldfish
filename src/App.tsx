@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,7 @@ import TherapistSettings from "./pages/therapist/TherapistSettings";
 import TherapistBilling from "./pages/therapist/TherapistBilling";
 import ClientDetails from "./pages/therapist/ClientDetails";
 import SessionDetails from "./pages/therapist/SessionDetails";
+import SessionNoteEdit from "./pages/therapist/SessionNoteEdit";
 
 // Patient pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
@@ -73,6 +73,7 @@ const App = () => (
                 <Route path="/therapist/billing" element={<TherapistBilling />} />
                 <Route path="/therapist/client/:id" element={<ClientDetails />} />
                 <Route path="/therapist/session/:id" element={<SessionDetails />} />
+                <Route path="/therapist/notes/:noteId" element={<SessionNoteEdit />} />
               </Route>
               
               {/* Patient Routes - only accessible to clients */}

@@ -42,16 +42,10 @@ export const appointmentService = {
       .from('appointments')
       .select(`
         *,
-        clients (
-          first_name,
-          last_name,
-          email,
-          phone
-        )
+        client_profiles (first_name, last_name))
       `)
       .eq('therapist_id', user.id)
       .order('start_time');
-
     if (error) {
       throw new Error(error.message);
     }
@@ -71,10 +65,9 @@ export const appointmentService = {
       .from('appointments')
       .select(`
         *,
-        clients (
+        client_profiles (
           first_name,
           last_name,
-          email,
           phone
         )
       `)
@@ -93,6 +86,7 @@ export const appointmentService = {
   // Get a single appointment by ID
   async getAppointment(id: string): Promise<Appointment> {
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('id', id)
     
     if (!user) {
       throw new Error('User not authenticated');
@@ -102,16 +96,16 @@ export const appointmentService = {
       .from('appointments')
       .select(`
         *,
-        clients (
+        client_profiles (
           first_name,
           last_name,
-          email,
           phone
         )
       `)
       .eq('id', id)
       .eq('therapist_id', user.id)
       .single();
+    console.log('data', data)
 
     if (error) {
       throw new Error(error.message);

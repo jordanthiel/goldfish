@@ -1,27 +1,23 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Plus } from 'lucide-react';
 import { SessionNote, noteService } from '@/services/noteService';
 import SessionNoteItem from './SessionNoteItem';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
-export interface ClientNotesListProps {
+interface ClientNotesListProps {
   clientId: string;
-  onEditNote: (note: SessionNote) => void;
-  onDeleteNote: (noteId: string) => Promise<void>;
 }
 
-const ClientNotesList: React.FC<ClientNotesListProps> = ({ 
-  clientId,
-  onEditNote,
-  onDeleteNote
-}) => {
+const ClientNotesList: React.FC<ClientNotesListProps> = ({ clientId }) => {
   const [notes, setNotes] = useState<SessionNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   useEffect(() => {
     const fetchNotes = async () => {
@@ -46,9 +42,29 @@ const ClientNotesList: React.FC<ClientNotesListProps> = ({
     
     fetchNotes();
   }, [clientId]);
-  
-  const handleToggleExpand = (noteId: string) => {
-    setExpandedNoteId(prevId => prevId === noteId ? null : noteId);
+
+  const handleCreateNote = async () => {
+    try {
+      const createdNote = await noteService.createNote({
+        client_id: clientId,
+        content: '',
+        is_private: true
+      });
+      
+      navigate(`/therapist/notes/${createdNote.id}`);
+      
+      toast({
+        title: "Note created",
+        description: "You can now start editing your note."
+      });
+    } catch (error) {
+      console.error('Error creating note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new note.",
+        variant: "destructive"
+      });
+    }
   };
   
   if (loading) {
@@ -70,37 +86,32 @@ const ClientNotesList: React.FC<ClientNotesListProps> = ({
     );
   }
   
-  if (notes.length === 0) {
-    return (
-      <Card className="p-6 text-center">
-        <p className="text-muted-foreground mb-4">No notes found for this client.</p>
-        <Button variant="outline" onClick={() => onEditNote({
-          id: '',
-          therapist_id: '',
-          client_id: clientId,
-          content: '',
-          is_private: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })}>
-          Add First Note
-        </Button>
-      </Card>
-    );
-  }
-  
   return (
     <div className="space-y-4">
-      {notes.map(note => (
-        <SessionNoteItem
-          key={note.id}
-          note={note}
-          isExpanded={expandedNoteId === note.id}
-          onToggleExpand={handleToggleExpand}
-          onEdit={() => onEditNote(note)}
-          onDelete={() => onDeleteNote(note.id)}
-        />
-      ))}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Session Notes</h2>
+        <Button onClick={handleCreateNote} className="btn-gradient">
+          <Plus className="mr-2 h-4 w-4" />New Note
+        </Button>
+      </div>
+
+      {notes.length === 0 ? (
+        <Card className="p-6 text-center">
+          <p className="text-muted-foreground mb-4">No notes found for this client.</p>
+          <Button variant="outline" onClick={handleCreateNote}>
+            <Plus className="mr-2 h-4 w-4" />Add First Note
+          </Button>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {notes.map(note => (
+            <SessionNoteItem
+              key={note.id}
+              note={note}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

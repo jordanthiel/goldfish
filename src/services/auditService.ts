@@ -96,10 +96,11 @@ export const auditService = {
       // Fix the query format for joining with users table
       const { data, error } = await supabase
         .from('note_access_logs')
-        .select(`
-          *,
-          users:user_id(email)
-        `)
+        // .select(`
+        //   *,
+        //   users:user_id(email)
+        // `)
+        .select('*')
         .eq('note_id', noteId)
         .order('accessed_at', { ascending: false });
   

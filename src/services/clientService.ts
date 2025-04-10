@@ -1,23 +1,34 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import type { Appointment } from './appointmentService';
+
+// Define the ClientProfile type
+export interface ClientProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  date_of_birth: string;
+  address: string;
+  emergency_contact: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  phi_data?: Json;
+}
 
 // Define the Client type
 export interface Client {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string; // This is now a virtual property we'll handle in our service
-  phone: string | null;
-  date_of_birth: string | null;
-  address: string | null;
-  emergency_contact: string | null;
-  status: string | null;
+  id: number;
+  client_id: string;
+  therapist_id: string;
+  status: string;
   created_at: string;
-  updated_at: string | null;
-  user_id: string | null;
-  phi_data: any;
-  appointmentsList?: Appointment[]; // For client with appointments
+  updated_at: string;
+  client_profile: ClientProfile;
+  appointmentsList?: Appointment[];
 }
 
 // Define the Appointment type
@@ -47,53 +58,42 @@ export interface ClientInvitation {
   expires_at: string;
 }
 
-// Function to get all clients
-const getClients = async (): Promise<Client[]> => {
+// Function to get all clients for a therapist
+export const getClients = async (therapistId: string): Promise<Client[]> => {
   try {
     const { data, error } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from('therapist_clients')
+      .select(`
+        *,
+        client_profile:client_profiles!client_id(*)
+      `)
+      .eq('therapist_id', therapistId);
 
     if (error) {
       console.error('Error fetching clients:', error);
       throw error;
     }
 
-    // Transform the data to include email from user_id if available
-    const clients: Client[] = await Promise.all((data || []).map(async (client) => {
-      let email = '';
-      
-      // If user_id exists, try to get the email from auth.users
-      if (client.user_id) {
-        const { data: userData, error: userError } = await supabase
-          .rpc('get_client_user_info', { client_id_param: client.id });
-        
-        if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
-          email = 'email' in userData ? userData.email as string : '';
-        }
-      }
-      
-      return {
-        ...client,
-        email
-      };
+    return (data || []).map(client => ({
+      ...client,
+      client_profile: client.client_profile as ClientProfile
     }));
-
-    return clients;
   } catch (error) {
-    console.error('Error getting clients:', error);
+    console.error('Error in getClients:', error);
     throw error;
   }
 };
 
 // Function to get a single client by ID
-const getClient = async (id: string): Promise<Client | null> => {
+export const getClientById = async (clientId: string): Promise<Client | null> => {
   try {
     const { data, error } = await supabase
-      .from('client_profiles')
-      .select('*')
-      .eq('id', id)
+      .from('therapist_clients')
+      .select(`
+        *,
+        client_profile:client_profiles!client_id(*)
+      `)
+      .eq('client_id', clientId)
       .single();
 
     if (error) {
@@ -103,74 +103,65 @@ const getClient = async (id: string): Promise<Client | null> => {
 
     if (!data) return null;
 
-    // Get email from user_id if available
-    let email = '';
-    if (data.user_id) {
-      const { data: userData, error: userError } = await supabase
-        .rpc('get_client_user_info', { client_id_param: data.id });
-      
-      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
-        email = 'email' in userData ? userData.email as string : '';
-      }
-    }
-
     return {
       ...data,
-      email
+      client_profile: data.client_profile as ClientProfile
     };
   } catch (error) {
-    console.error('Error getting client:', error);
+    console.error('Error in getClientById:', error);
     throw error;
   }
 };
 
 // Function to create a new client
-const createClient = async (client: Partial<Client>): Promise<Client | null> => {
+export const createClient = async (clientData: Omit<ClientProfile, 'id' | 'created_at' | 'updated_at'>): Promise<Client> => {
   try {
-    const { data, error } = await supabase
+    // First, create the client profile
+    const { data: profileData, error: profileError } = await supabase
       .from('client_profiles')
-      .insert([{
-        first_name: client.first_name,
-        last_name: client.last_name,
-        phone: client.phone,
-        date_of_birth: client.date_of_birth,
-        address: client.address,
-        emergency_contact: client.emergency_contact,
-        status: client.status || 'Active',
-        phi_data: client.phi_data
-      }])
-      .select('*')
+      .insert([clientData])
+      .select()
       .single();
 
-    if (error) {
-      console.error('Error creating client:', error);
-      throw error;
+    if (profileError) {
+      console.error('Error creating client profile:', profileError);
+      throw profileError;
     }
 
-    if (!data) return null;
+    // Then, create the therapist-client relationship
+    const { data: relationData, error: relationError } = await supabase
+      .from('therapist_clients')
+      .insert([{
+        client_id: profileData.id,
+        therapist_id: clientData.user_id,
+        status: 'active'
+      }])
+      .select(`
+        *,
+        client_profiles!client_id(*)
+      `)
+      .single();
 
-    // Email is handled separately through user association
-    return {
-      ...data,
-      email: client.email || ''
-    };
+    if (relationError) {
+      console.error('Error creating therapist-client relationship:', relationError);
+      throw relationError;
+    }
+
+    return relationData as Client;
   } catch (error) {
-    console.error('Error creating client:', error);
+    console.error('Error in createClient:', error);
     throw error;
   }
 };
 
-// Function to update an existing client
-const updateClient = async (id: string, updates: Partial<Client>): Promise<Client | null> => {
+// Function to update a client
+export const updateClient = async (clientId: string, updates: Partial<ClientProfile>): Promise<Client> => {
   try {
-    // Remove email from updates as it's not a direct column
-    const { email, ...clientUpdates } = updates;
-
     const { data, error } = await supabase
       .from('client_profiles')
-      .update(clientUpdates)
-      .eq('id', id)
-      .select('*')
+      .update(updates)
+      .eq('id', clientId)
+      .select()
       .single();
 
     if (error) {
@@ -178,31 +169,20 @@ const updateClient = async (id: string, updates: Partial<Client>): Promise<Clien
       throw error;
     }
 
-    if (!data) return null;
-
-    // Get email for response
-    let emailValue = '';
-    if (data.user_id) {
-      const { data: userData, error: userError } = await supabase
-        .rpc('get_client_user_info', { client_id_param: data.id });
-      
-      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
-        emailValue = 'email' in userData ? userData.email as string : '';
-      }
+    const client = await getClientById(clientId);
+    if (!client) {
+      throw new Error('Updated client not found');
     }
 
-    return {
-      ...data,
-      email: emailValue
-    };
+    return client;
   } catch (error) {
-    console.error('Error updating client:', error);
+    console.error('Error in updateClient:', error);
     throw error;
   }
 };
 
 // Function to delete a client
-const deleteClient = async (id: string): Promise<boolean> => {
+export const deleteClient = async (id: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('client_profiles')
@@ -362,6 +342,7 @@ const getClientAppointments = async (clientId: string): Promise<Appointment[]> =
 
 // Function to get a client with their appointments
 const getClientWithAppointments = async (clientId: string) => {
+  console.log('getClientWithAppointments', clientId)
   try {
     // First, get the client profile data
     const { data: client, error: clientError } = await supabase
@@ -370,6 +351,7 @@ const getClientWithAppointments = async (clientId: string) => {
       .eq('id', clientId)
       .single();
     
+    console.log('getClientWithAppointments', client)
     if (clientError) throw clientError;
     if (!client) throw new Error('Client record not found');
     
@@ -380,6 +362,7 @@ const getClientWithAppointments = async (clientId: string) => {
       .eq('client_id', clientId)
       .order('start_time', { ascending: false });
     
+    console.log('appointments', appointments)
     if (appointmentsError) throw appointmentsError;
 
     // Get email from user_id if available
@@ -387,11 +370,11 @@ const getClientWithAppointments = async (clientId: string) => {
     if (client.user_id) {
       const { data: userData, error: userError } = await supabase
         .rpc('get_client_user_info', { client_id_param: client.id });
-      
-      if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
-        email = 'email' in userData ? userData.email as string : '';
+        
+        if (!userError && userData && typeof userData === 'object' && 'success' in userData && userData.success) {
+          email = 'email' in userData ? userData.email as string : '';
+        }
       }
-    }
 
     // Combine the data
     return {
@@ -485,7 +468,7 @@ const inviteClient = async (email: string) => {
 const sendClientInvitationById = async (clientId: string, email: string) => {
   try {
     // Check if the client exists
-    const client = await getClient(clientId);
+    const client = await getClientById(clientId);
     if (!client) {
       throw new Error('Client not found');
     }
@@ -525,7 +508,7 @@ const getAppointmentNotes = async (appointmentId: string) => {
 
 export const clientService = {
   getClients,
-  getClient,
+  getClientById,
   createClient,
   updateClient,
   deleteClient,

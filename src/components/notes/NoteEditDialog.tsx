@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SessionNote } from '@/services/noteService';
+import RichTextEditor from './RichTextEditor';
 
 export interface NoteEditDialogProps {
   open: boolean;
@@ -46,6 +47,7 @@ const NoteEditDialog: React.FC<NoteEditDialogProps> = ({
 
   const handleSave = async () => {
     if (!content.trim()) return;
+    console.log('saving', content)
     
     setIsSaving(true);
     try {
@@ -80,13 +82,19 @@ const NoteEditDialog: React.FC<NoteEditDialogProps> = ({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="note-content">Note Content</Label>
-            <Textarea
+            <RichTextEditor 
+              initialContent={content}
+              onSave={handleSave}
+              autoSave={true}
+              autoSaveInterval={2000}
+            />
+            {/* <Textarea
               id="note-content"
               placeholder="Enter session notes here..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="min-h-[200px]"
-            />
+            /> */}
           </div>
           
           <div className="flex items-center space-x-2">

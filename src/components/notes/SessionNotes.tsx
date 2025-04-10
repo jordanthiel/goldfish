@@ -66,6 +66,7 @@ const SessionNotes = () => {
         setIsLoading(false);
       }
     };
+    auditService.logNoteAccess(selectedNote?.id, 'view');
     
     fetchData();
   }, [toast]);

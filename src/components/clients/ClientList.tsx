@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -33,8 +32,11 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import ClientForm from './ClientForm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { clientService } from '@/services/clientService';
+import { clientService, Client } from '@/services/clientService';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { getClients } from '@/services/clientService';
+import { formatDate } from '@/utils/dateUtils';
 
 const ClientList = () => {
   const { user } = useAuth();
@@ -44,26 +46,33 @@ const ClientList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [clientFormOpen, setClientFormOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch clients from Supabase
-  const fetchClients = async () => {
-    if (!user) return [];
-    return await clientService.getClients();
-  };
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        if (!user?.id) return;
+        const fetchedClients = await getClients(user.id);
+        setClients(fetchedClients);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to fetch clients');
+        setLoading(false);
+      }
+    };
 
-  const { data: clients = [], isLoading, error } = useQuery({
-    queryKey: ['clients'],
-    queryFn: fetchClients,
-    enabled: !!user,
-  });
+    fetchClients();
+  }, [user?.id]);
 
   // Handle errors
   useEffect(() => {
     if (error) {
       toast({
         title: 'Error loading clients',
-        description: (error as Error).message,
+        description: error,
         variant: 'destructive',
       });
     }
@@ -72,22 +81,22 @@ const ClientList = () => {
   // Filter clients based on search query and active tab
   const filteredClients = clients.filter(client => {
     const matchesSearch = 
-      (client.first_name + ' ' + client.last_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (client.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (client.client_profile.first_name + ' ' + client.client_profile.last_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (client.client_profile.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
     return matchesSearch && client.status === activeTab;
   });
 
   // Get the most recent appointment for a client
-  const getLastSessionDate = (client: any) => {
-    if (!client.appointments || client.appointments.length === 0) {
+  const getLastSessionDate = (client: Client) => {
+    if (!client.appointmentsList || client.appointmentsList.length === 0) {
       return 'No sessions yet';
     }
     
-    const pastAppointments = client.appointments
-      .filter((apt: any) => new Date(apt.end_time) < new Date())
-      .sort((a: any, b: any) => new Date(b.end_time).getTime() - new Date(a.end_time).getTime());
+    const pastAppointments = client.appointmentsList
+      .filter((apt) => new Date(apt.end_time) < new Date())
+      .sort((a, b) => new Date(b.end_time).getTime() - new Date(a.end_time).getTime());
     
     return pastAppointments.length > 0 
       ? format(new Date(pastAppointments[0].end_time), 'yyyy-MM-dd') 
@@ -95,14 +104,14 @@ const ClientList = () => {
   };
 
   // Get the next upcoming appointment for a client
-  const getNextSessionDate = (client: any) => {
-    if (!client.appointments || client.appointments.length === 0) {
+  const getNextSessionDate = (client: Client) => {
+    if (!client.appointmentsList || client.appointmentsList.length === 0) {
       return 'Not Scheduled';
     }
     
-    const futureAppointments = client.appointments
-      .filter((apt: any) => new Date(apt.start_time) > new Date())
-      .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    const futureAppointments = client.appointmentsList
+      .filter((apt) => new Date(apt.start_time) > new Date())
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     
     return futureAppointments.length > 0 
       ? format(new Date(futureAppointments[0].start_time), 'yyyy-MM-dd') 
@@ -114,18 +123,21 @@ const ClientList = () => {
     setClientFormOpen(true);
   };
 
-  const handleEditClient = (client: any) => {
+  const handleEditClient = (client: Client) => {
     setSelectedClient(client);
     setClientFormOpen(true);
   };
 
   const handleClientSaved = () => {
-    queryClient.invalidateQueries({ queryKey: ['clients'] });
+    queryClient.invalidateQueries({ queryKey: ['therapist_clients'] });
   };
 
-  const handleClientClick = (client: any) => {
-    navigate(`/therapist/client/${client.id}`);
+  const handleClientClick = (client: Client) => {
+    navigate(`/therapist/client/${client.client_profile.id}`);
   };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -168,7 +180,7 @@ const ClientList = () => {
             </TabsList>
             
             <TabsContent value={activeTab} className="m-0">
-              {isLoading ? (
+              {loading ? (
                 <div className="flex justify-center items-center py-10">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple"></div>
                 </div>
@@ -193,9 +205,9 @@ const ClientList = () => {
                           onClick={() => handleClientClick(client)}
                           className="cursor-pointer"
                         >
-                          <TableCell className="font-medium">{`${client.first_name} ${client.last_name}`}</TableCell>
-                          <TableCell className="hidden md:table-cell">{client.email || 'N/A'}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{client.phone || 'N/A'}</TableCell>
+                          <TableCell className="font-medium">{`${client.client_profile.first_name} ${client.client_profile.last_name}`}</TableCell>
+                          <TableCell className="hidden md:table-cell">{client.client_profile.email || 'N/A'}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{client.client_profile.phone || 'N/A'}</TableCell>
                           <TableCell className="hidden lg:table-cell">{getLastSessionDate(client)}</TableCell>
                           <TableCell>{getNextSessionDate(client)}</TableCell>
                           <TableCell>
