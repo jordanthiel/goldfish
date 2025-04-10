@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Save, Clock, User, AlignLeft, Tag, Paperclip, Shield, AlertTriangle, Edit } from 'lucide-react';
-import { noteService, NoteWithClientInfo } from '@/services/noteService';
+import { noteService, SessionNoteWithClient } from '@/services/noteService';
 import { clientService } from '@/services/clientService';
 import { auditService } from '@/services/auditService';
 import { useToast } from "@/hooks/use-toast";
@@ -15,8 +14,8 @@ import NoteEditDialog from './NoteEditDialog';
 
 const SessionNotes = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedNote, setSelectedNote] = useState<NoteWithClientInfo | null>(null);
-  const [notes, setNotes] = useState<NoteWithClientInfo[]>([]);
+  const [selectedNote, setSelectedNote] = useState<SessionNoteWithClient | null>(null);
+  const [notes, setNotes] = useState<SessionNoteWithClient[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('view');
@@ -30,7 +29,7 @@ const SessionNotes = () => {
   
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-  const [noteToEdit, setNoteToEdit] = useState<NoteWithClientInfo | null>(null);
+  const [noteToEdit, setNoteToEdit] = useState<SessionNoteWithClient | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const { toast } = useToast();
@@ -43,7 +42,7 @@ const SessionNotes = () => {
     const fetchData = async () => {
       try {
         const [fetchedNotes, fetchedClients] = await Promise.all([
-          noteService.getAllNotes(),
+          noteService.getNotes(),
           clientService.getClients()
         ]);
         
@@ -166,7 +165,7 @@ const SessionNotes = () => {
         is_private: true
       });
       
-      const updatedNotes = await noteService.getAllNotes();
+      const updatedNotes = await noteService.getNotes();
       setNotes(updatedNotes);
       
       const createdNoteWithClient = updatedNotes.find(note => note.id === newNote.id);
@@ -190,7 +189,7 @@ const SessionNotes = () => {
     }
   };
 
-  const handleEditInModal = (note: NoteWithClientInfo) => {
+  const handleEditInModal = (note: SessionNoteWithClient) => {
     setNoteToEdit(note);
     setIsEditDialogOpen(true);
   };
@@ -204,7 +203,7 @@ const SessionNotes = () => {
         is_private: noteData.is_private
       });
 
-      const updatedNotes = await noteService.getAllNotes();
+      const updatedNotes = await noteService.getNotes();
       setNotes(updatedNotes);
       
       if (selectedNote && selectedNote.id === noteData.id) {

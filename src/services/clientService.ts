@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import type { Appointment } from './appointmentService';
 
 // Define the ClientProfile type
 export interface ClientProfile {
@@ -28,11 +28,11 @@ export interface Client {
   created_at: string;
   updated_at: string;
   client_profile: ClientProfile;
-  appointmentsList?: AppointmentType[];
+  appointmentsList?: Appointment[];
 }
 
-// Define the Appointment type (renamed to avoid conflicts)
-export interface AppointmentType {
+// Define the Appointment type
+export interface Appointment {
   id: string;
   client_id: string;
   therapist_id: string;
@@ -76,7 +76,6 @@ export const getClients = async (therapistId: string): Promise<Client[]> => {
 
     return (data || []).map(client => ({
       ...client,
-      updated_at: client.created_at, // Default to created_at if missing
       client_profile: client.client_profile as ClientProfile
     }));
   } catch (error) {
@@ -106,7 +105,6 @@ export const getClientById = async (clientId: string): Promise<Client | null> =>
 
     return {
       ...data,
-      updated_at: data.created_at, // Default to created_at if missing
       client_profile: data.client_profile as ClientProfile
     };
   } catch (error) {
@@ -118,17 +116,10 @@ export const getClientById = async (clientId: string): Promise<Client | null> =>
 // Function to create a new client
 export const createClient = async (clientData: Omit<ClientProfile, 'id' | 'created_at' | 'updated_at'>): Promise<Client> => {
   try {
-    // Ensure required fields for ClientProfile
-    const completeClientData = {
-      ...clientData,
-      date_of_birth: clientData.date_of_birth || null,
-      user_id: clientData.user_id || null
-    };
-
     // First, create the client profile
     const { data: profileData, error: profileError } = await supabase
       .from('client_profiles')
-      .insert([completeClientData])
+      .insert([clientData])
       .select()
       .single();
 
@@ -156,12 +147,7 @@ export const createClient = async (clientData: Omit<ClientProfile, 'id' | 'creat
       throw relationError;
     }
 
-    // Convert to Client type
-    return {
-      ...relationData,
-      updated_at: relationData.created_at,
-      client_profile: relationData.client_profiles as unknown as ClientProfile
-    } as Client;
+    return relationData as Client;
   } catch (error) {
     console.error('Error in createClient:', error);
     throw error;
@@ -216,7 +202,7 @@ export const deleteClient = async (id: string): Promise<boolean> => {
 };
 
 // Function to create a new appointment for a client
-const createAppointment = async (appointment: Partial<AppointmentType>): Promise<AppointmentType | null> => {
+const createAppointment = async (appointment: Partial<Appointment>): Promise<Appointment | null> => {
   try {
     // Ensure we have all required fields
     if (!appointment.client_id || !appointment.therapist_id || !appointment.title || 
@@ -251,7 +237,7 @@ const createAppointment = async (appointment: Partial<AppointmentType>): Promise
 };
 
 // Function to update an existing appointment
-const updateAppointment = async (id: string, updates: Partial<AppointmentType>): Promise<AppointmentType | null> => {
+const updateAppointment = async (id: string, updates: Partial<Appointment>): Promise<Appointment | null> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -293,7 +279,7 @@ const deleteAppointment = async (id: string): Promise<boolean> => {
 };
 
 // Function to get a single appointment by ID
-const getAppointment = async (id: string): Promise<AppointmentType | null> => {
+const getAppointment = async (id: string): Promise<Appointment | null> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -314,7 +300,7 @@ const getAppointment = async (id: string): Promise<AppointmentType | null> => {
 };
 
 // Function to get all appointments
-const getAppointments = async (): Promise<AppointmentType[]> => {
+const getAppointments = async (): Promise<Appointment[]> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -329,12 +315,12 @@ const getAppointments = async (): Promise<AppointmentType[]> => {
     return data || [];
   } catch (error) {
     console.error('Error getting appointments:', error);
-    return [];
+    throw error;
   }
 };
 
 // Function to get all appointments for a single client
-const getClientAppointments = async (clientId: string): Promise<AppointmentType[]> => {
+const getClientAppointments = async (clientId: string): Promise<Appointment[]> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -350,7 +336,7 @@ const getClientAppointments = async (clientId: string): Promise<AppointmentType[
     return data || [];
   } catch (error) {
     console.error('Error getting client appointments:', error);
-    return [];
+    throw error;
   }
 };
 

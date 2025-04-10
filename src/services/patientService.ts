@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { encryptAES, decryptAES } from '@/lib/utils';
 
 export interface PatientProfile {
   id: string;
@@ -30,13 +29,6 @@ export interface AppointmentStatus {
   upcoming: number;
   completed: number;
   cancelled: number;
-}
-
-export interface PatientDashboardData {
-  upcomingAppointments: any[];
-  recentAppointments: any[];
-  unreadMessages: number;
-  nextAppointment: any | null;
 }
 
 // Simulate getting the patient profile
@@ -97,15 +89,12 @@ const getMessages = async (patientId: string): Promise<Message[]> => {
       return [];
     }
     
-    // Get the encryption key (using patient ID as part of the key in this example)
-    const encryptionKey = `${patientId}-therapy-key-change-in-production`;
-    
     // Transform the database records to our Message interface
     const messages: Message[] = messagesData.map(msg => ({
       id: msg.id,
       senderId: msg.sender_id,
       receiverId: msg.receiver_id,
-      content: decryptAES(msg.content, encryptionKey),
+      content: msg.content,
       timestamp: msg.created_at,
       isFromUser: msg.is_from_user
     }));
@@ -122,18 +111,12 @@ const getMessages = async (patientId: string): Promise<Message[]> => {
 // Send a message using Supabase
 const sendMessage = async (patientId: string, messageData: Partial<Message>): Promise<Message> => {
   try {
-    // Get the encryption key (using patient ID as part of the key in this example)
-    const encryptionKey = `${patientId}-therapy-key-change-in-production`;
-    
-    // Encrypt the message content
-    const encryptedContent = encryptAES(messageData.content || '', encryptionKey);
-    
     const { data, error } = await supabase
       .from('messages')
       .insert({
         sender_id: messageData.senderId,
         receiver_id: messageData.receiverId,
-        content: encryptedContent,
+        content: messageData.content,
         is_from_user: messageData.isFromUser || true
       })
       .select()
@@ -153,7 +136,7 @@ const sendMessage = async (patientId: string, messageData: Partial<Message>): Pr
       id: data.id,
       senderId: data.sender_id,
       receiverId: data.receiver_id,
-      content: messageData.content || '', // Use the original unencrypted content
+      content: data.content,
       timestamp: data.created_at,
       isFromUser: data.is_from_user
     };
@@ -175,76 +158,9 @@ const getAppointmentStats = async (): Promise<AppointmentStatus> => {
   };
 };
 
-// Get patient dashboard data
-const getPatientDashboardData = async (patientId: string): Promise<PatientDashboardData> => {
-  try {
-    // In a real implementation, fetch from Supabase
-    // For now, return mock data
-    return {
-      upcomingAppointments: [
-        { 
-          id: 'a1', 
-          title: 'Therapy Session',
-          start_time: new Date(Date.now() + 86400000).toISOString(), // tomorrow
-          end_time: new Date(Date.now() + 90000000).toISOString(),
-          therapist_name: 'Dr. Alex Smith'
-        }
-      ],
-      recentAppointments: [
-        { 
-          id: 'a2', 
-          title: 'Initial Consultation',
-          start_time: new Date(Date.now() - 604800000).toISOString(), // last week
-          end_time: new Date(Date.now() - 601200000).toISOString(),
-          therapist_name: 'Dr. Alex Smith'
-        }
-      ],
-      unreadMessages: 2,
-      nextAppointment: { 
-        id: 'a1', 
-        title: 'Therapy Session',
-        start_time: new Date(Date.now() + 86400000).toISOString(),
-        end_time: new Date(Date.now() + 90000000).toISOString(),
-        therapist_name: 'Dr. Alex Smith'
-      }
-    };
-  } catch (error) {
-    console.error('Error fetching patient dashboard data:', error);
-    return {
-      upcomingAppointments: [],
-      recentAppointments: [],
-      unreadMessages: 0,
-      nextAppointment: null
-    };
-  }
-};
-
-// Add claim account function
-const claimPatientAccount = async (inviteCode: string, userData: any): Promise<any> => {
-  try {
-    // In a real implementation, this would call a Supabase function or RPC
-    console.log('Claiming account with invite code:', inviteCode);
-    console.log('User data:', userData);
-    
-    // Return mock success response
-    return {
-      success: true,
-      message: 'Account claimed successfully'
-    };
-  } catch (error) {
-    console.error('Error claiming patient account:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-};
-
 export const patientService = {
   getPatientProfile,
   getMessages,
   sendMessage,
-  getAppointmentStats,
-  getPatientDashboardData,
-  claimPatientAccount
+  getAppointmentStats
 };

@@ -21,9 +21,6 @@ export interface NoteWithClientInfo extends SessionNote {
   };
 }
 
-// Type alias for backward compatibility
-export type SessionNoteWithClient = NoteWithClientInfo;
-
 // Get all notes for a therapist
 const getAllNotes = async (): Promise<NoteWithClientInfo[]> => {
   try {
@@ -71,9 +68,6 @@ const getAllNotes = async (): Promise<NoteWithClientInfo[]> => {
     throw error;
   }
 };
-
-// Alias for backward compatibility
-const getNotes = getAllNotes;
 
 // Get notes for a specific client
 const getClientNotes = async (clientId: string): Promise<SessionNote[]> => {
@@ -202,6 +196,5 @@ export const noteService = {
   createNote,
   updateNote,
   deleteNote,
-  getAppointmentNotes,
-  getNotes // Add this alias for backward compatibility
+  getAppointmentNotes
 };
