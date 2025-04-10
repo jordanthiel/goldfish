@@ -108,6 +108,99 @@ export type Database = {
         }
         Relationships: []
       }
+      note_access_logs: {
+        Row: {
+          access_type: string | null
+          accessed_at: string | null
+          created_at: string
+          id: string
+          note_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_type?: string | null
+          accessed_at?: string | null
+          created_at?: string
+          id?: string
+          note_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_type?: string | null
+          accessed_at?: string | null
+          created_at?: string
+          id?: string
+          note_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_access_logs_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "session_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_notes: {
+        Row: {
+          appointment_id: string | null
+          client_id: string | null
+          content: string | null
+          created_at: string
+          id: string
+          is_private: boolean | null
+          therapist_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          client_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_private?: boolean | null
+          therapist_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          client_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_private?: boolean | null
+          therapist_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_therapist_id_fkey"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "therapist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       therapist_clients: {
         Row: {
           client_id: string
@@ -130,7 +223,22 @@ export type Database = {
           status?: string
           therapist_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "therapist_clients_client_id_fkey1"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "therapist_clients_therapist_id_fkey1"
+            columns: ["therapist_id"]
+            isOneToOne: false
+            referencedRelation: "therapist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       therapist_profiles: {
         Row: {
