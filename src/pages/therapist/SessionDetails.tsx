@@ -153,7 +153,7 @@ const SessionDetails = () => {
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">{appointment?.title}</h1>
                 <p className="text-muted-foreground">
-                  Session with {appointment?.client_profiles?.first_name} {appointment?.client_profiles?.last_name}
+                  Session with {appointment?.client?.first_name} {appointment?.client?.last_name}
                 </p>
               </div>
             </div>
@@ -214,13 +214,13 @@ const SessionDetails = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src="/placeholder.svg" alt={`${appointment.client_profiles?.first_name} ${appointment.client_profiles?.last_name}`} />
+                    <AvatarImage src="/placeholder.svg" alt={`${appointment.client?.first_name} ${appointment.client?.last_name}`} />
                     <AvatarFallback className="bg-therapy-purple text-white">
                       {appointment.client?.first_name?.[0]}{appointment.client?.last_name?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{appointment.client_profiles?.first_name} {appointment.client_profiles?.last_name}</p>
+                    <p className="font-semibold">{appointment.client?.first_name} {appointment.client?.last_name}</p>
                     <Badge variant="outline" className="mt-1">
                       {appointment.status}
                     </Badge>
@@ -240,10 +240,10 @@ const SessionDetails = () => {
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>{format(parseISO(appointment.start_time), 'h:mm a')} - {format(parseISO(appointment.end_time), 'h:mm a')}</span>
                     </div>
-                    {appointment.client_profiles?.email && (
+                    {appointment.client?.email && (
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span>{appointment.client_profiles.email}</span>
+                        <span>{appointment.client.email}</span>
                       </div>
                     )}
                   </div>
@@ -276,7 +276,7 @@ const SessionDetails = () => {
                   <div>
                     <CardTitle>Session Notes</CardTitle>
                     <CardDescription>
-                      Notes from your session with {appointment?.client_profiles?.first_name} {appointment?.client_profiles?.last_name}
+                      Notes from your session with {appointment.client?.first_name} {appointment.client?.last_name}
                     </CardDescription>
                   </div>
                   <Button onClick={handleCreateNote}>
