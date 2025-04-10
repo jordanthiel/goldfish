@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/layout/Navbar';
@@ -10,7 +11,7 @@ import { MessageSquare, Send, User } from 'lucide-react';
 import { patientService, Message } from '@/services/patientService';
 import { useAuth } from '@/context/AuthContext';
 import { encryptAES, decryptAES } from '@/lib/utils';
-import { formatDate } from '@/utils/dateUtils';
+import { getRelativeTimeString } from '@/utils/dateUtils';
 
 const PatientMessages = () => {
   const [message, setMessage] = useState('');
@@ -29,9 +30,10 @@ const PatientMessages = () => {
           const patientData = await patientService.getPatientProfile();
           setPatient(patientData);
           
-          const encryptedMessages = await patientService.getMessages(patientData.id);
+          const messagesData = await patientService.getMessages(user.id);
           
-          const decryptedMessages = encryptedMessages.map(msg => ({
+          // Decrypt the messages
+          const decryptedMessages = messagesData.map(msg => ({
             ...msg,
             content: decryptAES(msg.content, encryptionKey)
           }));
@@ -54,24 +56,26 @@ const PatientMessages = () => {
   }, [user, toast, encryptionKey]);
   
   const handleSendMessage = async () => {
-    if (!message.trim() || !patient) return;
+    if (!message.trim() || !patient || !user) return;
     
     try {
+      // Encrypt the message content
       const encryptedContent = encryptAES(message, encryptionKey);
       
       const messageToSend = {
-        senderId: user?.id || '',
-        receiverId: 'therapist',
+        senderId: user.id,
+        receiverId: patient.therapistId || 'therapist',
         content: encryptedContent,
         isFromUser: true
       };
       
-      const sentMessage = await patientService.sendMessage(patient.id, messageToSend);
+      // Send the encrypted message
+      const sentMessage = await patientService.sendMessage(user.id, messageToSend);
       
+      // Add the decrypted message to the UI (for immediate display)
       const newMessage: Message = {
         ...sentMessage,
-        content: message,
-        timestamp: new Date().toISOString(),
+        content: message, // Use the original unencrypted message for display
       };
       
       setMessages([...messages, newMessage]);
@@ -92,14 +96,7 @@ const PatientMessages = () => {
   };
 
   const formatMessageTime = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    
-    if (date.toDateString() === today.toDateString()) {
-      return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    }
-    
-    return `${formatDate(timestamp)} at ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    return getRelativeTimeString(timestamp);
   };
 
   return (
@@ -137,7 +134,7 @@ const PatientMessages = () => {
                       <div 
                         className={`max-w-[70%] rounded-lg p-3 ${
                           msg.isFromUser 
-                            ? 'bg-therapy-purple text-white' 
+                            ? 'bg-primary text-primary-foreground' 
                             : 'bg-gray-200 text-gray-800'
                         }`}
                       >

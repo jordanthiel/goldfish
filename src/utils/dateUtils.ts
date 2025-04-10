@@ -23,8 +23,16 @@ export const getRelativeTimeString = (date: string | Date): string => {
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - d.getTime());
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+  const diffMinutes = Math.floor(diffTime / (1000 * 60));
   
-  if (diffDays === 0) {
+  if (diffMinutes < 1) {
+    return 'Just now';
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+  } else if (diffDays === 0) {
     return 'Today';
   } else if (diffDays === 1) {
     return 'Yesterday';
