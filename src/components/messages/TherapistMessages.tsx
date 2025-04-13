@@ -13,6 +13,7 @@ import { encryptAES, decryptAES } from '@/lib/utils';
 import { getRelativeTimeString } from '@/utils/dateUtils';
 import { useQuery } from '@tanstack/react-query';
 import { clientService } from '@/services/clientService';
+import { messagingService } from '@/services/messagingService';
 
 interface Message {
   id: string;
@@ -67,33 +68,17 @@ const TherapistMessages = () => {
   }, [selectedClient]);
 
   const loadMessages = async (clientId: string) => {
-    if (!user || !clientId) return;
+    if (!user) return;
     
     setLoading(true);
     try {
       // Fetch messages where either the therapist is the sender or receiver
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .and(`sender_id.eq.${clientId},receiver_id.eq.${clientId}`)
-        .order('created_at', { ascending: true });
-      
-      if (error) {
-        throw error;
-      }
-      
-      // Decrypt the messages
-      const decryptedMessages = data.map((msg: any) => ({
-        id: msg.id,
-        senderId: msg.sender_id,
-        receiverId: msg.receiver_id,
-        content: decryptAES(msg.content, encryptionKey),
-        timestamp: msg.created_at,
-        isFromUser: msg.sender_id === user.id,
-      }));
-      
-      setMessages(decryptedMessages);
+      const messages = await messagingService.getMessages(user.id, clientId);
+      console.log('messages', messages)
+      if (messages) {
+        setMessages(messages);
+      }      
+     
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({

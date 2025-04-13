@@ -1,18 +1,55 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
-export interface PatientProfile {
+
+export interface Patient {
   id: string;
-  firstName: string;
-  lastName: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
   email: string;
+  date_of_birth?: string;
   phone?: string;
   address?: string;
-  dateOfBirth?: string;
-  emergencyContact?: string;
+  emergency_contact?: string;
+  insurance_provider?: string;
+  insurance_policy_number?: string;
   status: string;
-  therapistId?: string;
-  therapistName?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Therapist {
+  id: string;
+  full_name: string;
+  specialty?: string;
+  license_number?: string;
+  years_experience?: number;
+  bio?: string;
+  profile_image_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Appointment {
+  id: string;
+  therapist_id: string;
+  client_id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  type?: string;
+  duration?: number;
+  session_notes?: any[];
+}
+
+export interface PatientDashboardData {
+  therapist: Therapist | null;
+  upcomingAppointments: Appointment[];
+  recentAppointments: Appointment[];
 }
 
 export interface Message {
@@ -24,210 +61,265 @@ export interface Message {
   isFromUser: boolean;
 }
 
-export interface AppointmentStatus {
-  upcoming: number;
-  completed: number;
-  cancelled: number;
-}
+export const patientService = {
+  // Get the current patient profile
+  async getPatientProfile(): Promise<Patient | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return null;
 
-export interface PatientDashboardData {
-  upcomingAppointments: any[];
-  recentAppointments: any[];
-  appointmentStats: AppointmentStatus;
-}
+      // Get client record linked to this user
+      console.log('Checking for client with user_id:', user.id);
+      const { data: clientData, error: clientError } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
+      if (clientError) {
+        console.error('Error fetching client by user_id:', clientError);
+        return null;
+      }
+      
+      if (!clientData) {
+        console.log('No client record found for this user ID:', user.id);
+        return null;
+      }
+      
+      // Get user info
+      const { data: userData, error: userError } = await supabase.functions.invoke('get-user-info');
+      
+      if (userError || !userData) {
+        console.error('Error fetching user info:', userError);
+        return null;
+      }
+      
+      // Extract insurance information safely from phi_data
+      let insuranceProvider: string | undefined;
+      let insurancePolicyNumber: string | undefined;
+      
+      if (clientData.phi_data && typeof clientData.phi_data === 'object') {
+        const phiData = clientData.phi_data as Record<string, any>;
+        insuranceProvider = phiData.insurance_provider as string | undefined;
+        insurancePolicyNumber = phiData.insurance_policy_number as string | undefined;
+      }
+      
+      return {
+        id: clientData.id,
+        user_id: user.id,
+        first_name: userData.firstName || clientData.first_name || '',
+        last_name: userData.lastName || clientData.last_name || '',
+        email: userData.email || '',
+        date_of_birth: clientData.date_of_birth,
+        phone: clientData.phone,
+        address: clientData.address,
+        emergency_contact: clientData.emergency_contact,
+        insurance_provider: insuranceProvider,
+        insurance_policy_number: insurancePolicyNumber,
+        status: clientData.status || 'Active',
+        created_at: clientData.created_at,
+        updated_at: clientData.updated_at || clientData.created_at
+      };
+    } catch (error) {
+      console.error('Error in getPatientProfile:', error);
+      return null;
+    }
+  },
 
-// Simulate getting the patient profile
-const getPatientProfile = async (): Promise<PatientProfile> => {
-  try {
-    // Get current user from Supabase
-    const { data: { user } } = await supabase.auth.getUser();
+  // Get patient dashboard data including therapist info and appointments
+  async getPatientDashboardData(): Promise<PatientDashboardData> {
+    console.log('Fetching patient dashboard data');
     
-    if (!user) {
-      throw new Error('User not authenticated');
+    const dashboardData: PatientDashboardData = {
+      therapist: null,
+      upcomingAppointments: [],
+      recentAppointments: []
+    };
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('No authenticated user found');
+        return dashboardData;
+      }
+      
+      // Get the client record linked to this user ID
+      const { data: clientData, error: clientError } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (clientError) {
+        console.error('Error fetching client by user_id:', clientError);
+        return dashboardData;
+      }
+      
+      if (!clientData) {
+        console.log('No client record found for this user');
+        return dashboardData;
+      }
+      
+      
+      // Get therapist relationship
+      const { data: relationship, error: relError } = await supabase
+        .from('therapist_clients')
+        .select('*')
+        .eq('client_id', clientData.id)
+        .maybeSingle();
+      if (relError || !relationship) {
+        console.error('Error fetching therapist relationship:', relError);
+        return dashboardData;
+      }
+      
+      // Get therapist info
+      dashboardData.therapist = await this.getTherapistInfo(relationship.therapist_id);
+      
+      // Get upcoming and recent appointments
+      dashboardData.upcomingAppointments = await this.getUpcomingAppointments(clientData.id);
+      dashboardData.recentAppointments = await this.getRecentAppointments(clientData.id);
+      
+    } catch (error) {
+      console.error('Error in getPatientDashboardData:', error);
     }
     
-    // In a real implementation, fetch the patient profile from Supabase
-    // For now, return mock data until we have the patient profile table set up
-    const mockPatient: PatientProfile = {
-      id: user.id,
-      firstName: 'Jane',
-      lastName: 'Doe',
-      email: user.email || 'jane.doe@example.com',
-      phone: '555-123-4567',
-      address: '123 Main St, Anytown, USA',
-      dateOfBirth: '1990-05-15',
-      emergencyContact: 'John Doe, 555-987-6543',
-      status: 'Active',
-      therapistId: 't456',
-      therapistName: 'Dr. Alex Smith'
-    };
-    
-    return mockPatient;
-  } catch (error) {
-    console.error('Error getting patient profile:', error);
-    
-    // Return a minimal fallback patient profile
-    return {
-      id: 'p123',
-      firstName: 'Unknown',
-      lastName: 'Patient',
-      email: 'unknown@example.com',
-      status: 'Unknown'
-    };
-  }
-};
+    return dashboardData;
+  },
 
-// Fetch messages for a patient from Supabase
-const getMessages = async (patientId: string): Promise<Message[]> => {
-  try {
-    // Check if messages table exists
-    const { data: messagesData, error } = await supabase
-      .from('messages')
+  // Helper method to get therapist info
+  async getTherapistInfo(therapistId: string): Promise<Therapist | null> {
+    const { data: therapist, error: therapistError } = await supabase
+      .from('therapist_profiles')
       .select('*')
-      .or(`sender_id.eq.${patientId},receiver_id.eq.${patientId}`)
-      .order('created_at', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching messages:', error);
-      throw error;
+      .eq('id', therapistId)
+      .maybeSingle();
+
+    if (therapistError || !therapist) {
+      console.error('Error fetching therapist:', therapistError);
+      return null;
     }
     
-    if (!messagesData || messagesData.length === 0) {
+    console.log('Found therapist:', therapist);
+    return {
+      id: therapist.id,
+      full_name: therapist.full_name || 'Your Therapist',
+      specialty: therapist.specialty,
+      license_number: therapist.license_number,
+      years_experience: therapist.years_experience,
+      bio: therapist.bio,
+      profile_image_url: therapist.profile_image_url,
+      created_at: therapist.created_at,
+      updated_at: therapist.updated_at
+    };
+  },
+
+  // Helper method to get upcoming appointments
+  async getUpcomingAppointments(clientId: string): Promise<Appointment[]> {
+    const now = new Date();
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select(`
+        *
+      `)
+      .eq('client_id', clientId)
+      .gte('start_time', now.toISOString())
+      .order('start_time', { ascending: true })
+      .limit(5);
+      
+    if (error) {
+      console.error('Error fetching upcoming appointments:', error);
       return [];
     }
     
-    // Transform the database records to our Message interface
-    const messages: Message[] = messagesData.map(msg => ({
-      id: msg.id,
-      senderId: msg.sender_id,
-      receiverId: msg.receiver_id,
-      content: msg.content,
-      timestamp: msg.created_at,
-      isFromUser: msg.is_from_user
+    console.log('Found upcoming appointments:', appointments?.length || 0);
+    return (appointments || []).map(appt => ({
+      ...appt,
+      // Calculate duration in minutes
+      duration: Math.round((new Date(appt.end_time).getTime() - new Date(appt.start_time).getTime()) / (1000 * 60)),
+      // Default type if not specified
+      type: appt.title || 'Therapy Session'
     }));
-    
-    return messages;
-  } catch (error) {
-    console.error('Error in getMessages:', error);
-    
-    // Return empty array in case of error
-    return [];
-  }
-};
+  },
 
-// Send a message using Supabase
-const sendMessage = async (patientId: string, messageData: Partial<Message>): Promise<Message> => {
-  try {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: messageData.senderId,
-        receiver_id: messageData.receiverId,
-        content: messageData.content,
-        is_from_user: messageData.isFromUser || true
-      })
-      .select()
-      .single();
-    
+  // Helper method to get recent appointments
+  async getRecentAppointments(clientId: string): Promise<Appointment[]> {
+    const now = new Date();
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select(`
+        *
+      `)
+      .eq('client_id', clientId)
+      .lt('start_time', now.toISOString())
+      .order('start_time', { ascending: false })
+      .limit(5);
+      
     if (error) {
-      console.error('Error sending message:', error);
-      throw error;
+      console.error('Error fetching recent appointments:', error);
+      return [];
     }
     
-    if (!data) {
-      throw new Error('No data returned from insert operation');
-    }
-    
-    // Transform the response to our Message interface
-    const newMessage: Message = {
-      id: data.id,
-      senderId: data.sender_id,
-      receiverId: data.receiver_id,
-      content: data.content,
-      timestamp: data.created_at,
-      isFromUser: data.is_from_user
-    };
-    
-    return newMessage;
-  } catch (error) {
-    console.error('Error in sendMessage:', error);
-    throw error;
-  }
-};
+    console.log('Found recent appointments:', appointments?.length || 0);
+    return (appointments || []).map(appt => ({
+      ...appt,
+      // Calculate duration in minutes
+      duration: Math.round((new Date(appt.end_time).getTime() - new Date(appt.start_time).getTime()) / (1000 * 60)),
+      // Default type if not specified
+      type: appt.title || 'Therapy Session'
+    }));
+  },
 
-// Get appointment statistics
-const getAppointmentStats = async (): Promise<AppointmentStatus> => {
-  // In a real implementation, fetch from Supabase
-  return {
-    upcoming: 3,
-    completed: 12,
-    cancelled: 1
-  };
-};
-
-// Get patient dashboard data
-const getPatientDashboardData = async (patientId: string): Promise<PatientDashboardData> => {
-  // For now, return mock data
-  return {
-    upcomingAppointments: [
-      {
-        id: 'a1',
-        title: 'Therapy Session',
-        therapistName: 'Dr. Sarah Johnson',
-        start: new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString(), // tomorrow
-        end: new Date(new Date().getTime() + 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
-        status: 'Scheduled'
-      },
-      {
-        id: 'a2',
-        title: 'Follow-up Session',
-        therapistName: 'Dr. Sarah Johnson',
-        start: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week later
-        end: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
-        status: 'Scheduled'
+  // Claim a patient account using the direct user-client relationship
+  async claimPatientAccount(inviteCode: string): Promise<{ success: boolean; message?: string; client_id?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { success: false, message: 'Not authenticated' };
       }
-    ],
-    recentAppointments: [
-      {
-        id: 'a3',
-        title: 'Initial Consultation',
-        therapistName: 'Dr. Sarah Johnson',
-        start: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago
-        end: new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(), // 1 hour later
-        status: 'Completed'
+      
+      // Check if this is a valid user
+      console.log('Attempting to claim account for user ID:', user.id);
+      
+      // Look up client by email to link them
+      const { data: client, error: clientError } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (clientError) {
+        console.error('Error checking for existing client:', clientError);
+        return { success: false, message: 'Error checking for client record' };
       }
-    ],
-    appointmentStats: {
-      upcoming: 2,
-      completed: 5,
-      cancelled: 0
+      
+      if (!client) {
+        return { success: false, message: 'No client record found for this email' };
+      }
+      
+      // Ensure user has client role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: user.id, role: 'client' });
+        
+      if (roleError) {
+        console.error('Error assigning client role:', roleError);
+        // Continue anyway since this might be a duplicate role
+      }
+      
+      return { 
+        success: true, 
+        client_id: client.id,
+        message: 'Account successfully linked' 
+      };
+    } catch (error: any) {
+      console.error('Error in claimPatientAccount:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Unknown error occurred' 
+      };
     }
-  };
-};
-
-// Function to handle claiming a patient account
-const claimPatientAccount = async (inviteCode: string, userData: any): Promise<boolean> => {
-  try {
-    // This would normally involve:
-    // 1. Verifying the invite code
-    // 2. Creating or updating the user record
-    // 3. Setting up proper permissions
-    
-    // For this demo, we'll simulate a successful response
-    console.log('Claiming account with invite code:', inviteCode, 'and user data:', userData);
-    
-    return true;
-  } catch (error) {
-    console.error('Error claiming patient account:', error);
-    return false;
-  }
-};
-
-export const patientService = {
-  getPatientProfile,
-  getMessages,
-  sendMessage,
-  getAppointmentStats,
-  getPatientDashboardData,
-  claimPatientAccount
+  },
+  
 };

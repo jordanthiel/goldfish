@@ -291,7 +291,7 @@ const ClientDetails = () => {
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="notes">Notes</TabsTrigger>
                         <TabsTrigger value="appointments">Appointments</TabsTrigger>
-                        <TabsTrigger value="messages">Messages</TabsTrigger>
+                        {/* <TabsTrigger value="messages">Messages</TabsTrigger> */}
                       </TabsList>
                       
                       <TabsContent value="overview" className="space-y-6">

@@ -182,7 +182,7 @@ const YoungLandingPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <p>"I never thought I could afford therapy while in college. Thanks to Goldfish, I found an amazing therapist who offers rates I can actually afford on my student budget."</p>
+                <p>"I never thought I could afford therapy while in college. Thanks to HappyPlace, I found an amazing therapist who offers rates I can actually afford on my student budget."</p>
               </CardContent>
             </Card>
 
@@ -199,7 +199,7 @@ const YoungLandingPage = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <p>"As a new therapist, building a client base was my biggest challenge. Goldfish helped me connect with clients quickly, allowing me to establish my practice much faster than I expected."</p>
+                <p>"As a new therapist, building a client base was my biggest challenge. HappyPlace helped me connect with clients quickly, allowing me to establish my practice much faster than I expected."</p>
               </CardContent>
             </Card>
           </div>
@@ -218,7 +218,7 @@ const YoungLandingPage = () => {
               <Button asChild variant="secondary" className="text-lg py-6 px-8 bg-white text-primary hover:bg-white/90">
                 <Link to="/signup">Sign Up Now</Link>
               </Button>
-              <Button asChild variant="outline" className="text-lg py-6 px-8 border-white text-white hover:bg-white/10">
+              <Button asChild variant="outline" className="text-lg text-white py-6 px-8 border-white hover:bg-white/10">
                 <Link to="/login">Already Have an Account?</Link>
               </Button>
             </div>

@@ -88,12 +88,12 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
       value: 'claims',
       path: '/dashboard/claims',
     },
-    {
-      name: 'Messages',
-      icon: <MessageSquare className="h-5 w-5" />,
-      value: 'messages',
-      path: '/dashboard/messages',
-    },
+    // {
+    //   name: 'Messages',
+    //   icon: <MessageSquare className="h-5 w-5" />,
+    //   value: 'messages',
+    //   path: '/dashboard/messages',
+    // },
     {
       name: 'Settings',
       icon: <Settings className="h-5 w-5" />,
@@ -107,7 +107,7 @@ const DashboardSidebar = ({ activeTab, setActiveTab }: DashboardSidebarProps) =>
       <SidebarHeader className="flex flex-col items-start gap-2 px-4 py-4">
         <div className="flex w-full items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="font-bold text-xl gradient-text">Goldfish</span>
+            <span className="font-bold text-xl gradient-text">HappyPlace</span>
           </Link>
           <SidebarTrigger />
         </div>

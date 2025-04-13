@@ -41,7 +41,7 @@ const PatientDashboard = () => {
       setError(null);
       try {
         console.log("Fetching patient dashboard data for user:", user?.email);
-        const data = await patientService.getPatientDashboardData();
+        const data = await patientService.getPatientDashboardData(user?.id);
         console.log("Dashboard data received:", data);
         setDashboardData(data);
       } catch (error) {
@@ -143,7 +143,7 @@ const PatientDashboard = () => {
 
   const { therapist, upcomingAppointments, recentAppointments } = dashboardData;
   const nextAppointment = upcomingAppointments.length > 0 ? upcomingAppointments[0] : null;
-
+  console.log('dashboardData', dashboardData.upcomingAppointments);
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -206,7 +206,7 @@ const PatientDashboard = () => {
                             <div>
                               <p className="font-semibold">{format(new Date(appointment.start_time), 'EEEE, MMMM d, yyyy')}</p>
                               <p className="text-sm text-muted-foreground">
-                                {format(new Date(appointment.start_time), 'h:mm a')} • {appointment.duration} minutes • {appointment.type}
+                                {format(new Date(appointment.start_time), 'h:mm a')} • {Math.round((new Date(appointment.end_time).getTime() - new Date(appointment.start_time).getTime()) / (1000 * 60))} minutes • {appointment.type}
                               </p>
                             </div>
                             <div className="flex gap-2">

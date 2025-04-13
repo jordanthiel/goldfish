@@ -163,13 +163,13 @@ const DashboardOverview = () => {
       icon: <CalendarDays className="h-5 w-5 text-therapy-pink" />,
       change: dashboardData?.sessionsChange || "+0%"
     },
-    {
-      title: "Messages",
-      value: "0", // Not implemented yet
-      description: "Unread messages",
-      icon: <MessageSquare className="h-5 w-5 text-therapy-purple" />,
-      change: dashboardData?.messagesChange || "+0%"
-    },
+    // {
+    //   title: "Messages",
+    //   value: "0", // Not implemented yet
+    //   description: "Unread messages",
+    //   icon: <MessageSquare className="h-5 w-5 text-therapy-purple" />,
+    //   change: dashboardData?.messagesChange || "+0%"
+    // },
     {
       title: "Hours Booked",
       value: isLoading ? "..." : dashboardData?.hoursBooked.toString() || "0",
