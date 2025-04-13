@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +12,7 @@ import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import TherapistDiscovery from "./pages/TherapistDiscovery";
 
 // Therapist pages
 import TherapistProfile from "./pages/therapist/TherapistProfile";
@@ -53,6 +55,7 @@ const App = () => (
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
+            <Route path="/find-therapist" element={<TherapistDiscovery />} /> {/* New route for therapist discovery */}
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

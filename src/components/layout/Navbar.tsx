@@ -15,6 +15,7 @@ const Navbar = () => {
   };
 
   const navItems = [
+    { title: 'Find a Therapist', href: '/find-therapist' },
     { title: 'Features', href: '#features' },
     { title: 'Pricing', href: '#pricing' },
     { title: 'About', href: '#about' },
@@ -37,13 +38,13 @@ const Navbar = () => {
           {!user && (
             <div className="flex gap-6">
               {navItems.map((item) => (
-                <a 
+                <Link 
                   key={item.title} 
-                  href={item.href}
+                  to={item.href.startsWith('/') ? item.href : item.href}
                   className="text-gray-600 hover:text-primary transition-colors font-medium"
                 >
                   {item.title}
-                </a>
+                </Link>
               ))}
               
               {/* A/B test landing page switcher */}
@@ -101,14 +102,14 @@ const Navbar = () => {
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-100 shadow-lg">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
             {navItems.map((item) => (
-              <a 
+              <Link 
                 key={item.title} 
-                href={item.href}
+                to={item.href.startsWith('/') ? item.href : item.href}
                 className="text-gray-600 hover:text-primary transition-colors py-2 font-medium"
                 onClick={toggleMenu}
               >
                 {item.title}
-              </a>
+              </Link>
             ))}
             
             {/* A/B test landing page switcher for mobile */}
