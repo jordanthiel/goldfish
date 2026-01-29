@@ -41,7 +41,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div>
             <Link to="/" className="inline-block mb-4">
-              <span className="font-bold text-2xl gradient-text">HappyPlace</span>
+              <span className="font-bold text-2xl gradient-text">Goldfish</span>
             </Link>
             <p className="text-gray-600 mb-4 max-w-xs">
               Empowering mental health professionals with tools to provide better care.
@@ -69,7 +69,7 @@ const Footer = () => {
         
         <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-500 text-sm mb-4 md:mb-0">
-            © {currentYear} HappyPlace. All rights reserved.
+            © {currentYear} Goldfish. All rights reserved.
           </p>
           <div className="flex gap-6">
             <a href="#twitter" className="text-gray-400 hover:text-primary transition-colors">

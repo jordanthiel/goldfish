@@ -94,7 +94,7 @@ const Index = () => {
   // Testimonials
   const testimonials = [
     {
-      quote: 'HappyPlace has completely transformed how I run my practice. The client management and scheduling features alone have saved me hours each week.',
+      quote: 'Goldfish has completely transformed how I run my practice. The client management and scheduling features alone have saved me hours each week.',
       author: 'Dr. Rebecca Lewis',
       role: 'Clinical Psychologist',
     },
@@ -104,7 +104,7 @@ const Index = () => {
       role: 'Marriage & Family Therapist',
     },
     {
-      quote: 'As someone who isn\'t tech-savvy, I was worried about transitioning to a digital practice. HappyPlace made it incredibly simple and their support team is outstanding.',
+      quote: 'As someone who isn\'t tech-savvy, I was worried about transitioning to a digital practice. Goldfish made it incredibly simple and their support team is outstanding.',
       author: 'Sarah Chen, LCSW',
       role: 'Licensed Clinical Social Worker',
     },
@@ -207,7 +207,7 @@ const Index = () => {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Trusted by Mental Health Professionals</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Here's what therapists are saying about HappyPlace.
+              Here's what therapists are saying about Goldfish.
             </p>
           </div>
           
@@ -303,9 +303,9 @@ const Index = () => {
           
           <div className="max-w-3xl mx-auto space-y-8">
             <div>
-              <h3 className="text-xl font-bold mb-2">Is HappyPlace HIPAA compliant?</h3>
+              <h3 className="text-xl font-bold mb-2">Is Goldfish HIPAA compliant?</h3>
               <p className="text-gray-600">
-                Yes, HappyPlace is fully HIPAA compliant. We implement all required security measures, including encryption, access controls, and audit trails to ensure patient data is protected.
+                Yes, Goldfish is fully HIPAA compliant. We implement all required security measures, including encryption, access controls, and audit trails to ensure patient data is protected.
               </p>
             </div>
             
@@ -355,7 +355,7 @@ const Index = () => {
           <div className="max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">Start Growing Your Practice Today</h2>
             <p className="text-xl opacity-90 mb-8">
-              Join thousands of therapists who have simplified their practice management with HappyPlace.
+              Join thousands of therapists who have simplified their practice management with Goldfish.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild variant="outline" className="px-8 py-6 text-lg bg-white hover:bg-gray-100 text-gray-900 border-white">
