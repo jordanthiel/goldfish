@@ -59,6 +59,41 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Backend & Edge Functions)
+
+## AI Model Configuration
+
+This project supports multiple AI providers for the chatbot feature:
+
+### Supported Providers
+- **OpenAI**: GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5 Turbo
+- **Google Gemini**: Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash
+
+### Development Mode Model Selection
+
+In development mode, you can select which AI model to use via a dropdown selector in the chatbot interface. The selection is saved to localStorage and persists across sessions.
+
+### Environment Variables
+
+For the chatbot to work, you need to set up API keys in your Supabase project:
+
+1. **OpenAI API Key** (required for OpenAI models):
+   - Set `OPENAI_API_KEY` in your Supabase project secrets
+
+2. **Gemini API Key** (required for Gemini models):
+   - Set `GEMINI_API_KEY` in your Supabase project secrets
+   - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+
+### Setting Environment Variables in Supabase
+
+For local development:
+- Add to `supabase/.env` or your local environment
+
+For production:
+- Go to Supabase Dashboard → Project Settings → Edge Functions → Secrets
+- Add the required API keys
+
+**Note**: In production, the default model (GPT-4o Mini) is used. Model selection is only available in development mode.
 
 ## How can I deploy this project?
 

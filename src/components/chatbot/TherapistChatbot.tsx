@@ -9,6 +9,7 @@ import { Therapist } from '@/types/therapist';
 import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
+import { ModelSelector } from './ModelSelector';
 
 interface TherapistChatbotProps {
   therapists: Therapist[];
@@ -84,6 +85,11 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Model Selector (Dev Mode Only) */}
+      <div className="px-4 pt-4">
+        <ModelSelector />
+      </div>
+      
       {/* Chat Messages */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">

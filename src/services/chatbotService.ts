@@ -2,6 +2,7 @@ import { chatbotPromptService } from './chatbotPromptService';
 import { Therapist } from '@/types/therapist';
 import { therapistDiscoveryService } from './therapistDiscoveryService';
 import { supabase } from '@/integrations/supabase/client';
+import { getSelectedModel, ModelConfig } from '@/utils/modelConfig';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -19,7 +20,8 @@ export const chatbotService = {
   // Send a message to the chatbot and get a response
   sendMessage: async (
     messages: ChatMessage[],
-    therapists: Therapist[]
+    therapists: Therapist[],
+    modelConfig?: ModelConfig
   ): Promise<ChatbotResponse> => {
     try {
       // Get the active system prompt
@@ -63,6 +65,9 @@ Only include the THERAPIST_RECOMMENDATIONS JSON when you are actually recommendi
       const enhancedSystemPrompt = `${systemPrompt}\n\n${therapistContext}`;
       apiMessages[0].content = enhancedSystemPrompt;
 
+      // Get model configuration (use provided or get from storage)
+      const selectedModel = modelConfig || getSelectedModel();
+
       // Call Supabase Edge Function for chatbot
       // Use supabase.functions.invoke which handles auth headers automatically
       const { data, error } = await supabase.functions.invoke('chatbot', {
@@ -72,6 +77,8 @@ Only include the THERAPIST_RECOMMENDATIONS JSON when you are actually recommendi
             content: m.content,
           })),
           systemPrompt: enhancedSystemPrompt,
+          provider: selectedModel.provider,
+          modelId: selectedModel.modelId,
         },
       });
 
