@@ -2,7 +2,7 @@ import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { getSelectedModel, setSelectedModel, AVAILABLE_MODELS, isDevMode, ModelConfig } from '@/utils/modelConfig';
+import { getSelectedModel, setSelectedModel, AVAILABLE_MODELS, ModelConfig } from '@/utils/modelConfig';
 import { Settings, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -10,8 +10,8 @@ export const ModelSelector: React.FC = () => {
   const [selectedModel, setSelectedModelState] = React.useState<ModelConfig>(getSelectedModel());
   const { user } = useAuth();
 
-  // Only show in dev mode and for logged in users
-  if (!isDevMode() || !user) {
+  // Only show for logged in users
+  if (!user) {
     return null;
   }
 
@@ -49,13 +49,9 @@ export const ModelSelector: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">AI Model Selection</h3>
-              <p className="text-xs text-gray-500">Development Mode</p>
+              <p className="text-xs text-gray-500">Choose your preferred AI model</p>
             </div>
           </div>
-          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
-            <Sparkles className="h-3 w-3 mr-1" />
-            Dev
-          </Badge>
         </div>
 
         <Select value={currentValue} onValueChange={handleModelChange}>

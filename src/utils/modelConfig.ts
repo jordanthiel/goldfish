@@ -118,12 +118,8 @@ export const isDevMode = (): boolean => {
   return import.meta.env.DEV || import.meta.env.MODE === 'development';
 };
 
-// Get selected model from localStorage (dev mode only)
+// Get selected model from localStorage
 export const getSelectedModel = (): ModelConfig => {
-  if (!isDevMode()) {
-    return DEFAULT_MODEL;
-  }
-
   try {
     const stored = localStorage.getItem('chatbot_model_selection');
     if (stored) {
@@ -147,13 +143,8 @@ export const getSelectedModel = (): ModelConfig => {
   return DEFAULT_MODEL;
 };
 
-// Save selected model to localStorage (dev mode only)
+// Save selected model to localStorage
 export const setSelectedModel = (model: ModelConfig): void => {
-  if (!isDevMode()) {
-    console.warn('Model selection is only available in development mode');
-    return;
-  }
-
   try {
     localStorage.setItem('chatbot_model_selection', JSON.stringify(model));
   } catch (error) {
