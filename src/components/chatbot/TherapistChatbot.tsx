@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User } from 'lucide-react';
+import { Send, Loader2, Bot, User, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,6 +10,8 @@ import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
+import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import { getSelectedModel } from '@/utils/modelConfig';
 
 interface TherapistChatbotProps {
   therapists: Therapist[];
@@ -28,8 +30,15 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load device info on mount
+  useEffect(() => {
+    getDeviceInfo().then(setDeviceInfo);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -63,7 +72,26 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
         matchedTherapists: response.matchedTherapists,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      setMessages(updatedMessages);
+
+      // Save or update conversation in database
+      const modelConfig = getSelectedModel();
+      const combinedDeviceInfo = {
+        ...deviceInfo,
+        ...(response.deviceInfo || {}), // Merge server-side device info
+      };
+      
+      const savedId = await chatbotConversationService.saveConversation(
+        updatedMessages,
+        modelConfig,
+        combinedDeviceInfo,
+        conversationId // Pass existing conversation ID to update instead of creating new
+      );
+      
+      if (savedId && !conversationId) {
+        setConversationId(savedId);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: ChatMessage = {
@@ -209,7 +237,30 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
 
       {/* Input Area */}
       <div className="border-t p-4 bg-white flex-shrink-0">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {messages.length > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const modelConfig = getSelectedModel();
+                const conversation = {
+                  id: conversationId || undefined,
+                  session_id: getSessionId(),
+                  model_provider: modelConfig.provider,
+                  model_id: modelConfig.modelId,
+                  conversation_data: messages,
+                  device_info: deviceInfo,
+                  started_at: new Date().toISOString(),
+                };
+                chatbotConversationService.downloadCSV(conversation);
+              }}
+              className="mr-auto"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          )}
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}

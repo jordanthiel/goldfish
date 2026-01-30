@@ -57,7 +57,7 @@ async function callGemini(
   systemPrompt: string,
   modelId: string,
   apiKey: string
-): Promise<string> {
+): Promise<{ message: string }> {
   // Convert messages to Gemini format
   // Gemini uses different role names: 'user' and 'model' (instead of 'assistant')
   // We need to build a conversation history
@@ -159,7 +159,7 @@ async function callGemini(
   if (data.candidates && data.candidates[0] && data.candidates[0].content) {
     const text = data.candidates[0].content.parts?.[0]?.text
     if (text) {
-      return text
+      return { message: text }
     }
   }
   
@@ -173,6 +173,30 @@ async function callGemini(
   
   // Fallback error message
   throw new Error('No response text found in Gemini API response')
+}
+
+// Extract device info from request
+function getDeviceInfoFromRequest(req: Request): {
+  ip_address?: string
+  user_agent?: string
+  location?: string
+} {
+  const headers = req.headers
+  const ipAddress = headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                    headers.get('x-real-ip') || 
+                    'unknown'
+  const userAgent = headers.get('user-agent') || 'unknown'
+  
+  // Try to get location from headers (if available from CDN/proxy)
+  const location = headers.get('cf-ipcountry') || 
+                   headers.get('x-vercel-ip-country') || 
+                   undefined
+
+  return {
+    ip_address: ipAddress,
+    user_agent: userAgent,
+    location: location,
+  }
 }
 
 serve(async (req) => {
@@ -191,6 +215,9 @@ serve(async (req) => {
       )
     }
 
+    // Capture device info
+    const deviceInfo = getDeviceInfoFromRequest(req)
+
     let aiMessage: string
 
     if (provider === 'gemini') {
@@ -201,12 +228,13 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         )
       }
-      aiMessage = await callGemini(
+      const result = await callGemini(
         messages,
         systemPrompt || 'You are a helpful assistant.',
         modelId,
         geminiApiKey
       )
+      aiMessage = result.message
     } else {
       // Default to OpenAI
       const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
@@ -225,7 +253,10 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: aiMessage }),
+      JSON.stringify({ 
+        message: aiMessage,
+        deviceInfo: deviceInfo // Include device info in response for client to save
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

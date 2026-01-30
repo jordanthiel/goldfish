@@ -14,6 +14,11 @@ export interface ChatbotResponse {
   message: string;
   matchedTherapists?: Therapist[];
   isComplete?: boolean;
+  deviceInfo?: {
+    ip_address?: string;
+    user_agent?: string;
+    location?: string;
+  };
 }
 
 export const chatbotService = {
@@ -98,6 +103,7 @@ Only include the THERAPIST_RECOMMENDATIONS JSON when you are actually recommendi
         message,
         matchedTherapists: matchedTherapists.length > 0 ? matchedTherapists : undefined,
         isComplete: matchedTherapists.length > 0,
+        deviceInfo: data.deviceInfo, // Pass device info back for saving
       };
     } catch (error) {
       console.error('Error in chatbot service:', error);
