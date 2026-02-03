@@ -4,12 +4,17 @@ export interface ChatbotPrompt {
   id: string;
   prompt_name: string;
   system_prompt: string;
+  initial_greeting: string;
   version: number;
   is_active: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
+// Default values
+const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
+const DEFAULT_SYSTEM_PROMPT = 'You are a compassionate assistant helping users find the right therapist.';
 
 export const chatbotPromptService = {
   // Get the active prompt for therapist discovery
@@ -25,11 +30,51 @@ export const chatbotPromptService = {
 
     if (error) {
       console.error('Error fetching chatbot prompt:', error);
-      // Return default prompt if database fetch fails
-      return 'You are a compassionate assistant helping users find the right therapist.';
+      return DEFAULT_SYSTEM_PROMPT;
     }
 
-    return data?.system_prompt || 'You are a compassionate assistant helping users find the right therapist.';
+    return data?.system_prompt || DEFAULT_SYSTEM_PROMPT;
+  },
+
+  // Get the active greeting for therapist discovery
+  getActiveGreeting: async (promptName: string = 'therapist_discovery'): Promise<string> => {
+    const { data, error } = await supabase
+      .from('chatbot_prompts')
+      .select('initial_greeting')
+      .eq('prompt_name', promptName)
+      .eq('is_active', true)
+      .order('version', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching chatbot greeting:', error);
+      return DEFAULT_GREETING;
+    }
+
+    return data?.initial_greeting || DEFAULT_GREETING;
+  },
+
+  // Get the active prompt with greeting (combined)
+  getActivePromptWithGreeting: async (promptName: string = 'therapist_discovery'): Promise<{ systemPrompt: string; greeting: string }> => {
+    const { data, error } = await supabase
+      .from('chatbot_prompts')
+      .select('system_prompt, initial_greeting')
+      .eq('prompt_name', promptName)
+      .eq('is_active', true)
+      .order('version', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching chatbot prompt:', error);
+      return { systemPrompt: DEFAULT_SYSTEM_PROMPT, greeting: DEFAULT_GREETING };
+    }
+
+    return {
+      systemPrompt: data?.system_prompt || DEFAULT_SYSTEM_PROMPT,
+      greeting: data?.initial_greeting || DEFAULT_GREETING,
+    };
   },
 
   // Get all prompts (for dev mode)
@@ -70,6 +115,7 @@ export const chatbotPromptService = {
   createPrompt: async (
     promptName: string,
     systemPrompt: string,
+    initialGreeting: string,
     userId?: string,
     isActive: boolean = true
   ): Promise<ChatbotPrompt | null> => {
@@ -98,6 +144,7 @@ export const chatbotPromptService = {
       .insert({
         prompt_name: promptName,
         system_prompt: systemPrompt,
+        initial_greeting: initialGreeting,
         version: nextVersion,
         is_active: isActive,
         created_by: userId || null,
@@ -116,14 +163,21 @@ export const chatbotPromptService = {
   // Update an existing prompt
   updatePrompt: async (
     id: string,
-    systemPrompt: string
+    systemPrompt: string,
+    initialGreeting?: string
   ): Promise<ChatbotPrompt | null> => {
+    const updateData: Record<string, unknown> = {
+      system_prompt: systemPrompt,
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (initialGreeting !== undefined) {
+      updateData.initial_greeting = initialGreeting;
+    }
+
     const { data, error } = await supabase
       .from('chatbot_prompts')
-      .update({
-        system_prompt: systemPrompt,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

@@ -14,26 +14,43 @@ interface ChatRequest {
   modelId?: string
 }
 
-// Call OpenAI API
+// Call OpenAI API using the new Responses API
 async function callOpenAI(
   messages: Array<{ role: string; content: string }>,
   systemPrompt: string,
   modelId: string,
   apiKey: string
 ): Promise<string> {
-  // GPT-5 models use max_completion_tokens and don't support custom temperature
-  // They only support the default temperature value (1)
-  const requestBody = {
-    model: modelId,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...messages,
-    ],
-    max_completion_tokens: 1000,
-    // Do not include temperature - GPT-5 models only support default (1)
+  // Convert messages to new Responses API format
+  const input: Array<{
+    role: string
+    content: string
+  }> = []
+
+  // Convert chat messages to new format
+  for (const msg of messages) {
+    input.push({
+      role: msg.role === 'assistant' ? 'assistant' : 'user',
+      content: msg.content,
+    })
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Build request body with instructions for system prompt
+  const requestBody: {
+    model: string
+    input: typeof input
+    instructions?: string
+  } = {
+    model: modelId,
+    input: input,
+  }
+
+  // Add system instructions
+  if (systemPrompt) {
+    requestBody.instructions = systemPrompt
+  }
+
+  const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -43,12 +60,91 @@ async function callOpenAI(
   })
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`OpenAI API error: ${error}`)
+    let errorMessage = 'OpenAI API error'
+    try {
+      const errorData = await response.json()
+      if (errorData.error) {
+        // Extract the actual error message from OpenAI API response
+        // OpenAI returns: { error: { message: "...", type: "...", code: "..." } }
+        errorMessage = errorData.error.message || JSON.stringify(errorData.error)
+      } else {
+        errorMessage = JSON.stringify(errorData)
+      }
+    } catch (parseError) {
+      // If JSON parsing fails, try to get text response
+      try {
+        const errorText = await response.text()
+        errorMessage = errorText || `OpenAI API error (${response.status})`
+      } catch {
+        errorMessage = `OpenAI API error (${response.status})`
+      }
+    }
+    throw new Error(errorMessage)
   }
 
   const data = await response.json()
-  return data.choices[0]?.message?.content || 'I apologize, but I could not generate a response.'
+  
+  // Log response structure for debugging
+  console.log('OpenAI Response:', JSON.stringify(data, null, 2))
+  
+  // Try different possible response formats
+  // The Responses API may return output in different fields
+  let outputText: string | undefined
+  
+  // Check for output_text (SDK convenience property)
+  if (data.output_text) {
+    outputText = data.output_text
+  }
+  // Check for output array (common in new API)
+  else if (Array.isArray(data.output)) {
+    // Find the first message output with text content
+    for (const item of data.output) {
+      if (item.type === 'message' && item.content) {
+        // Content might be array of parts
+        if (Array.isArray(item.content)) {
+          for (const part of item.content) {
+            if (part.type === 'output_text' || part.type === 'text') {
+              outputText = part.text
+              break
+            }
+          }
+        } else if (typeof item.content === 'string') {
+          outputText = item.content
+        }
+        if (outputText) break
+      }
+      // Direct text in output item
+      else if (item.text) {
+        outputText = item.text
+        break
+      }
+      else if (typeof item === 'string') {
+        outputText = item
+        break
+      }
+    }
+  }
+  // Check for choices array (legacy format)
+  else if (data.choices?.[0]?.message?.content) {
+    outputText = data.choices[0].message.content
+  }
+  // Simple field checks
+  else if (data.text) {
+    outputText = data.text
+  }
+  else if (data.content) {
+    outputText = typeof data.content === 'string' ? data.content : data.content?.[0]?.text
+  }
+  else if (data.message) {
+    outputText = typeof data.message === 'string' ? data.message : data.message?.content
+  }
+  
+  if (!outputText) {
+    console.error('Could not extract text from response. Full response:', JSON.stringify(data))
+    return 'I apologize, but I could not generate a response.'
+  }
+  
+  return outputText
 }
 
 // Call Gemini API
@@ -80,7 +176,7 @@ async function callGemini(
     contents: [],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 1000,
+      maxOutputTokens: 4096,
     },
   }
 
@@ -128,22 +224,30 @@ async function callGemini(
     try {
       const errorData = await response.json()
       if (errorData.error) {
-        // Handle specific error codes
-        if (errorData.error.code === 503 || errorData.error.status === 'UNAVAILABLE') {
+        // Extract the actual error message from Gemini API response
+        // Prioritize the message field, but provide helpful context for specific codes
+        if (errorData.error.message) {
+          errorMessage = errorData.error.message
+        } else if (errorData.error.code === 503 || errorData.error.status === 'UNAVAILABLE') {
           errorMessage = 'The Gemini model is currently overloaded. Please try again in a moment or select a different model.'
         } else if (errorData.error.code === 429) {
           errorMessage = 'Rate limit exceeded. Please try again in a moment.'
         } else if (errorData.error.code === 401 || errorData.error.code === 403) {
           errorMessage = 'Authentication error. Please check your Gemini API key.'
         } else {
-          errorMessage = errorData.error.message || `Gemini API error: ${JSON.stringify(errorData.error)}`
+          errorMessage = JSON.stringify(errorData.error)
         }
       } else {
-        errorMessage = `Gemini API error: ${JSON.stringify(errorData)}`
+        errorMessage = JSON.stringify(errorData)
       }
     } catch (parseError) {
-      const errorText = await response.text()
-      errorMessage = `Gemini API error (${response.status}): ${errorText}`
+      // If JSON parsing fails, try to get text response
+      try {
+        const errorText = await response.text()
+        errorMessage = errorText || `Gemini API error (${response.status})`
+      } catch {
+        errorMessage = `Gemini API error (${response.status})`
+      }
     }
     throw new Error(errorMessage)
   }
@@ -257,13 +361,32 @@ serve(async (req) => {
         message: aiMessage,
         deviceInfo: deviceInfo // Include device info in response for client to save
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
     console.error('Error in chatbot function:', error)
+    
+    // Determine appropriate status code based on error type
+    let statusCode = 500
+    const errorMessage = error.message || 'Internal server error'
+    
+    // Check if it's a known API error
+    if (errorMessage.includes('API key not configured')) {
+      statusCode = 500
+    } else if (errorMessage.includes('overloaded') || errorMessage.includes('Rate limit')) {
+      statusCode = 503 // Service Unavailable
+    } else if (errorMessage.includes('Authentication error') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      statusCode = 401 // Unauthorized
+    } else if (errorMessage.includes('Invalid') || errorMessage.includes('required')) {
+      statusCode = 400 // Bad Request
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ 
+        error: errorMessage,
+        message: errorMessage // Include message for backward compatibility
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: statusCode }
     )
   }
 })

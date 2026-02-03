@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Bot, User, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { chatbotService, ChatMessage } from '@/services/chatbotService';
@@ -10,13 +10,18 @@ import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
+import { getInitialGreeting } from './PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
 import { getSelectedModel } from '@/utils/modelConfig';
+import ReactMarkdown from 'react-markdown';
 
 interface TherapistChatbotProps {
   therapists: Therapist[];
   onTherapistSelect?: (therapist: Therapist) => void;
 }
+
+// Default greeting (used while loading from backend)
+const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
 
 export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   therapists,
@@ -25,19 +30,41 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?",
+      content: DEFAULT_GREETING,
     },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load device info on mount
+  // Load greeting and device info on mount
   useEffect(() => {
-    getDeviceInfo().then(setDeviceInfo);
+    const initialize = async () => {
+      try {
+        // Load greeting from backend
+        const greeting = await getInitialGreeting();
+        setMessages([
+          {
+            role: 'assistant',
+            content: greeting,
+          },
+        ]);
+        
+        // Load device info
+        const info = await getDeviceInfo();
+        setDeviceInfo(info);
+      } catch (error) {
+        console.error('Error initializing chatbot:', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    
+    initialize();
   }, []);
 
   useEffect(() => {
@@ -94,9 +121,12 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      const errorText = error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred';
       const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: "I'm sorry, I encountered an error. Could you please try again?",
+        content: `I'm sorry, I encountered an error: ${errorText}. Please try again or select a different model.`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -104,18 +134,18 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+    // Shift+Enter allows new line (default textarea behavior)
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Model Selector (Dev Mode Only) */}
+      {/* Model Selector (for logged-in users) */}
       <div className="px-4 pt-4">
-        <ModelSelector />
       </div>
       
       {/* Chat Messages */}
@@ -140,8 +170,44 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                       : 'bg-gray-100'
                   }`}
                 >
-                  <div className="p-3">
+                  <div className={`p-3 ${message.role === 'assistant' ? 'prose prose-sm max-w-none dark:prose-invert' : ''}`}>
+                    {message.role === 'assistant' ? (
+                      <ReactMarkdown
+                        className="text-sm markdown-content"
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          code: ({ className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const isInline = !className;
+                            return isInline ? (
+                              <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                {children}
+                              </code>
+                            ) : (
+                              <code className={`block bg-gray-200 dark:bg-gray-700 p-2 rounded overflow-x-auto text-xs font-mono mb-2 ${className || ''}`} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                          pre: ({ children }) => <pre className="bg-gray-200 dark:bg-gray-700 p-2 rounded overflow-x-auto mb-2">{children}</pre>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-2 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-2 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-bold mb-2 mt-2 first:mt-0">{children}</h3>,
+                          blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-3 italic mb-2 my-2">{children}</blockquote>,
+                          a: ({ href, children }) => <a href={href} className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300" target="_blank" rel="noopener noreferrer">{children}</a>,
+                          hr: () => <hr className="my-3 border-gray-300 dark:border-gray-600" />,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    ) : (
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
                   </div>
                 </Card>
                 {message.role === 'user' && (
@@ -237,42 +303,55 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
 
       {/* Input Area */}
       <div className="border-t p-4 bg-white flex-shrink-0">
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-col gap-2">
           {messages.length > 1 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const modelConfig = getSelectedModel();
-                const conversation = {
-                  id: conversationId || undefined,
-                  session_id: getSessionId(),
-                  model_provider: modelConfig.provider,
-                  model_id: modelConfig.modelId,
-                  conversation_data: messages,
-                  device_info: deviceInfo,
-                  started_at: new Date().toISOString(),
-                };
-                chatbotConversationService.downloadCSV(conversation);
-              }}
-              className="mr-auto"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const modelConfig = getSelectedModel();
+                  const conversation = {
+                    id: conversationId || undefined,
+                    session_id: getSessionId(),
+                    model_provider: modelConfig.provider,
+                    model_id: modelConfig.modelId,
+                    conversation_data: messages,
+                    device_info: deviceInfo,
+                    started_at: new Date().toISOString(),
+                  };
+                  chatbotConversationService.downloadCSV(conversation);
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
           )}
-          <Input
+          <div className="flex gap-2 items-end">
+            <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message... (Shift+Enter for new line)"
             disabled={isLoading}
-            className="flex-1"
+              className="flex-1 min-h-[44px] max-h-[200px] resize-none"
+              rows={1}
+              style={{ 
+                height: 'auto',
+                minHeight: '44px',
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+              }}
           />
           <Button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
             size="icon"
+              className="h-11 w-11 flex-shrink-0"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -280,6 +359,10 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
               <Send className="h-4 w-4" />
             )}
           </Button>
+          </div>
+          <p className="text-xs text-gray-400 text-center">
+            Press Enter to send, Shift+Enter for new line
+          </p>
         </div>
       </div>
     </div>

@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { getSelectedModel, setSelectedModel, AVAILABLE_MODELS, ModelConfig } from '@/utils/modelConfig';
-import { Settings, Sparkles } from 'lucide-react';
+import { Settings, FileText } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { PromptEditor } from './PromptEditor';
 
 export const ModelSelector: React.FC = () => {
   const [selectedModel, setSelectedModelState] = React.useState<ModelConfig>(getSelectedModel());
+  const [promptEditorOpen, setPromptEditorOpen] = useState(false);
   const { user } = useAuth();
 
   // Only show for logged in users
@@ -137,21 +140,13 @@ export const ModelSelector: React.FC = () => {
           </SelectContent>
         </Select>
 
-        <div className="mt-3 pt-3 border-t border-amber-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Active Model:</span>
-            <div className="flex items-center gap-2">
-              <Badge 
-                variant="outline" 
-                className={`${getProviderColor(selectedModel.provider)} text-xs font-medium`}
-              >
-                {selectedModel.provider === 'openai' ? 'OpenAI' : 'Gemini'}
-              </Badge>
-              <span className="text-xs font-semibold text-gray-900">{selectedModel.name}</span>
-            </div>
-          </div>
-        </div>
+        
+
+        
       </div>
+
+      {/* Prompt Editor Modal */}
+      <PromptEditor open={promptEditorOpen} onOpenChange={setPromptEditorOpen} />
     </Card>
   );
 };

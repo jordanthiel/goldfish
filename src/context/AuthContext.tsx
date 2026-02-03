@@ -76,10 +76,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle case where user has no role
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        // Only log non-404 errors (PGRST116 is expected when user has no role)
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching user role:', error);
+        }
         setUserRole(null);
         return;
       }

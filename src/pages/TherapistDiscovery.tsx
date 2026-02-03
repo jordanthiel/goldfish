@@ -10,6 +10,7 @@ import { Therapist } from '@/types/therapist';
 import { TherapistChatbot } from '@/components/chatbot/TherapistChatbot';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
 import { useAuth } from '@/context/AuthContext';
+import { ModelSelector } from '@/components/chatbot/ModelSelector';
 
 const TherapistDiscovery = () => {
   const [showDevMode, setShowDevMode] = useState(false);
@@ -74,6 +75,8 @@ const TherapistDiscovery = () => {
               </div>
             </div>
           )}
+                        <ModelSelector />
+
 
           {/* Chatbot Interface */}
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '600px', maxHeight: '800px' }}>
