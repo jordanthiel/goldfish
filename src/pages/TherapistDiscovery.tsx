@@ -115,7 +115,7 @@ const TherapistDiscovery = () => {
           <DialogHeader>
             <DialogTitle>Edit Chatbot Prompt</DialogTitle>
           </DialogHeader>
-          <PromptEditor onClose={() => setShowPromptEditor(false)} />
+          <PromptEditor open={showPromptEditor} onOpenChange={setShowPromptEditor} />
         </DialogContent>
       </Dialog>
     </RootLayout>
