@@ -21,6 +21,7 @@ export interface ConversationData {
   device_info?: DeviceInfo;
   started_at?: string;
   ended_at?: string;
+  prompt_version?: number;
 }
 
 // Generate a unique session ID for anonymous users
@@ -183,6 +184,7 @@ export const chatbotConversationService = {
       'Content',
       'Model Provider',
       'Model ID',
+      'Prompt Version',
       'User ID',
       'Session ID',
       'Device Info',
@@ -190,13 +192,18 @@ export const chatbotConversationService = {
 
     const rows: string[][] = [];
 
+    const promptVersionStr = conversation.prompt_version !== undefined 
+      ? `v${conversation.prompt_version}` 
+      : 'N/A';
+
     // Add conversation metadata row
     rows.push([
       conversation.started_at || '',
       'METADATA',
-      `Model: ${conversation.model_provider}/${conversation.model_id}`,
+      `Model: ${conversation.model_provider}/${conversation.model_id}, Prompt: ${promptVersionStr}`,
       conversation.model_provider,
       conversation.model_id,
+      promptVersionStr,
       conversation.user_id || 'Anonymous',
       conversation.session_id,
       JSON.stringify(conversation.device_info || {}),
@@ -210,6 +217,7 @@ export const chatbotConversationService = {
         message.content.replace(/"/g, '""'), // Escape quotes for CSV
         conversation.model_provider,
         conversation.model_id,
+        promptVersionStr,
         conversation.user_id || 'Anonymous',
         conversation.session_id,
         '',

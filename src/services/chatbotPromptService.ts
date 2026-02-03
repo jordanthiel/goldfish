@@ -55,6 +55,28 @@ export const chatbotPromptService = {
     return data?.initial_greeting || DEFAULT_GREETING;
   },
 
+  // Get the active greeting with version number
+  getActiveGreetingWithVersion: async (promptName: string = 'therapist_discovery'): Promise<{ greeting: string; version: number | null }> => {
+    const { data, error } = await supabase
+      .from('chatbot_prompts')
+      .select('initial_greeting, version')
+      .eq('prompt_name', promptName)
+      .eq('is_active', true)
+      .order('version', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching chatbot greeting:', error);
+      return { greeting: DEFAULT_GREETING, version: null };
+    }
+
+    return {
+      greeting: data?.initial_greeting || DEFAULT_GREETING,
+      version: data?.version ?? null,
+    };
+  },
+
   // Get the active prompt with greeting (combined)
   getActivePromptWithGreeting: async (promptName: string = 'therapist_discovery'): Promise<{ systemPrompt: string; greeting: string }> => {
     const { data, error } = await supabase

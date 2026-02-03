@@ -10,7 +10,7 @@ import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
-import { getInitialGreeting } from './PromptEditor';
+import { getInitialGreetingWithVersion } from './PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import ReactMarkdown from 'react-markdown';
@@ -38,6 +38,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -45,14 +46,15 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Load greeting from backend
-        const greeting = await getInitialGreeting();
+        // Load greeting from backend with version
+        const { greeting, version } = await getInitialGreetingWithVersion();
         setMessages([
           {
             role: 'assistant',
             content: greeting,
           },
         ]);
+        setPromptVersion(version);
         
         // Load device info
         const info = await getDeviceInfo();
@@ -319,6 +321,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                     conversation_data: messages,
                     device_info: deviceInfo,
                     started_at: new Date().toISOString(),
+                    prompt_version: promptVersion ?? undefined,
                   };
                   chatbotConversationService.downloadCSV(conversation);
                 }}

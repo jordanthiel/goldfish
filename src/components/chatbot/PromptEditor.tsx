@@ -361,3 +361,13 @@ export const getInitialGreeting = async (): Promise<string> => {
     return DEFAULT_GREETING;
   }
 };
+
+// Export function to get initial greeting with version number (for TherapistChatbot CSV export)
+export const getInitialGreetingWithVersion = async (): Promise<{ greeting: string; version: number | null }> => {
+  try {
+    return await chatbotPromptService.getActiveGreetingWithVersion();
+  } catch (error) {
+    console.error('Error fetching greeting with version:', error);
+    return { greeting: DEFAULT_GREETING, version: null };
+  }
+};
