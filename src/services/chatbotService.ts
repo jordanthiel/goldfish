@@ -111,6 +111,8 @@ IMPORTANT FORMATTING: When you have gathered enough information and are ready to
 THERAPIST_RECOMMENDATIONS: {"therapistIds": ["id1", "id2", "id3"]}
 
 Only include the THERAPIST_RECOMMENDATIONS JSON when you are actually recommending specific therapists (3-5 therapists). Do not include therapist details in your text response - just provide a warm, conversational message and the JSON object with therapist IDs.
+
+CRITICAL: The user has already initiated the conversation with their message. Do NOT start with a greeting or introduction - respond directly to what the user has said. Jump straight into understanding their needs or asking relevant follow-up questions.
 `.trim();
 
       const enhancedSystemPrompt = `${systemPrompt}\n\n${therapistContext}`;

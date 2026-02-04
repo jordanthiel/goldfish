@@ -41,6 +41,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load greeting and device info on mount
   useEffect(() => {
@@ -88,6 +89,9 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    
+    // Keep focus on the textarea
+    textareaRef.current?.focus();
 
     try {
       const response = await chatbotService.sendMessage(
@@ -333,11 +337,12 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
           )}
           <div className="flex gap-2 items-end">
             <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Shift+Enter for new line)"
-            disabled={isLoading}
+              disabled={isLoading}
               className="flex-1 min-h-[44px] max-h-[200px] resize-none"
               rows={1}
               style={{ 
@@ -349,7 +354,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                 target.style.height = 'auto';
                 target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
               }}
-          />
+            />
           <Button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
