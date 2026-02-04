@@ -30,6 +30,11 @@ import PatientMessages from "./pages/patient/PatientMessages";
 import PatientResources from "./pages/patient/PatientResources";
 import ClaimAccount from "./pages/patient/ClaimAccount"; // New component for claiming account
 
+// Internal CMS pages
+import InternalDashboard from "./pages/internal/InternalDashboard";
+import ConversationDetail from "./pages/internal/ConversationDetail";
+import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
+
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +61,11 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
             <Route path="/find-therapist" element={<TherapistDiscovery />} /> {/* New route for therapist discovery */}
+            
+            {/* Internal CMS Routes - protected by component-level checks for isInternal */}
+            <Route path="/internal" element={<InternalDashboard />} />
+            <Route path="/internal/conversation/:id" element={<ConversationDetail />} />
+            <Route path="/internal/aggregate" element={<AggregateAnalysis />} />
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

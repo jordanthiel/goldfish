@@ -9,6 +9,7 @@ export interface AuthContextType {
   session: Session | null;
   loading: boolean;
   userRole: string | null;
+  isInternal: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, meta?: any) => Promise<{ error: any; data?: any }>;
   signOut: () => Promise<void>;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   userRole: null,
+  isInternal: false,
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
   signOut: async () => {},
@@ -33,6 +35,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isInternal, setIsInternal] = useState<boolean>(false);
 
   useEffect(() => {
     // Set up auth state listener
@@ -44,6 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fetchUserRole(session.user.id);
         } else {
           setUserRole(null);
+          setIsInternal(false);
         }
       }
     );
@@ -74,7 +78,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, is_internal')
         .eq('user_id', userId)
         .maybeSingle(); // Use maybeSingle() instead of single() to handle case where user has no role
 
@@ -84,17 +88,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.error('Error fetching user role:', error);
         }
         setUserRole(null);
+        setIsInternal(false);
         return;
       }
 
       if (data) {
         setUserRole(data.role);
+        setIsInternal(data.is_internal === true);
       } else {
         setUserRole(null);
+        setIsInternal(false);
       }
     } catch (error) {
       console.error('Error in fetchUserRole:', error);
       setUserRole(null);
+      setIsInternal(false);
     }
   };
 
@@ -140,6 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await supabase.auth.signOut();
       setUserRole(null);
+      setIsInternal(false);
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -151,6 +160,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     session,
     loading,
     userRole,
+    isInternal,
     signIn,
     signUp,
     signOut,
