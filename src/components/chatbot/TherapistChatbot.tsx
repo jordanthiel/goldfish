@@ -41,6 +41,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load greeting and device info on mount
@@ -71,11 +72,18 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToLatestMessage();
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToLatestMessage = () => {
+    // Scroll to the top of the most recent message, not the bottom of all content
+    // This ensures users see the message first, not the action cards below it
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // Fallback to bottom if no message ref is set
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleSend = async () => {
@@ -157,8 +165,14 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       {/* Chat Messages */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div key={index} className="space-y-3">
+          {messages.map((message, index) => {
+            const isLastMessage = index === messages.length - 1;
+            return (
+            <div 
+              key={index} 
+              className="space-y-3"
+              ref={isLastMessage ? lastMessageRef : undefined}
+            >
               <div
                 className={`flex gap-3 ${
                   message.role === 'user' ? 'justify-end' : 'justify-start'
@@ -290,7 +304,8 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
           {isLoading && (
             <div className="flex gap-3 justify-start">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -308,7 +323,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="border-t p-4 bg-white flex-shrink-0">
+      <div className="border-t p-4 pb-safe bg-white flex-shrink-0 sticky bottom-0 z-10">
         <div className="flex flex-col gap-2">
           {messages.length > 1 && (
             <div className="flex justify-start">

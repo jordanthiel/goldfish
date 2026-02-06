@@ -148,6 +148,27 @@ export const chatbotConversationService = {
     }
   },
 
+  // Get a single conversation by ID
+  getConversation: async (conversationId: string): Promise<ConversationData | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('chatbot_conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching conversation:', error);
+        return null;
+      }
+
+      return data as ConversationData;
+    } catch (error) {
+      console.error('Error in getConversation:', error);
+      return null;
+    }
+  },
+
   // Get conversations for a user (or session)
   getConversations: async (userId?: string, sessionId?: string): Promise<ConversationData[]> => {
     try {
