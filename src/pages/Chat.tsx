@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Send, Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, Heart, CheckCircle2 } from 'lucide-react';
+import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,7 +15,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { chatbotService, ChatMessage } from '@/services/chatbotService';
-import { therapistDiscoveryService } from '@/services/therapistDiscoveryService';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor, getInitialGreetingWithVersion } from '@/components/chatbot/PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
@@ -43,12 +41,6 @@ const Chat = () => {
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Fetch therapists
-  const { data: therapists, isLoading: isLoadingTherapists } = useQuery({
-    queryKey: ['therapists'],
-    queryFn: therapistDiscoveryService.getAllTherapists,
-  });
 
   // Track if we've already sent the initial message
   const initialMessageSentRef = useRef(false);
@@ -82,24 +74,21 @@ const Chat = () => {
     initialize();
   }, [urlConversationId]);
 
-  // Send initial message from URL params after initialization and therapists are loaded
+  // Send initial message from URL params after initialization
   useEffect(() => {
     const initialMessage = searchParams.get('message');
     if (
       initialMessage && 
       !isInitializing && 
-      therapists && 
       messages.length === 0 && 
       !initialMessageSentRef.current
     ) {
       initialMessageSentRef.current = true;
       sendInitialMessage(initialMessage);
     }
-  }, [isInitializing, therapists, messages.length, searchParams]);
+  }, [isInitializing, messages.length, searchParams]);
 
   const sendInitialMessage = async (messageContent: string) => {
-    if (!therapists) return;
-
     const userMessage: ChatMessage = {
       role: 'user',
       content: messageContent,
@@ -109,15 +98,11 @@ const Chat = () => {
     setIsLoading(true);
 
     try {
-      const response = await chatbotService.sendMessage(
-        [userMessage],
-        therapists
-      );
+      const response = await chatbotService.sendMessage([userMessage]);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
-        matchedTherapists: response.matchedTherapists,
       };
 
       const updatedMessages = [userMessage, assistantMessage];
@@ -168,7 +153,7 @@ const Chat = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !therapists) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
       role: 'user',
@@ -181,15 +166,11 @@ const Chat = () => {
     textareaRef.current?.focus();
 
     try {
-      const response = await chatbotService.sendMessage(
-        [...messages, userMessage],
-        therapists
-      );
+      const response = await chatbotService.sendMessage([...messages, userMessage]);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
-        matchedTherapists: response.matchedTherapists,
       };
 
       const updatedMessages = [...messages, userMessage, assistantMessage];
@@ -404,60 +385,6 @@ const Chat = () => {
                     )}
                   </div>
                   
-                  {/* Match Found CTA */}
-                  {message.role === 'assistant' && message.matchedTherapists && message.matchedTherapists.length > 0 && (
-                    <div className="flex gap-3 justify-start pl-11">
-                      <div className="max-w-[90%] w-full">
-                        <Card className="overflow-hidden bg-gradient-to-br from-therapy-purple/5 via-white to-therapy-pink/5 border-2 border-therapy-purple/20 shadow-lg">
-                          <div className="p-6 text-center">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center shadow-lg">
-                              <Heart className="h-8 w-8 text-white" />
-                            </div>
-                            
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                              Great news! We found your perfect match{message.matchedTherapists.length > 1 ? 'es' : ''}
-                            </h3>
-                            
-                            <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                              Based on everything you've shared, we've identified {message.matchedTherapists.length} therapist{message.matchedTherapists.length > 1 ? 's' : ''} who {message.matchedTherapists.length > 1 ? 'are' : 'is'} a great fit for your needs.
-                            </p>
-                            
-                            <div className="flex flex-wrap justify-center gap-3 mb-6">
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                <span>Matched to your preferences</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                <span>Accepting new clients</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                <span>Verified professionals</span>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-3">
-                              <Button 
-                                asChild
-                                size="lg" 
-                                className="w-full sm:w-auto px-8 bg-gradient-to-r from-therapy-purple to-therapy-pink hover:opacity-90 text-white shadow-md"
-                              >
-                                <Link to="/signup">
-                                  Sign Up to Connect
-                                  <ArrowUp className="ml-2 h-4 w-4 rotate-45" />
-                                </Link>
-                              </Button>
-                              
-                              <p className="text-xs text-gray-500">
-                                Free to join • No commitment required
-                              </p>
-                            </div>
-                          </div>
-                        </Card>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
               })}
@@ -490,7 +417,7 @@ const Chat = () => {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="Type your message..."
-                      disabled={isLoading || isLoadingTherapists}
+                      disabled={isLoading}
                       className="min-h-[52px] max-h-[150px] resize-none border-0 bg-transparent text-base placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
                       rows={1}
                       style={{ height: 'auto', minHeight: '52px' }}
@@ -502,7 +429,7 @@ const Chat = () => {
                     />
                     <Button
                       onClick={handleSend}
-                      disabled={isLoading || !input.trim() || isLoadingTherapists}
+                      disabled={isLoading || !input.trim()}
                       size="icon"
                       className="absolute bottom-1 right-1 h-10 w-10 rounded-xl bg-therapy-purple hover:bg-therapy-purple/90 shadow-md transition-all disabled:opacity-40"
                     >

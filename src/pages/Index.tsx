@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Loader2, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard } from 'lucide-react';
+import { Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -14,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { therapistDiscoveryService } from '@/services/therapistDiscoveryService';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
 import { useAuth } from '@/context/AuthContext';
@@ -44,12 +42,6 @@ const Index = () => {
   const [isTyping, setIsTyping] = useState(true);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Fetch therapists to check loading state
-  const { isLoading: isLoadingTherapists } = useQuery({
-    queryKey: ['therapists'],
-    queryFn: therapistDiscoveryService.getAllTherapists,
-  });
 
   // Animated placeholder effect
   useEffect(() => {
@@ -93,7 +85,7 @@ const Index = () => {
   }, [placeholderIndex, isTyping]);
 
   const handleSend = () => {
-    if (!input.trim() || isLoadingTherapists) return;
+    if (!input.trim()) return;
 
     // Navigate to chat page with the initial message
     const encodedMessage = encodeURIComponent(input.trim());
@@ -236,21 +228,16 @@ const Index = () => {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={displayedPlaceholder || "Tell us what you're looking for..."}
-                    disabled={isLoadingTherapists}
                     className="min-h-[120px] resize-none border-0 bg-transparent text-lg placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
                     style={{ fontSize: '17px', lineHeight: '1.6' }}
                   />
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim() || isLoadingTherapists}
+                    disabled={!input.trim()}
                     size="icon"
                     className="absolute bottom-2 right-2 h-10 w-10 rounded-full bg-therapy-purple hover:bg-therapy-purple/90 shadow-lg"
                   >
-                    {isLoadingTherapists ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4" />
-                    )}
+                    <ArrowUp className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
