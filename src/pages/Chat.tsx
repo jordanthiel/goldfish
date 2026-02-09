@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard } from 'lucide-react';
+import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,6 +36,9 @@ const Chat = () => {
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
+  
+  // Read page slug from URL params (e.g. ?page=sleep)
+  const pageSlug = searchParams.get('page') || undefined;
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -98,7 +101,7 @@ const Chat = () => {
     setIsLoading(true);
 
     try {
-      const response = await chatbotService.sendMessage([userMessage]);
+      const response = await chatbotService.sendMessage([userMessage], undefined, pageSlug);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
@@ -123,7 +126,8 @@ const Chat = () => {
       
       if (savedId) {
         setConversationId(savedId);
-        navigate(`/chat/${savedId}`, { replace: true });
+        const pageParam = pageSlug ? `?page=${pageSlug}` : '';
+        navigate(`/chat/${savedId}${pageParam}`, { replace: true });
       }
     } catch (error) {
       console.error('Error sending initial message:', error);
@@ -166,7 +170,7 @@ const Chat = () => {
     textareaRef.current?.focus();
 
     try {
-      const response = await chatbotService.sendMessage([...messages, userMessage]);
+      const response = await chatbotService.sendMessage([...messages, userMessage], undefined, pageSlug);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
@@ -192,7 +196,8 @@ const Chat = () => {
       if (savedId && !conversationId) {
         setConversationId(savedId);
         // Update URL to include conversation ID without navigation
-        navigate(`/chat/${savedId}`, { replace: true });
+        const pageParam = pageSlug ? `?page=${pageSlug}` : '';
+        navigate(`/chat/${savedId}${pageParam}`, { replace: true });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -249,27 +254,39 @@ const Chat = () => {
                   <Settings className="h-4 w-4" />
                 </Button>
                 {messages.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Export CSV"
-                    onClick={() => {
-                      const modelConfig = getSelectedModel();
-                      const conversation = {
-                        id: conversationId || undefined,
-                        session_id: getSessionId(),
-                        model_provider: modelConfig.provider,
-                        model_id: modelConfig.modelId,
-                        conversation_data: messages,
-                        device_info: deviceInfo,
-                        started_at: new Date().toISOString(),
-                        prompt_version: promptVersion ?? undefined,
-                      };
-                      chatbotConversationService.downloadCSV(conversation);
-                    }}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  <>
+                    {conversationId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="View Report"
+                        onClick={() => navigate(`/chat/${conversationId}/report${pageSlug ? `?page=${pageSlug}` : ''}`)}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Export CSV"
+                      onClick={() => {
+                        const modelConfig = getSelectedModel();
+                        const conversation = {
+                          id: conversationId || undefined,
+                          session_id: getSessionId(),
+                          model_provider: modelConfig.provider,
+                          model_id: modelConfig.modelId,
+                          conversation_data: messages,
+                          device_info: deviceInfo,
+                          started_at: new Date().toISOString(),
+                          prompt_version: promptVersion ?? undefined,
+                        };
+                        chatbotConversationService.downloadCSV(conversation);
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
                 
                 <DropdownMenu>
@@ -453,7 +470,7 @@ const Chat = () => {
           <DialogHeader>
             <DialogTitle>Edit Chatbot Prompt</DialogTitle>
           </DialogHeader>
-          <PromptEditor open={showPromptEditor} onOpenChange={setShowPromptEditor} />
+          <PromptEditor open={showPromptEditor} onOpenChange={setShowPromptEditor} pageSlug={pageSlug || 'default'} />
         </DialogContent>
       </Dialog>
     </div>

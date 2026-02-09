@@ -63,6 +63,86 @@ export type Database = {
           },
         ]
       }
+      chatbot_prompts: {
+        Row: {
+          id: string
+          prompt_name: string
+          system_prompt: string
+          initial_greeting: string
+          version: number
+          is_active: boolean
+          page_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          prompt_name?: string
+          system_prompt: string
+          initial_greeting?: string
+          version?: number
+          is_active?: boolean
+          page_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          prompt_name?: string
+          system_prompt?: string
+          initial_greeting?: string
+          version?: number
+          is_active?: boolean
+          page_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_prompts_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      landing_pages: {
+        Row: {
+          id: string
+          slug: string
+          title: string
+          description: string | null
+          is_active: boolean
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          title: string
+          description?: string | null
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          title?: string
+          description?: string | null
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_profiles: {
         Row: {
           address: string | null

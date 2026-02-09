@@ -2,9 +2,8 @@ import { chatbotPromptService } from './chatbotPromptService';
 import { supabase } from '@/integrations/supabase/client';
 import { getSelectedModel, ModelConfig } from '@/utils/modelConfig';
 
-// Cache for system prompt to avoid fetching on every message
-let cachedSystemPrompt: string | null = null;
-let promptCacheTime: number = 0;
+// Cache for system prompts to avoid fetching on every message (keyed by page slug)
+const promptCache: Map<string, { prompt: string; time: number }> = new Map();
 const PROMPT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Get custom prompt from localStorage
@@ -20,32 +19,31 @@ const getCustomPrompt = (): string | null => {
   return null;
 };
 
-// Get cached or fresh system prompt
-const getCachedSystemPrompt = async (): Promise<string> => {
+// Get cached or fresh system prompt for a given page slug
+const getCachedSystemPrompt = async (pageSlug: string = 'default'): Promise<string> => {
   // Check for custom prompt first (always takes priority)
   const customPrompt = getCustomPrompt();
   if (customPrompt) {
     return customPrompt;
   }
   
-  // Check if cache is still valid
+  // Check if cache is still valid for this page slug
   const now = Date.now();
-  if (cachedSystemPrompt && (now - promptCacheTime) < PROMPT_CACHE_TTL) {
-    return cachedSystemPrompt;
+  const cached = promptCache.get(pageSlug);
+  if (cached && (now - cached.time) < PROMPT_CACHE_TTL) {
+    return cached.prompt;
   }
   
-  // Fetch fresh prompt
-  const prompt = await chatbotPromptService.getActivePrompt();
-  cachedSystemPrompt = prompt;
-  promptCacheTime = now;
+  // Fetch fresh prompt by page slug
+  const prompt = await chatbotPromptService.getActivePrompt(pageSlug);
+  promptCache.set(pageSlug, { prompt, time: now });
   
   return prompt;
 };
 
 // Clear prompt cache (call when prompt is updated)
 export const clearPromptCache = () => {
-  cachedSystemPrompt = null;
-  promptCacheTime = 0;
+  promptCache.clear();
 };
 
 export interface ChatMessage {
@@ -66,11 +64,12 @@ export const chatbotService = {
   // Send a message to the chatbot and get a response
   sendMessage: async (
     messages: ChatMessage[],
-    modelConfig?: ModelConfig
+    modelConfig?: ModelConfig,
+    pageSlug?: string
   ): Promise<ChatbotResponse> => {
     try {
-      // Get the cached/custom system prompt (much faster than fetching every time)
-      const systemPrompt = await getCachedSystemPrompt();
+      // Get the cached/custom system prompt for this page (much faster than fetching every time)
+      const systemPrompt = await getCachedSystemPrompt(pageSlug);
 
       // Get model configuration (use provided or get from storage)
       const selectedModel = modelConfig || getSelectedModel();

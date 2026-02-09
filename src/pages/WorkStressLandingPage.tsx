@@ -1,59 +1,51 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, ArrowUp } from 'lucide-react';
+import { ArrowUp, Briefcase, Brain, BatteryLow, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
 
-// Animated placeholder prompts
+const PAGE_SLUG = 'work-stress';
+
 const PLACEHOLDER_PROMPTS = [
-  "I'm feeling anxious about work and need help managing stress...",
-  "I want to find a therapist who specializes in relationship issues...",
-  "I'm looking for someone who understands depression and can help...",
-  "I need a therapist who works with LGBTQ+ clients...",
-  "I'm struggling with grief after losing a loved one...",
-  "I want to work on my self-esteem and confidence...",
-  "I need help dealing with trauma from my past...",
-  "I'm looking for couples therapy to improve my relationship...",
+  "I'm constantly overwhelmed and can't keep up with my workload...",
+  "My boss creates a toxic environment and I dread going in...",
+  "I can't stop checking emails after hours and it's ruining my life...",
+  "I feel burned out and have lost all motivation for my career...",
+  "Work anxiety is giving me physical symptoms like chest tightness...",
+  "I was passed over for promotion and I'm spiraling...",
+  "I can't separate work stress from my personal relationships...",
+  "I'm thinking of quitting but the fear of change is paralyzing...",
 ];
 
-const PAGE_SLUG = 'default';
-
-const Index = () => {
+const WorkStressLandingPage = () => {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
-  
-  // Animated placeholder state
+
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
   const [isTyping, setIsTyping] = useState(true);
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Animated placeholder effect
   useEffect(() => {
     const currentPrompt = PLACEHOLDER_PROMPTS[placeholderIndex];
     let charIndex = 0;
     let timeoutId: NodeJS.Timeout;
-    
+
     if (isTyping) {
-      // Typing animation
       const typeChar = () => {
         if (charIndex <= currentPrompt.length) {
           setDisplayedPlaceholder(currentPrompt.slice(0, charIndex));
           charIndex++;
           timeoutId = setTimeout(typeChar, 40);
         } else {
-          // Pause at end of typing
-          timeoutId = setTimeout(() => {
-            setIsTyping(false);
-          }, 2000);
+          timeoutId = setTimeout(() => setIsTyping(false), 2000);
         }
       };
       typeChar();
     } else {
-      // Deleting animation
       let deleteIndex = currentPrompt.length;
       const deleteChar = () => {
         if (deleteIndex >= 0) {
@@ -61,21 +53,18 @@ const Index = () => {
           deleteIndex--;
           timeoutId = setTimeout(deleteChar, 20);
         } else {
-          // Move to next prompt
           setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDER_PROMPTS.length);
           setIsTyping(true);
         }
       };
       deleteChar();
     }
-    
+
     return () => clearTimeout(timeoutId);
   }, [placeholderIndex, isTyping]);
 
   const handleSend = () => {
     if (!input.trim()) return;
-
-    // Navigate to chat page with the initial message and page slug
     const encodedMessage = encodeURIComponent(input.trim());
     navigate(`/chat?message=${encodedMessage}&page=${PAGE_SLUG}`);
   };
@@ -89,39 +78,46 @@ const Index = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      
+      {/* Professional gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-teal-50 to-cyan-50" />
+
       {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-200/20 rounded-full blur-3xl" />
-      
-      {/* Subtle pattern overlay */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-teal-200/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-200/20 rounded-full blur-3xl" />
+      <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-emerald-200/15 rounded-full blur-3xl" />
+
+      {/* Grid pattern overlay */}
       <div className="absolute inset-0 opacity-[0.015]" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)`,
+        backgroundSize: '40px 40px',
       }} />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         <LandingPageHeader
-          icon={Sparkles}
+          icon={Briefcase}
+          label="Work & Stress"
           pageSlug={PAGE_SLUG}
           theme="light"
-          iconBgClass="bg-gradient-to-br from-therapy-purple to-therapy-pink"
-          signupBtnClass="bg-therapy-purple hover:bg-therapy-purple/90"
+          iconBgClass="bg-gradient-to-br from-teal-500 to-cyan-600"
+          labelClass="text-teal-600"
+          signupBtnClass="bg-teal-600 hover:bg-teal-700 text-white"
         />
 
         {/* Main content */}
         <main className="flex-1 flex flex-col items-center justify-center px-4 pb-32">
           <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-100 border border-teal-200 mb-6">
+              <Brain className="h-4 w-4 text-teal-600" />
+              <span className="text-sm text-teal-700">Work Stress Support</span>
+            </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-light text-gray-800 mb-6 leading-tight tracking-tight">
-              Find Your Path to
+              Take Back Control
               <br />
-              <span className="italic text-therapy-purple">Mental Wellness</span>
+              <span className="italic text-teal-600">From Burnout</span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Connect with the right therapist for you. Our AI assistant helps match you with mental health professionals who understand your unique needs.
+              Work stress doesn't have to define your life. Share what you're dealing with, and we'll match you with a therapist who specializes in workplace wellness and burnout recovery.
             </p>
           </div>
 
@@ -135,7 +131,7 @@ const Index = () => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={displayedPlaceholder || "Tell us what you're looking for..."}
+                    placeholder={displayedPlaceholder || "Tell us about your work stress..."}
                     className="min-h-[120px] resize-none border-0 bg-transparent text-lg placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
                     style={{ fontSize: '17px', lineHeight: '1.6' }}
                   />
@@ -143,7 +139,7 @@ const Index = () => {
                     onClick={handleSend}
                     disabled={!input.trim()}
                     size="icon"
-                    className="absolute bottom-2 right-2 h-10 w-10 rounded-full bg-therapy-purple hover:bg-therapy-purple/90 shadow-lg"
+                    className="absolute bottom-2 right-2 h-10 w-10 rounded-full bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-600/25"
                   >
                     <ArrowUp className="h-4 w-4" />
                   </Button>
@@ -151,18 +147,38 @@ const Index = () => {
               </div>
             </Card>
           </div>
+
+          {/* Quick-start cards */}
+          <div className="w-full max-w-2xl mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { icon: BatteryLow, label: "Burnout", prompt: "I feel completely burned out and have no energy left for anything" },
+              { icon: ShieldAlert, label: "Toxic Workplace", prompt: "My work environment is toxic and it's affecting my mental health" },
+              { icon: Brain, label: "Work-Life Balance", prompt: "I can't stop thinking about work and it's ruining my personal life" },
+            ].map(({ icon: Icon, label, prompt }) => (
+              <button
+                key={label}
+                onClick={() => {
+                  setInput(prompt);
+                  textareaRef.current?.focus();
+                }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-50 border border-teal-100 hover:bg-teal-100 transition-all text-left group"
+              >
+                <Icon className="h-5 w-5 text-teal-500 flex-shrink-0 group-hover:text-teal-600" />
+                <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
+              </button>
+            ))}
+          </div>
         </main>
 
         {/* Footer */}
         <footer className="absolute bottom-0 left-0 right-0 py-6 px-4 text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             Your conversations are private and secure
           </p>
         </footer>
       </div>
-
     </div>
   );
 };
 
-export default Index;
+export default WorkStressLandingPage;

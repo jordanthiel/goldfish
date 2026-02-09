@@ -7,6 +7,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import YoungLandingPage from "./pages/YoungLandingPage";
+import SleepLandingPage from "./pages/SleepLandingPage";
+import CouplesLandingPage from "./pages/CouplesLandingPage";
+import WorkStressLandingPage from "./pages/WorkStressLandingPage";
+import ConversationReport from "./pages/ConversationReport";
+import TherapistReferralReport from "./pages/TherapistReferralReport";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
@@ -59,7 +64,12 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/chat/:id" element={<Chat />} />
+            <Route path="/chat/:id/report" element={<ConversationReport />} />
+            <Route path="/referral/:id" element={<TherapistReferralReport />} />
             <Route path="/young" element={<YoungLandingPage />} />
+            <Route path="/sleep" element={<SleepLandingPage />} />
+            <Route path="/couples" element={<CouplesLandingPage />} />
+            <Route path="/work-stress" element={<WorkStressLandingPage />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
