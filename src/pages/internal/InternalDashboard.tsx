@@ -37,6 +37,7 @@ import {
   Eye,
   BarChart3,
   LayoutDashboard,
+  FlaskConical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -189,6 +190,12 @@ const InternalDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3">
+              <Link to="/internal/playground">
+                <Button variant="outline" className="border-therapy-purple/30 text-therapy-purple hover:bg-therapy-purple/5">
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Chat Playground
+                </Button>
+              </Link>
               <Link to="/internal/aggregate">
                 <Button className="bg-gradient-to-r from-therapy-purple to-therapy-pink hover:opacity-90 text-white">
                   <BarChart3 className="h-4 w-4 mr-2" />

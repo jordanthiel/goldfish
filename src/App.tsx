@@ -40,6 +40,7 @@ import ClaimAccount from "./pages/patient/ClaimAccount"; // New component for cl
 import InternalDashboard from "./pages/internal/InternalDashboard";
 import ConversationDetail from "./pages/internal/ConversationDetail";
 import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
+import ChatPlayground from "./pages/internal/ChatPlayground";
 
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/internal" element={<InternalDashboard />} />
             <Route path="/internal/conversation/:id" element={<ConversationDetail />} />
             <Route path="/internal/aggregate" element={<AggregateAnalysis />} />
+            <Route path="/internal/playground" element={<ChatPlayground />} />
             
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
