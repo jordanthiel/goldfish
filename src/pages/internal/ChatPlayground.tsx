@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessage } from '@/services/chatbotService';
 import { chatbotPromptService, ChatbotPrompt } from '@/services/chatbotPromptService';
+import { chatbotConversationService, getSessionId, getDeviceInfo, DeviceInfo } from '@/services/chatbotConversationService';
 import { landingPageService, LandingPage } from '@/services/landingPageService';
 import { AVAILABLE_MODELS, ModelConfig, DEFAULT_MODEL } from '@/utils/modelConfig';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ import {
   MessageSquare,
   BarChart3,
   FlaskConical,
+  Download,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -58,6 +60,7 @@ interface ChatInstance {
   messages: ChatMessage[];
   isLoading: boolean;
   input: string;
+  conversationId: string | null; // DB record ID
 }
 
 // ─── Direct Edge Function Call ──────────────────────────────────────
@@ -112,6 +115,7 @@ interface ChatInstancePanelProps {
   promptsCache: Record<string, ChatbotPrompt[]>;
   onUpdate: (id: string, updates: Partial<ChatInstance>) => void;
   onSend: (id: string) => void;
+  onExport: (id: string) => void;
   onClose?: (id: string) => void;
   compact?: boolean;
 }
@@ -122,6 +126,7 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
   promptsCache,
   onUpdate,
   onSend,
+  onExport,
   onClose,
   compact = false,
 }) => {
@@ -254,6 +259,19 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
           <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-400">
             {instance.messages.length} msgs
           </Badge>
+
+          {/* Export button */}
+          {instance.messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400 hover:text-therapy-purple"
+              onClick={() => onExport(instance.id)}
+              title="Export CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          )}
 
           {onClose && (
             <Button
@@ -389,6 +407,7 @@ function createInstance(pageSlug: string = 'default'): ChatInstance {
     messages: [],
     isLoading: false,
     input: '',
+    conversationId: null,
   };
 }
 
@@ -403,6 +422,12 @@ const ChatPlayground: React.FC = () => {
   const [landingPages, setLandingPages] = useState<LandingPage[]>([]);
   const [promptsCache, setPromptsCache] = useState<Record<string, ChatbotPrompt[]>>({});
   const [loadingPages, setLoadingPages] = useState(true);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+
+  // Load device info once on mount
+  useEffect(() => {
+    getDeviceInfo().then(setDeviceInfo);
+  }, []);
 
   // Auth guard
   useEffect(() => {
@@ -530,21 +555,75 @@ const ChatPlayground: React.FC = () => {
       );
 
       const assistantMessage: ChatMessage = { role: 'assistant', content: responseText };
-      updateInstance(instanceId, {
-        messages: [...updatedMessages, assistantMessage],
-        isLoading: false,
-      });
+      const finalMessages = [...updatedMessages, assistantMessage];
+
+      // Save conversation to the database
+      try {
+        const savedId = await chatbotConversationService.saveConversation(
+          finalMessages,
+          inst.model,
+          deviceInfo || undefined,
+          inst.conversationId
+        );
+
+        updateInstance(instanceId, {
+          messages: finalMessages,
+          isLoading: false,
+          conversationId: savedId || inst.conversationId,
+        });
+      } catch (saveError) {
+        console.error('Error saving conversation:', saveError);
+        // Still update messages even if save fails
+        updateInstance(instanceId, {
+          messages: finalMessages,
+          isLoading: false,
+        });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorText = error instanceof Error ? error.message : 'An unexpected error occurred';
-      updateInstance(instanceId, {
-        messages: [
-          ...updatedMessages,
-          { role: 'assistant', content: `Error: ${errorText}` },
-        ],
-        isLoading: false,
-      });
+      const errorMessages = [
+        ...updatedMessages,
+        { role: 'assistant' as const, content: `Error: ${errorText}` },
+      ];
+
+      // Still save the conversation with the error message so it appears in CMS
+      try {
+        const savedId = await chatbotConversationService.saveConversation(
+          errorMessages,
+          inst.model,
+          deviceInfo || undefined,
+          inst.conversationId
+        );
+        updateInstance(instanceId, {
+          messages: errorMessages,
+          isLoading: false,
+          conversationId: savedId || inst.conversationId,
+        });
+      } catch {
+        updateInstance(instanceId, {
+          messages: errorMessages,
+          isLoading: false,
+        });
+      }
     }
+  };
+
+  const handleExport = (instanceId: string) => {
+    const inst = instances.find(i => i.id === instanceId);
+    if (!inst || inst.messages.length === 0) return;
+
+    const conversationData = {
+      id: inst.conversationId || undefined,
+      session_id: getSessionId(),
+      model_provider: inst.model.provider,
+      model_id: inst.model.modelId,
+      conversation_data: inst.messages,
+      device_info: deviceInfo || undefined,
+      started_at: new Date().toISOString(),
+    };
+
+    chatbotConversationService.downloadCSV(conversationData);
   };
 
   // ─── Render ─────────────────────────────────────────────────────
@@ -740,6 +819,7 @@ const ChatPlayground: React.FC = () => {
                     promptsCache={promptsCache}
                     onUpdate={updateInstance}
                     onSend={handleSend}
+                    onExport={handleExport}
                     onClose={instances.length > 1 ? removeInstance : undefined}
                   />
                 )}
@@ -765,6 +845,7 @@ const ChatPlayground: React.FC = () => {
                     promptsCache={promptsCache}
                     onUpdate={updateInstance}
                     onSend={handleSend}
+                    onExport={handleExport}
                     onClose={instances.length > 1 ? removeInstance : undefined}
                     compact
                   />
