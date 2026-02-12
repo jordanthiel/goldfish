@@ -6,12 +6,15 @@ import { ChatMessage } from '@/services/chatbotService';
 import { chatbotPromptService, ChatbotPrompt } from '@/services/chatbotPromptService';
 import { chatbotConversationService, getSessionId, getDeviceInfo, DeviceInfo } from '@/services/chatbotConversationService';
 import { landingPageService, LandingPage } from '@/services/landingPageService';
+import { internalCmsService, ConversationWithExtraction } from '@/services/internalCmsService';
 import { AVAILABLE_MODELS, ModelConfig, DEFAULT_MODEL } from '@/utils/modelConfig';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -44,6 +47,8 @@ import {
   BarChart3,
   FlaskConical,
   Download,
+  History,
+  Search,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -423,6 +428,10 @@ const ChatPlayground: React.FC = () => {
   const [promptsCache, setPromptsCache] = useState<Record<string, ChatbotPrompt[]>>({});
   const [loadingPages, setLoadingPages] = useState(true);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [recentConversations, setRecentConversations] = useState<ConversationWithExtraction[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState('');
 
   // Load device info once on mount
   useEffect(() => {
@@ -626,6 +635,80 @@ const ChatPlayground: React.FC = () => {
     chatbotConversationService.downloadCSV(conversationData);
   };
 
+  const openLoadDialog = async () => {
+    setShowLoadDialog(true);
+    setConversationSearch('');
+    await loadRecentConversations();
+  };
+
+  const loadRecentConversations = async () => {
+    setLoadingConversations(true);
+    try {
+      const result = await internalCmsService.getConversations({ limit: 50 });
+      setRecentConversations(result.data);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  const handleLoadConversation = (conv: ConversationWithExtraction) => {
+    const allModels = [...AVAILABLE_MODELS.openai, ...AVAILABLE_MODELS.gemini];
+    const matchedModel = allModels.find(
+      m => m.provider === conv.model_provider && m.modelId === conv.model_id
+    ) || DEFAULT_MODEL;
+
+    const newInst = createInstance(landingPages[0]?.slug || 'default');
+    newInst.name = `Loaded ${conv.session_id.slice(0, 8)}`;
+    newInst.model = matchedModel;
+    newInst.messages = (conv.conversation_data || []).map(m => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }));
+    newInst.conversationId = conv.id;
+
+    setInstances(prev => [...prev, newInst]);
+    setActiveTab(newInst.id);
+    setShowLoadDialog(false);
+
+    toast({
+      title: 'Conversation Loaded',
+      description: `Loaded ${newInst.messages.length} messages. You can continue the conversation.`,
+    });
+  };
+
+  const filteredConversations = recentConversations.filter(conv => {
+    if (!conversationSearch.trim()) return true;
+    const q = conversationSearch.toLowerCase();
+    const sessionMatch = conv.session_id.toLowerCase().includes(q);
+    const modelMatch = conv.model_id.toLowerCase().includes(q);
+    const contentMatch = conv.conversation_data?.some(
+      m => m.content.toLowerCase().includes(q)
+    );
+    const nameMatch = conv.extraction?.extracted_name?.toLowerCase().includes(q);
+    const profileMatch = conv.profile?.full_name?.toLowerCase().includes(q) ||
+      conv.profile?.email?.toLowerCase().includes(q);
+    return sessionMatch || modelMatch || contentMatch || nameMatch || profileMatch;
+  });
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getPreviewText = (conv: ConversationWithExtraction) => {
+    const firstUserMsg = conv.conversation_data?.find(m => m.role === 'user');
+    if (!firstUserMsg) return 'No messages';
+    return firstUserMsg.content.length > 100
+      ? firstUserMsg.content.slice(0, 100) + '...'
+      : firstUserMsg.content;
+  };
+
   // ─── Render ─────────────────────────────────────────────────────
 
   if (authLoading) {
@@ -789,7 +872,7 @@ const ChatPlayground: React.FC = () => {
 
             {viewMode === 'grid' && <div className="flex-1" />}
 
-            {/* Add Instance Button */}
+            {/* Add Instance / Load Buttons */}
             <Button
               variant="outline"
               size="sm"
@@ -798,6 +881,15 @@ const ChatPlayground: React.FC = () => {
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               New Chat
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-gray-300 text-gray-500 hover:text-therapy-purple hover:border-therapy-purple/30"
+              onClick={openLoadDialog}
+            >
+              <History className="h-3.5 w-3.5 mr-1" />
+              Load Chat
             </Button>
 
             <Badge variant="outline" className="text-[10px] text-gray-400 border-gray-200">
@@ -855,6 +947,94 @@ const ChatPlayground: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Load Previous Chat Dialog */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-therapy-purple" />
+              Load Previous Conversation
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Search */}
+          <div className="relative flex-shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by session, model, name, or message content..."
+              className="pl-10 bg-white border-gray-200"
+              value={conversationSearch}
+              onChange={(e) => setConversationSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Conversation List */}
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
+            {loadingConversations ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-therapy-purple" />
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">
+                  {conversationSearch ? 'No conversations match your search' : 'No conversations found'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 pb-4">
+                {filteredConversations.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => handleLoadConversation(conv)}
+                    className="w-full text-left p-3 rounded-lg border border-gray-200 bg-white hover:border-therapy-purple/30 hover:bg-purple-50/30 transition-all group"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-gray-500">
+                            {conv.session_id.slice(0, 16)}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-500">
+                            {conv.model_id}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] border-gray-200 text-gray-400">
+                            {conv.conversation_data?.length || 0} msgs
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                          {getPreviewText(conv)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[10px] text-gray-400">
+                            {formatDate(conv.started_at)}
+                          </span>
+                          {conv.profile && (
+                            <span className="text-[10px] text-therapy-purple font-medium">
+                              {conv.profile.full_name || conv.profile.email}
+                            </span>
+                          )}
+                          {!conv.profile && conv.extraction?.extracted_name && (
+                            <span className="text-[10px] text-gray-500">
+                              {conv.extraction.extracted_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Badge className="bg-therapy-purple text-white text-[10px]">
+                          Load
+                        </Badge>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
