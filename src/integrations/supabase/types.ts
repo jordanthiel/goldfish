@@ -556,6 +556,47 @@ export type Database = {
           }
         ]
       }
+      waitlist_submissions: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          ab_variant: string
+          conversation_id: string | null
+          session_id: string | null
+          page_slug: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          ab_variant: string
+          conversation_id?: string | null
+          session_id?: string | null
+          page_slug?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          ab_variant?: string
+          conversation_id?: string | null
+          session_id?: string | null
+          page_slug?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_submissions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       internal_analysis_threads: {
         Row: {
           id: string

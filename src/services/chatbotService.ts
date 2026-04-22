@@ -51,8 +51,11 @@ export interface ChatMessage {
   content: string;
 }
 
+export const CONVERSATION_COMPLETE_MARKER = '[CONVERSATION_COMPLETE]';
+
 export interface ChatbotResponse {
   message: string;
+  conversationComplete: boolean;
   deviceInfo?: {
     ip_address?: string;
     user_agent?: string;
@@ -120,8 +123,13 @@ export const chatbotService = {
         throw new Error('Invalid response from chatbot');
       }
 
+      const rawMessage: string = responseData.message;
+      const conversationComplete = rawMessage.includes(CONVERSATION_COMPLETE_MARKER);
+      const cleanMessage = rawMessage.replace(CONVERSATION_COMPLETE_MARKER, '').trim();
+
       return {
-        message: responseData.message,
+        message: cleanMessage,
+        conversationComplete,
         deviceInfo: responseData.deviceInfo,
       };
     } catch (error) {
@@ -134,6 +142,7 @@ export const chatbotService = {
       
       return {
         message: `I'm sorry, but I encountered an error: ${errorMessage}. Please try again.`,
+        conversationComplete: false,
       };
     }
   },

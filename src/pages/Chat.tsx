@@ -20,6 +20,8 @@ import { PromptEditor, getInitialGreetingWithVersion } from '@/components/chatbo
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
+import { getEmailCaptureVariant } from '@/utils/abTest';
+import { EmailCaptureForm } from '@/components/chatbot/EmailCaptureForm';
 import ReactMarkdown from 'react-markdown';
 
 const Chat = () => {
@@ -36,6 +38,9 @@ const Chat = () => {
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [conversationComplete, setConversationComplete] = useState(false);
+
+  const [abVariant] = useState(() => getEmailCaptureVariant());
   
   // Read page slug from URL params (e.g. ?page=sleep)
   const pageSlug = searchParams.get('page') || undefined;
@@ -111,6 +116,10 @@ const Chat = () => {
       const updatedMessages = [userMessage, assistantMessage];
       setMessages(updatedMessages);
 
+      if (response.conversationComplete) {
+        setConversationComplete(true);
+      }
+
       const modelConfig = getSelectedModel();
       const combinedDeviceInfo = {
         ...deviceInfo,
@@ -180,6 +189,10 @@ const Chat = () => {
       const updatedMessages = [...messages, userMessage, assistantMessage];
       setMessages(updatedMessages);
 
+      if (response.conversationComplete) {
+        setConversationComplete(true);
+      }
+
       const modelConfig = getSelectedModel();
       const combinedDeviceInfo = {
         ...deviceInfo,
@@ -195,7 +208,6 @@ const Chat = () => {
       
       if (savedId && !conversationId) {
         setConversationId(savedId);
-        // Update URL to include conversation ID without navigation
         const pageParam = pageSlug ? `?page=${pageSlug}` : '';
         navigate(`/chat/${savedId}${pageParam}`, { replace: true });
       }
@@ -418,49 +430,60 @@ const Chat = () => {
                   </Card>
                 </div>
               )}
+
+              {conversationComplete && (
+                <EmailCaptureForm
+                  variant={abVariant}
+                  conversationId={conversationId}
+                  pageSlug={pageSlug}
+                />
+              )}
+
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
 
-          {/* Input area */}
-          <div className="p-4 pb-safe flex-shrink-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-            <div className="max-w-3xl mx-auto">
-              <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-2xl overflow-hidden">
-                <div className="p-4">
-                  <div className="relative">
-                    <Textarea
-                      ref={textareaRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Type your message..."
-                      disabled={isLoading}
-                      className="min-h-[52px] max-h-[150px] resize-none border-0 bg-transparent text-base placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
-                      rows={1}
-                      style={{ height: 'auto', minHeight: '52px' }}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = `${Math.min(target.scrollHeight, 150)}px`;
-                      }}
-                    />
-                    <Button
-                      onClick={handleSend}
-                      disabled={isLoading || !input.trim()}
-                      size="icon"
-                      className="absolute bottom-1 right-1 h-10 w-10 rounded-xl bg-therapy-purple hover:bg-therapy-purple/90 shadow-md transition-all disabled:opacity-40"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowUp className="h-4 w-4" />
-                      )}
-                    </Button>
+          {/* Input area — hidden once the conversation is complete */}
+          {!conversationComplete && (
+            <div className="p-4 pb-safe flex-shrink-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+              <div className="max-w-3xl mx-auto">
+                <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-2xl overflow-hidden">
+                  <div className="p-4">
+                    <div className="relative">
+                      <Textarea
+                        ref={textareaRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Type your message..."
+                        disabled={isLoading}
+                        className="min-h-[52px] max-h-[150px] resize-none border-0 bg-transparent text-base placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
+                        rows={1}
+                        style={{ height: 'auto', minHeight: '52px' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${Math.min(target.scrollHeight, 150)}px`;
+                        }}
+                      />
+                      <Button
+                        onClick={handleSend}
+                        disabled={isLoading || !input.trim()}
+                        size="icon"
+                        className="absolute bottom-1 right-1 h-10 w-10 rounded-xl bg-therapy-purple hover:bg-therapy-purple/90 shadow-md transition-all disabled:opacity-40"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ArrowUp className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
