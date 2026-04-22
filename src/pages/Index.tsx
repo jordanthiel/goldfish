@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
+import { usePageView } from '@/hooks/usePageView';
 
 // Animated placeholder prompts
 const PLACEHOLDER_PROMPTS = [
@@ -23,6 +24,7 @@ const PAGE_SLUG = 'default';
 const Index = () => {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
+  usePageView(PAGE_SLUG);
   
   // Animated placeholder state
   const [placeholderIndex, setPlaceholderIndex] = useState(0);

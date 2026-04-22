@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
+import { usePageView } from '@/hooks/usePageView';
 
 const PAGE_SLUG = 'couples';
 
@@ -22,6 +23,7 @@ const PLACEHOLDER_PROMPTS = [
 const CouplesLandingPage = () => {
   const navigate = useNavigate();
   const [input, setInput] = useState('');
+  usePageView(PAGE_SLUG);
 
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');

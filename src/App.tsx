@@ -41,6 +41,7 @@ import InternalDashboard from "./pages/internal/InternalDashboard";
 import ConversationDetail from "./pages/internal/ConversationDetail";
 import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
 import ChatPlayground from "./pages/internal/ChatPlayground";
+import FunnelAnalytics from "./pages/internal/FunnelAnalytics";
 
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
@@ -81,7 +82,8 @@ const App = () => (
             <Route path="/internal/conversation/:id" element={<ConversationDetail />} />
             <Route path="/internal/aggregate" element={<AggregateAnalysis />} />
             <Route path="/internal/playground" element={<ChatPlayground />} />
-            
+            <Route path="/internal/funnel" element={<FunnelAnalytics />} />
+
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
               {/* Therapist Dashboard Routes - only accessible to therapists */}

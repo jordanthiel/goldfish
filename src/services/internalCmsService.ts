@@ -63,6 +63,31 @@ export interface AggregateStats {
   recentConversations: number;
 }
 
+export interface FunnelStepCount {
+  event_name: string;
+  count: number;
+}
+
+export interface FunnelVariantBreakdown {
+  event_name: string;
+  ab_variant: string | null;
+  count: number;
+}
+
+export interface DailyEventCount {
+  date: string;
+  event_name: string;
+  count: number;
+}
+
+export interface FunnelAnalyticsData {
+  funnelCounts: FunnelStepCount[];
+  variantBreakdown: FunnelVariantBreakdown[];
+  dailyTrend: DailyEventCount[];
+  waitlistSubmissions: number;
+  totalEvents: number;
+}
+
 export const internalCmsService = {
   // Check if current user is internal
   async isInternalUser(): Promise<boolean> {
@@ -440,5 +465,91 @@ export const internalCmsService = {
     }
 
     return { success, failed };
+  },
+
+  async getFunnelAnalytics(days: number = 30): Promise<FunnelAnalyticsData> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const sinceISO = since.toISOString();
+
+      // Unique sessions per event (de-duped funnel counts)
+      const { data: events } = await supabase
+        .from('funnel_events')
+        .select('event_name, session_id, ab_variant, created_at')
+        .gte('created_at', sinceISO)
+        .order('created_at', { ascending: true });
+
+      const rows = events || [];
+
+      // --- Funnel counts (unique sessions per step) ---
+      const sessionsByEvent = new Map<string, Set<string>>();
+      for (const r of rows) {
+        if (!sessionsByEvent.has(r.event_name)) sessionsByEvent.set(r.event_name, new Set());
+        sessionsByEvent.get(r.event_name)!.add(r.session_id);
+      }
+      const funnelCounts: FunnelStepCount[] = [
+        'page_view', 'chat_started', 'message_sent',
+        'conversation_complete', 'email_capture_shown', 'email_capture_submitted',
+      ].map(name => ({
+        event_name: name,
+        count: sessionsByEvent.get(name)?.size ?? 0,
+      }));
+
+      // --- Variant breakdown (unique sessions per event × variant) ---
+      const variantKey = (e: string, v: string | null) => `${e}|${v ?? 'none'}`;
+      const variantSessions = new Map<string, Set<string>>();
+      for (const r of rows) {
+        const k = variantKey(r.event_name, r.ab_variant);
+        if (!variantSessions.has(k)) variantSessions.set(k, new Set());
+        variantSessions.get(k)!.add(r.session_id);
+      }
+      const variantBreakdown: FunnelVariantBreakdown[] = [];
+      for (const [k, sessions] of variantSessions) {
+        const [event_name, ab_variant] = k.split('|');
+        variantBreakdown.push({
+          event_name,
+          ab_variant: ab_variant === 'none' ? null : ab_variant,
+          count: sessions.size,
+        });
+      }
+
+      // --- Daily trend (raw event counts per day) ---
+      const dailyMap = new Map<string, number>();
+      for (const r of rows) {
+        const day = r.created_at.slice(0, 10);
+        const k = `${day}|${r.event_name}`;
+        dailyMap.set(k, (dailyMap.get(k) ?? 0) + 1);
+      }
+      const dailyTrend: DailyEventCount[] = [];
+      for (const [k, count] of dailyMap) {
+        const [date, event_name] = k.split('|');
+        dailyTrend.push({ date, event_name, count });
+      }
+      dailyTrend.sort((a, b) => a.date.localeCompare(b.date));
+
+      // --- Waitlist submissions ---
+      const { count: waitlistSubmissions } = await supabase
+        .from('waitlist_submissions')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', sinceISO);
+
+      return {
+        funnelCounts,
+        variantBreakdown,
+        dailyTrend,
+        waitlistSubmissions: waitlistSubmissions ?? 0,
+        totalEvents: rows.length,
+      };
+    } catch (error) {
+      console.error('Error getting funnel analytics:', error);
+      return {
+        funnelCounts: [],
+        variantBreakdown: [],
+        dailyTrend: [],
+        waitlistSubmissions: 0,
+        totalEvents: 0,
+      };
+    }
   },
 };

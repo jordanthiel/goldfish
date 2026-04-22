@@ -556,6 +556,47 @@ export type Database = {
           }
         ]
       }
+      funnel_events: {
+        Row: {
+          id: string
+          event_name: string
+          session_id: string
+          conversation_id: string | null
+          ab_variant: string | null
+          page_slug: string | null
+          metadata: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_name: string
+          session_id: string
+          conversation_id?: string | null
+          ab_variant?: string | null
+          page_slug?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_name?: string
+          session_id?: string
+          conversation_id?: string | null
+          ab_variant?: string | null
+          page_slug?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       waitlist_submissions: {
         Row: {
           id: string

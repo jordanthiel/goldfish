@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { EmailCaptureVariant } from '@/utils/abTest';
 import { waitlistService } from '@/services/waitlistService';
+import { trackEvent } from '@/services/analyticsService';
 
 interface EmailCaptureFormProps {
   variant: EmailCaptureVariant;
@@ -55,7 +56,14 @@ export const EmailCaptureForm: React.FC<EmailCaptureFormProps> = ({
     });
 
     setIsSubmitting(false);
-    if (success) setIsSubmitted(true);
+    if (success) {
+      setIsSubmitted(true);
+      trackEvent('email_capture_submitted', {
+        conversationId,
+        pageSlug,
+        variant,
+      });
+    }
   };
 
   return (

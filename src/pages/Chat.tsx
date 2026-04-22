@@ -22,6 +22,7 @@ import { getSelectedModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureForm } from '@/components/chatbot/EmailCaptureForm';
+import { trackEvent } from '@/services/analyticsService';
 import ReactMarkdown from 'react-markdown';
 
 const Chat = () => {
@@ -105,6 +106,9 @@ const Chat = () => {
     setMessages([userMessage]);
     setIsLoading(true);
 
+    trackEvent('chat_started', { pageSlug, variant: abVariant });
+    trackEvent('message_sent', { pageSlug, variant: abVariant, metadata: { messageIndex: 0 } });
+
     try {
       const response = await chatbotService.sendMessage([userMessage], undefined, pageSlug);
 
@@ -135,6 +139,12 @@ const Chat = () => {
       
       if (savedId) {
         setConversationId(savedId);
+
+        if (response.conversationComplete) {
+          trackEvent('conversation_complete', { conversationId: savedId, pageSlug, variant: abVariant });
+          trackEvent('email_capture_shown', { conversationId: savedId, pageSlug, variant: abVariant });
+        }
+
         const pageParam = pageSlug ? `?page=${pageSlug}` : '';
         navigate(`/chat/${savedId}${pageParam}`, { replace: true });
       }
@@ -173,10 +183,19 @@ const Chat = () => {
       content: input.trim(),
     };
 
+    const userMessageIndex = messages.filter(m => m.role === 'user').length;
+
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
     textareaRef.current?.focus();
+
+    trackEvent('message_sent', {
+      conversationId,
+      pageSlug,
+      variant: abVariant,
+      metadata: { messageIndex: userMessageIndex },
+    });
 
     try {
       const response = await chatbotService.sendMessage([...messages, userMessage], undefined, pageSlug);
@@ -191,6 +210,9 @@ const Chat = () => {
 
       if (response.conversationComplete) {
         setConversationComplete(true);
+        const cid = conversationId;
+        trackEvent('conversation_complete', { conversationId: cid, pageSlug, variant: abVariant });
+        trackEvent('email_capture_shown', { conversationId: cid, pageSlug, variant: abVariant });
       }
 
       const modelConfig = getSelectedModel();
