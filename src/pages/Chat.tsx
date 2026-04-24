@@ -24,6 +24,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureForm } from '@/components/chatbot/EmailCaptureForm';
 import { trackEvent } from '@/services/analyticsService';
+import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
 
 const Chat = () => {
@@ -83,6 +84,14 @@ const Chat = () => {
     initialize();
   }, [urlConversationId, pageSlug]);
 
+  // Meta Pixel: conversion only on post-completion UI (email capture shown), once per conversation.
+  useEffect(() => {
+    if (isInitializing || !conversationComplete) return;
+    const cid = conversationId ?? urlConversationId;
+    if (!cid) return;
+    trackMetaChatCompletedOnce(cid);
+  }, [isInitializing, conversationComplete, conversationId, urlConversationId]);
+
   // Send initial message from URL params after initialization
   useEffect(() => {
     const initialMessage = searchParams.get('message');
@@ -107,6 +116,7 @@ const Chat = () => {
     setIsLoading(true);
 
     trackEvent('chat_started', { pageSlug, variant: abVariant });
+    trackMetaCustom('chat_started');
     trackEvent('message_sent', { pageSlug, variant: abVariant, metadata: { messageIndex: 0 } });
 
     try {
@@ -196,6 +206,10 @@ const Chat = () => {
       variant: abVariant,
       metadata: { messageIndex: userMessageIndex },
     });
+
+    if (userMessageIndex === 0) {
+      trackMetaCustom('chat_started');
+    }
 
     try {
       const response = await chatbotService.sendMessage([...messages, userMessage], undefined, pageSlug);

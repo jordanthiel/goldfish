@@ -42,6 +42,7 @@ import ConversationDetail from "./pages/internal/ConversationDetail";
 import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
 import ChatPlayground from "./pages/internal/ChatPlayground";
 import FunnelAnalytics from "./pages/internal/FunnelAnalytics";
+import { MetaPixelRouteListener } from "./components/MetaPixelRouteListener";
 
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
@@ -57,6 +58,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
+      <MetaPixelRouteListener />
       <AuthProvider>
         <TooltipProvider>
           <Toaster />

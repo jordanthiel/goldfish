@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { EmailCaptureVariant } from '@/utils/abTest';
 import { waitlistService } from '@/services/waitlistService';
 import { trackEvent } from '@/services/analyticsService';
+import { trackMetaCustom } from '@/services/metaPixelService';
 
 interface EmailCaptureFormProps {
   variant: EmailCaptureVariant;
@@ -63,6 +64,7 @@ export const EmailCaptureForm: React.FC<EmailCaptureFormProps> = ({
         pageSlug,
         variant,
       });
+      trackMetaCustom('email_captured');
     }
   };
 
