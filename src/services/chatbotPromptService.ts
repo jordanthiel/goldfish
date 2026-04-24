@@ -15,7 +15,7 @@ export interface ChatbotPrompt {
 }
 
 // Default values
-const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
+const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. What brings you here today?";
 const DEFAULT_SYSTEM_PROMPT = 'You are a compassionate assistant helping users find the right therapist.';
 
 // Resolve a page slug to a page_id (with fallback to 'default')

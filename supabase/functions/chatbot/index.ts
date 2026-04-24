@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-type AIProvider = 'openai' | 'gemini'
+type AIProvider = 'openai' | 'gemini' | 'anthropic'
 
 interface ChatRequest {
   messages: Array<{ role: string; content: string }>
@@ -40,9 +40,13 @@ async function callOpenAI(
     model: string
     input: typeof input
     instructions?: string
+    temperature?: number
+    max_output_tokens?: number
   } = {
     model: modelId,
     input: input,
+    temperature: 0.9,
+    max_output_tokens: 8192,
   }
 
   // Add system instructions
@@ -279,6 +283,76 @@ async function callGemini(
   throw new Error('No response text found in Gemini API response')
 }
 
+// Call Anthropic Messages API (Claude)
+async function callAnthropic(
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string,
+  modelId: string,
+  apiKey: string,
+): Promise<string> {
+  const turns = messages.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const anthropicMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+
+  for (const m of turns) {
+    const role = m.role === 'assistant' ? 'assistant' : 'user'
+    const last = anthropicMessages[anthropicMessages.length - 1]
+    if (last && last.role === role) {
+      last.content += '\n\n' + m.content
+    } else {
+      anthropicMessages.push({ role, content: m.content })
+    }
+  }
+
+  if (anthropicMessages.length === 0) {
+    throw new Error('No valid messages for Anthropic')
+  }
+
+  const body = {
+    model: modelId,
+    max_tokens: 8192,
+    system: systemPrompt || 'You are a helpful assistant.',
+    messages: anthropicMessages,
+    temperature: 0.9,
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    let errorMessage = 'Anthropic API error'
+    try {
+      const errData = await response.json()
+      errorMessage = errData.error?.message || JSON.stringify(errData.error || errData)
+    } catch {
+      try {
+        errorMessage = (await response.text()) || `Anthropic API error (${response.status})`
+      } catch {
+        errorMessage = `Anthropic API error (${response.status})`
+      }
+    }
+    throw new Error(errorMessage)
+  }
+
+  const data = await response.json()
+  const blocks = data.content
+  if (Array.isArray(blocks)) {
+    const texts = blocks
+      .filter((b: { type?: string }) => b.type === 'text')
+      .map((b: { text?: string }) => b.text)
+      .filter((t: string | undefined): t is string => typeof t === 'string' && t.length > 0)
+    if (texts.length > 0) return texts.join('\n')
+  }
+
+  throw new Error('No response text from Anthropic API')
+}
+
 // Extract device info from request
 function getDeviceInfoFromRequest(req: Request): {
   ip_address?: string
@@ -339,6 +413,20 @@ serve(async (req) => {
         geminiApiKey
       )
       aiMessage = result.message
+    } else if (provider === 'anthropic') {
+      const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
+      if (!anthropicApiKey) {
+        return new Response(
+          JSON.stringify({ error: 'Anthropic API key not configured' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        )
+      }
+      aiMessage = await callAnthropic(
+        messages,
+        systemPrompt || 'You are a helpful assistant.',
+        modelId,
+        anthropicApiKey,
+      )
     } else {
       // Default to OpenAI
       const openaiApiKey = Deno.env.get('OPENAI_API_KEY')

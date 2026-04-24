@@ -8,6 +8,12 @@ import { chatbotConversationService, getSessionId, getDeviceInfo, DeviceInfo } f
 import { landingPageService, LandingPage } from '@/services/landingPageService';
 import { internalCmsService, ConversationWithExtraction } from '@/services/internalCmsService';
 import { AVAILABLE_MODELS, ModelConfig, DEFAULT_MODEL } from '@/utils/modelConfig';
+
+const ALL_CHAT_MODELS = [
+  ...AVAILABLE_MODELS.anthropic,
+  ...AVAILABLE_MODELS.openai,
+  ...AVAILABLE_MODELS.gemini,
+];
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,7 +145,7 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const prompts = promptsCache[instance.pageSlug] || [];
-  const allModels = [...AVAILABLE_MODELS.openai, ...AVAILABLE_MODELS.gemini];
+  const allModels = ALL_CHAT_MODELS;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -190,15 +196,33 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
                   className={`text-[10px] px-1 py-0 shrink-0 ${
                     instance.model.provider === 'openai'
                       ? 'bg-green-50 text-green-600 border-green-200'
-                      : 'bg-purple-50 text-purple-600 border-purple-200'
+                      : instance.model.provider === 'anthropic'
+                        ? 'bg-orange-50 text-orange-700 border-orange-200'
+                        : 'bg-purple-50 text-purple-600 border-purple-200'
                   }`}
                 >
-                  {instance.model.provider === 'openai' ? 'OAI' : 'Gem'}
+                  {instance.model.provider === 'openai'
+                    ? 'OAI'
+                    : instance.model.provider === 'anthropic'
+                      ? 'Ant'
+                      : 'Gem'}
                 </Badge>
                 <span className="truncate text-xs">{instance.model.name}</span>
               </div>
             </SelectTrigger>
             <SelectContent className="max-h-[350px]">
+              <div className="px-2 py-1.5">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Anthropic</span>
+              </div>
+              {AVAILABLE_MODELS.anthropic.map((m) => (
+                <SelectItem key={`${m.provider}:${m.modelId}`} value={`${m.provider}:${m.modelId}`} className="text-xs py-2">
+                  <div>
+                    <span className="font-medium">{m.name}</span>
+                    {m.description && <p className="text-[10px] text-gray-400 mt-0.5">{m.description}</p>}
+                  </div>
+                </SelectItem>
+              ))}
+              <SelectSeparator />
               <div className="px-2 py-1.5">
                 <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">OpenAI</span>
               </div>
@@ -654,8 +678,7 @@ const ChatPlayground: React.FC = () => {
   };
 
   const handleLoadConversation = (conv: ConversationWithExtraction) => {
-    const allModels = [...AVAILABLE_MODELS.openai, ...AVAILABLE_MODELS.gemini];
-    const matchedModel = allModels.find(
+    const matchedModel = ALL_CHAT_MODELS.find(
       m => m.provider === conv.model_provider && m.modelId === conv.model_id
     ) || DEFAULT_MODEL;
 

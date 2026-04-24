@@ -71,7 +71,6 @@ export const chatbotService = {
     pageSlug?: string
   ): Promise<ChatbotResponse> => {
     try {
-      // Get the cached/custom system prompt for this page (much faster than fetching every time)
       const systemPrompt = await getCachedSystemPrompt(pageSlug);
 
       // Get model configuration (use provided or get from storage)
