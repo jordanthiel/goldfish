@@ -14,6 +14,13 @@ interface ChatRequest {
   modelId?: string
 }
 
+/** Appended to every system prompt so CMS / legacy copy cannot override with “split your reply” patterns. */
+const OUTPUT_FORMAT_CONTRACT = `
+
+---
+User-visible reply format (must follow; overrides any conflicting line elsewhere in your instructions):
+Write one natural, continuous message. Do not use square-bracket tags for layout or “parts” of an answer — for example never output [SPLIT], [PART], [SECTION], [SEGMENT], [BLOCK], [END], [TURN], or similar on their own line or inline. Use normal sentences and line breaks only.`
+
 // Call OpenAI API using the new Responses API
 async function callOpenAI(
   messages: Array<{ role: string; content: string }>,
@@ -353,6 +360,20 @@ async function callAnthropic(
   throw new Error('No response text from Anthropic API')
 }
 
+// Strip structural meta-tags if a model still emits them (must not remove [CONVERSATION_COMPLETE]).
+const BRACKET_META_TAGS =
+  /\s*\[(?:SPLIT|PART|SECTION|SEGMENTS?|BLOCK|END|TURN|RESPONSE_[AB]|SEGMENT_\d+)\]\s*/gi
+
+function sanitizeModelMessage(text: string): string {
+  let t = text.replace(BRACKET_META_TAGS, '\n\n')
+  t = t.replace(/\n{3,}/g, '\n\n')
+  return t.trim()
+}
+
+function withOutputContract(systemPrompt: string): string {
+  return (systemPrompt || 'You are a helpful assistant.') + OUTPUT_FORMAT_CONTRACT
+}
+
 // Extract device info from request
 function getDeviceInfoFromRequest(req: Request): {
   ip_address?: string
@@ -396,6 +417,8 @@ serve(async (req) => {
     // Capture device info
     const deviceInfo = getDeviceInfoFromRequest(req)
 
+    const systemWithContract = withOutputContract(systemPrompt || '')
+
     let aiMessage: string
 
     if (provider === 'gemini') {
@@ -408,7 +431,7 @@ serve(async (req) => {
       }
       const result = await callGemini(
         messages,
-        systemPrompt || 'You are a helpful assistant.',
+        systemWithContract,
         modelId,
         geminiApiKey
       )
@@ -423,7 +446,7 @@ serve(async (req) => {
       }
       aiMessage = await callAnthropic(
         messages,
-        systemPrompt || 'You are a helpful assistant.',
+        systemWithContract,
         modelId,
         anthropicApiKey,
       )
@@ -438,11 +461,13 @@ serve(async (req) => {
       }
       aiMessage = await callOpenAI(
         messages,
-        systemPrompt || 'You are a helpful assistant.',
+        systemWithContract,
         modelId,
         openaiApiKey
       )
     }
+
+    aiMessage = sanitizeModelMessage(aiMessage)
 
     return new Response(
       JSON.stringify({ 

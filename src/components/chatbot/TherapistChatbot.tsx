@@ -10,8 +10,8 @@ import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
-import { getInitialGreetingWithVersion } from './PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import ReactMarkdown from 'react-markdown';
 
@@ -20,22 +20,13 @@ interface TherapistChatbotProps {
   onTherapistSelect?: (therapist: Therapist) => void;
 }
 
-// Default greeting (used while loading from backend)
-const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. What brings you here today?";
-
 export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   therapists,
   onTherapistSelect,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: DEFAULT_GREETING,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
@@ -44,30 +35,18 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load greeting and device info on mount
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Load greeting from backend with version
-        const { greeting, version } = await getInitialGreetingWithVersion();
-        setMessages([
-          {
-            role: 'assistant',
-            content: greeting,
-          },
-        ]);
+        const version = await chatbotPromptService.getActivePromptVersion();
         setPromptVersion(version);
-        
-        // Load device info
         const info = await getDeviceInfo();
         setDeviceInfo(info);
       } catch (error) {
         console.error('Error initializing chatbot:', error);
-      } finally {
-        setIsInitializing(false);
       }
     };
-    
+
     initialize();
   }, []);
 
@@ -165,6 +144,13 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       {/* Chat Messages */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
+          {messages.length === 0 && !isLoading && (
+            <div className="text-center py-10 px-4">
+              <p className="text-sm text-gray-600">
+                Tell us what you&apos;re looking for—we&apos;ll help match you with the right therapist.
+              </p>
+            </div>
+          )}
           {messages.map((message, index) => {
             const isLastMessage = index === messages.length - 1;
             return (

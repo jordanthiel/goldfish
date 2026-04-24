@@ -16,8 +16,9 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { chatbotService, ChatMessage } from '@/services/chatbotService';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
-import { PromptEditor, getInitialGreetingWithVersion } from '@/components/chatbot/PromptEditor';
+import { PromptEditor } from '@/components/chatbot/PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
@@ -54,12 +55,11 @@ const Chat = () => {
   // Track if we've already sent the initial message
   const initialMessageSentRef = useRef(false);
 
-  // Initialize: load greeting, device info, and restore conversation if ID provided
+  // Initialize: load prompt version, device info, and restore conversation if ID provided
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Load prompt version and device info
-        const { version } = await getInitialGreetingWithVersion();
+        const version = await chatbotPromptService.getActivePromptVersion(pageSlug);
         setPromptVersion(version);
         
         const info = await getDeviceInfo();
@@ -81,7 +81,7 @@ const Chat = () => {
     };
     
     initialize();
-  }, [urlConversationId]);
+  }, [urlConversationId, pageSlug]);
 
   // Send initial message from URL params after initialization
   useEffect(() => {
