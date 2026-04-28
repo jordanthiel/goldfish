@@ -22,7 +22,7 @@ import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
-import { EmailCaptureForm } from '@/components/chatbot/EmailCaptureForm';
+import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
 import { trackEvent } from '@/services/analyticsService';
 import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
@@ -42,6 +42,7 @@ const Chat = () => {
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [conversationComplete, setConversationComplete] = useState(false);
+  const [emailCaptureDialogOpen, setEmailCaptureDialogOpen] = useState(false);
 
   const [abVariant] = useState(() => getEmailCaptureVariant());
   
@@ -92,6 +93,12 @@ const Chat = () => {
     trackMetaChatCompletedOnce(cid);
   }, [isInitializing, conversationComplete, conversationId, urlConversationId]);
 
+  useEffect(() => {
+    if (!conversationComplete) {
+      setEmailCaptureDialogOpen(false);
+    }
+  }, [conversationComplete]);
+
   // Send initial message from URL params after initialization
   useEffect(() => {
     const initialMessage = searchParams.get('message');
@@ -132,6 +139,7 @@ const Chat = () => {
 
       if (response.conversationComplete) {
         setConversationComplete(true);
+        setEmailCaptureDialogOpen(true);
       }
 
       const modelConfig = getSelectedModel();
@@ -224,6 +232,7 @@ const Chat = () => {
 
       if (response.conversationComplete) {
         setConversationComplete(true);
+        setEmailCaptureDialogOpen(true);
         const cid = conversationId;
         trackEvent('conversation_complete', { conversationId: cid, pageSlug, variant: abVariant });
         trackEvent('email_capture_shown', { conversationId: cid, pageSlug, variant: abVariant });
@@ -467,17 +476,22 @@ const Chat = () => {
                 </div>
               )}
 
-              {conversationComplete && (
-                <EmailCaptureForm
-                  variant={abVariant}
-                  conversationId={conversationId}
-                  pageSlug={pageSlug}
-                />
-              )}
-
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
+
+          {conversationComplete && !emailCaptureDialogOpen && (
+            <div className="px-4 pb-3 flex-shrink-0 max-w-3xl mx-auto w-full">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-therapy-purple/40 text-therapy-purple hover:bg-therapy-purple/5"
+                onClick={() => setEmailCaptureDialogOpen(true)}
+              >
+                Add your email for next steps
+              </Button>
+            </div>
+          )}
 
           {/* Input area — hidden once the conversation is complete */}
           {!conversationComplete && (
@@ -522,6 +536,14 @@ const Chat = () => {
           )}
         </div>
       </div>
+
+      <EmailCaptureDialog
+        open={emailCaptureDialogOpen}
+        onOpenChange={setEmailCaptureDialogOpen}
+        variant={abVariant}
+        conversationId={conversationId}
+        pageSlug={pageSlug}
+      />
 
       {/* Prompt Editor Dialog */}
       <Dialog open={showPromptEditor} onOpenChange={setShowPromptEditor}>

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
+import ThanksPage from "./pages/ThanksPage";
 import YoungLandingPage from "./pages/YoungLandingPage";
 import SleepLandingPage from "./pages/SleepLandingPage";
 import CouplesLandingPage from "./pages/CouplesLandingPage";
@@ -67,6 +68,7 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/thanks" element={<ThanksPage />} />
             <Route path="/chat/:id" element={<Chat />} />
             <Route path="/chat/:id/report" element={<ConversationReport />} />
             <Route path="/referral/:id" element={<TherapistReferralReport />} />
