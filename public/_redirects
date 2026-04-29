@@ -1,0 +1,2 @@
+# SPA fallback (Netlify, Cloudflare Pages, etc.): serve static files first, then shell
+/* /index.html 200
