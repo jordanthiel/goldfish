@@ -25,7 +25,7 @@ INSERT INTO public.chatbot_prompts (prompt_name, system_prompt, is_active) VALUE
 
 CONVERSATION FLOW - Ask follow-up questions based on what the user tells you:
 
-1. Start by understanding what brings them here - their concerns, what they''re going through, and what they hope to get from therapy.
+1. Understand what brings them here—their concerns, what they''re going through, and what they hope to get from therapy.
 
 2. Based on their responses, ask relevant follow-up questions:
    - If they mention preferring in-person sessions → Ask: "Where are you located? This will help me find therapists near you."

@@ -63,6 +63,86 @@ export type Database = {
           },
         ]
       }
+      chatbot_prompts: {
+        Row: {
+          id: string
+          prompt_name: string
+          system_prompt: string
+          initial_greeting: string
+          version: number
+          is_active: boolean
+          page_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          prompt_name?: string
+          system_prompt: string
+          initial_greeting?: string
+          version?: number
+          is_active?: boolean
+          page_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          prompt_name?: string
+          system_prompt?: string
+          initial_greeting?: string
+          version?: number
+          is_active?: boolean
+          page_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_prompts_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "landing_pages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      landing_pages: {
+        Row: {
+          id: string
+          slug: string
+          title: string
+          description: string | null
+          is_active: boolean
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          title: string
+          description?: string | null
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          title?: string
+          description?: string | null
+          is_active?: boolean
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_profiles: {
         Row: {
           address: string | null
@@ -178,6 +258,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          id: string
+          email: string | null
+          full_name: string | null
+          first_name: string | null
+          last_name: string | null
+          avatar_url: string | null
+          phone: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          full_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          full_name?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       session_notes: {
         Row: {
@@ -313,6 +429,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_internal: boolean
           role: string
           updated_at: string
           user_id: string
@@ -320,6 +437,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_internal?: boolean
           role: string
           updated_at?: string
           user_id: string
@@ -327,11 +445,239 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_internal?: boolean
           role?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      chatbot_conversations: {
+        Row: {
+          id: string
+          user_id: string | null
+          session_id: string
+          model_provider: string
+          model_id: string
+          conversation_data: Json
+          device_info: Json | null
+          started_at: string
+          ended_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          session_id: string
+          model_provider: string
+          model_id: string
+          conversation_data: Json
+          device_info?: Json | null
+          started_at?: string
+          ended_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          session_id?: string
+          model_provider?: string
+          model_id?: string
+          conversation_data?: Json
+          device_info?: Json | null
+          started_at?: string
+          ended_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      conversation_extractions: {
+        Row: {
+          id: string
+          conversation_id: string
+          extracted_name: string | null
+          extracted_age: number | null
+          extracted_gender: string | null
+          extracted_email: string | null
+          case_summary: string | null
+          recommendation: string | null
+          chat_history: Json | null
+          model_used: string
+          extraction_prompt: string | null
+          raw_extraction: Json | null
+          extracted_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          extracted_name?: string | null
+          extracted_age?: number | null
+          extracted_gender?: string | null
+          extracted_email?: string | null
+          case_summary?: string | null
+          recommendation?: string | null
+          chat_history?: Json | null
+          model_used: string
+          extraction_prompt?: string | null
+          raw_extraction?: Json | null
+          extracted_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          extracted_name?: string | null
+          extracted_age?: number | null
+          extracted_gender?: string | null
+          extracted_email?: string | null
+          case_summary?: string | null
+          recommendation?: string | null
+          chat_history?: Json | null
+          model_used?: string
+          extraction_prompt?: string | null
+          raw_extraction?: Json | null
+          extracted_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_extractions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      funnel_events: {
+        Row: {
+          id: string
+          event_name: string
+          session_id: string
+          conversation_id: string | null
+          ab_variant: string | null
+          page_slug: string | null
+          metadata: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_name: string
+          session_id: string
+          conversation_id?: string | null
+          ab_variant?: string | null
+          page_slug?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_name?: string
+          session_id?: string
+          conversation_id?: string | null
+          ab_variant?: string | null
+          page_slug?: string | null
+          metadata?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      waitlist_submissions: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          ab_variant: string
+          conversation_id: string | null
+          session_id: string | null
+          page_slug: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          ab_variant: string
+          conversation_id?: string | null
+          session_id?: string | null
+          page_slug?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          ab_variant?: string
+          conversation_id?: string | null
+          session_id?: string | null
+          page_slug?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_submissions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      internal_analysis_threads: {
+        Row: {
+          id: string
+          user_id: string
+          thread_type: string
+          conversation_id: string | null
+          title: string | null
+          messages: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          thread_type: string
+          conversation_id?: string | null
+          title?: string | null
+          messages?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          thread_type?: string
+          conversation_id?: string | null
+          title?: string | null
+          messages?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_analysis_threads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

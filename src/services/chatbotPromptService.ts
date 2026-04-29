@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { landingPageService } from './landingPageService';
 
 export interface ChatbotPrompt {
   id: string;
@@ -7,18 +8,42 @@ export interface ChatbotPrompt {
   initial_greeting: string;
   version: number;
   is_active: boolean;
+  page_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// Default values
-const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
 const DEFAULT_SYSTEM_PROMPT = 'You are a compassionate assistant helping users find the right therapist.';
 
+// Resolve a page slug to a page_id (with fallback to 'default')
+async function resolvePageId(pageSlug?: string): Promise<string | null> {
+  const slug = pageSlug || 'default';
+  return await landingPageService.getPageId(slug);
+}
+
 export const chatbotPromptService = {
-  // Get the active prompt for therapist discovery
-  getActivePrompt: async (promptName: string = 'therapist_discovery'): Promise<string> => {
+  // Get the active system prompt for a page (by slug)
+  getActivePrompt: async (pageSlug?: string): Promise<string> => {
+    const pageId = await resolvePageId(pageSlug);
+
+    if (pageId) {
+      const { data, error } = await supabase
+        .from('chatbot_prompts')
+        .select('system_prompt')
+        .eq('page_id', pageId)
+        .eq('is_active', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data?.system_prompt) {
+        return data.system_prompt;
+      }
+    }
+
+    // Fallback: try by prompt_name for backward compat
+    const promptName = pageSlug || 'therapist_discovery';
     const { data, error } = await supabase
       .from('chatbot_prompts')
       .select('system_prompt')
@@ -36,11 +61,27 @@ export const chatbotPromptService = {
     return data?.system_prompt || DEFAULT_SYSTEM_PROMPT;
   },
 
-  // Get the active greeting for therapist discovery
-  getActiveGreeting: async (promptName: string = 'therapist_discovery'): Promise<string> => {
+  /** Active prompt version number (for export / metadata). */
+  getActivePromptVersion: async (pageSlug?: string): Promise<number | null> => {
+    const pageId = await resolvePageId(pageSlug);
+
+    if (pageId) {
+      const { data, error } = await supabase
+        .from('chatbot_prompts')
+        .select('version')
+        .eq('page_id', pageId)
+        .eq('is_active', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) return data.version ?? null;
+    }
+
+    const promptName = pageSlug || 'therapist_discovery';
     const { data, error } = await supabase
       .from('chatbot_prompts')
-      .select('initial_greeting')
+      .select('version')
       .eq('prompt_name', promptName)
       .eq('is_active', true)
       .order('version', { ascending: false })
@@ -48,37 +89,31 @@ export const chatbotPromptService = {
       .single();
 
     if (error) {
-      console.error('Error fetching chatbot greeting:', error);
-      return DEFAULT_GREETING;
+      console.error('Error fetching prompt version:', error);
+      return null;
     }
 
-    return data?.initial_greeting || DEFAULT_GREETING;
+    return data?.version ?? null;
   },
 
-  // Get the active prompt with greeting (combined)
-  getActivePromptWithGreeting: async (promptName: string = 'therapist_discovery'): Promise<{ systemPrompt: string; greeting: string }> => {
-    const { data, error } = await supabase
-      .from('chatbot_prompts')
-      .select('system_prompt, initial_greeting')
-      .eq('prompt_name', promptName)
-      .eq('is_active', true)
-      .order('version', { ascending: false })
-      .limit(1)
-      .single();
+  // Get all prompts for a page (for prompt editor / dev mode)
+  getAllPrompts: async (pageSlug?: string): Promise<ChatbotPrompt[]> => {
+    const pageId = await resolvePageId(pageSlug);
 
-    if (error) {
-      console.error('Error fetching chatbot prompt:', error);
-      return { systemPrompt: DEFAULT_SYSTEM_PROMPT, greeting: DEFAULT_GREETING };
+    if (pageId) {
+      const { data, error } = await supabase
+        .from('chatbot_prompts')
+        .select('*')
+        .eq('page_id', pageId)
+        .order('version', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data as ChatbotPrompt[];
+      }
     }
 
-    return {
-      systemPrompt: data?.system_prompt || DEFAULT_SYSTEM_PROMPT,
-      greeting: data?.initial_greeting || DEFAULT_GREETING,
-    };
-  },
-
-  // Get all prompts (for dev mode)
-  getAllPrompts: async (promptName: string = 'therapist_discovery'): Promise<ChatbotPrompt[]> => {
+    // Fallback
+    const promptName = pageSlug || 'therapist_discovery';
     const { data, error } = await supabase
       .from('chatbot_prompts')
       .select('*')
@@ -90,11 +125,29 @@ export const chatbotPromptService = {
       return [];
     }
 
-    return data || [];
+    return (data || []) as ChatbotPrompt[];
   },
 
   // Get the latest prompt (active or not)
-  getLatestPrompt: async (promptName: string = 'therapist_discovery'): Promise<ChatbotPrompt | null> => {
+  getLatestPrompt: async (pageSlug?: string): Promise<ChatbotPrompt | null> => {
+    const pageId = await resolvePageId(pageSlug);
+
+    if (pageId) {
+      const { data, error } = await supabase
+        .from('chatbot_prompts')
+        .select('*')
+        .eq('page_id', pageId)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) {
+        return data as ChatbotPrompt;
+      }
+    }
+
+    // Fallback
+    const promptName = pageSlug || 'therapist_discovery';
     const { data, error } = await supabase
       .from('chatbot_prompts')
       .select('*')
@@ -108,30 +161,36 @@ export const chatbotPromptService = {
       return null;
     }
 
-    return data;
+    return data as ChatbotPrompt;
   },
 
-  // Create a new prompt version
+  // Create a new prompt version for a page
   createPrompt: async (
-    promptName: string,
+    pageSlug: string,
     systemPrompt: string,
-    initialGreeting: string,
     userId?: string,
     isActive: boolean = true
   ): Promise<ChatbotPrompt | null> => {
-    // If making this active, deactivate all existing prompts for this name
+    const pageId = await resolvePageId(pageSlug);
+
+    if (!pageId) {
+      console.error('Landing page not found for slug:', pageSlug);
+      return null;
+    }
+
+    // If making this active, deactivate all existing prompts for this page
     if (isActive) {
       await supabase
         .from('chatbot_prompts')
         .update({ is_active: false })
-        .eq('prompt_name', promptName);
+        .eq('page_id', pageId);
     }
 
-    // Get the latest version number
+    // Get the latest version number for this page
     const { data: latest } = await supabase
       .from('chatbot_prompts')
       .select('version')
-      .eq('prompt_name', promptName)
+      .eq('page_id', pageId)
       .order('version', { ascending: false })
       .limit(1)
       .single();
@@ -142,11 +201,12 @@ export const chatbotPromptService = {
     const { data, error } = await supabase
       .from('chatbot_prompts')
       .insert({
-        prompt_name: promptName,
+        prompt_name: pageSlug,  // Keep prompt_name in sync with slug for backward compat
         system_prompt: systemPrompt,
-        initial_greeting: initialGreeting,
+        initial_greeting: '',
         version: nextVersion,
         is_active: isActive,
+        page_id: pageId,
         created_by: userId || null,
       })
       .select()
@@ -157,23 +217,15 @@ export const chatbotPromptService = {
       return null;
     }
 
-    return data;
+    return data as ChatbotPrompt;
   },
 
   // Update an existing prompt
-  updatePrompt: async (
-    id: string,
-    systemPrompt: string,
-    initialGreeting?: string
-  ): Promise<ChatbotPrompt | null> => {
+  updatePrompt: async (id: string, systemPrompt: string): Promise<ChatbotPrompt | null> => {
     const updateData: Record<string, unknown> = {
       system_prompt: systemPrompt,
       updated_at: new Date().toISOString(),
     };
-    
-    if (initialGreeting !== undefined) {
-      updateData.initial_greeting = initialGreeting;
-    }
 
     const { data, error } = await supabase
       .from('chatbot_prompts')
@@ -187,19 +239,40 @@ export const chatbotPromptService = {
       return null;
     }
 
-    return data;
+    return data as ChatbotPrompt;
   },
 
-  // Activate a specific version (restore it)
+  // Activate a specific version (deactivates others for the same page)
   activateVersion: async (
     id: string,
-    promptName: string = 'therapist_discovery'
+    pageSlug?: string
   ): Promise<ChatbotPrompt | null> => {
-    // First, deactivate all existing prompts for this name
-    await supabase
+    // First, get the prompt to find its page_id
+    const { data: prompt } = await supabase
       .from('chatbot_prompts')
-      .update({ is_active: false })
-      .eq('prompt_name', promptName);
+      .select('page_id, prompt_name')
+      .eq('id', id)
+      .single();
+
+    if (!prompt) {
+      console.error('Prompt not found:', id);
+      return null;
+    }
+
+    // Deactivate all prompts for this page
+    if (prompt.page_id) {
+      await supabase
+        .from('chatbot_prompts')
+        .update({ is_active: false })
+        .eq('page_id', prompt.page_id);
+    } else {
+      // Fallback: deactivate by prompt_name
+      const name = pageSlug || prompt.prompt_name || 'therapist_discovery';
+      await supabase
+        .from('chatbot_prompts')
+        .update({ is_active: false })
+        .eq('prompt_name', name);
+    }
 
     // Activate the specified version
     const { data, error } = await supabase
@@ -214,6 +287,6 @@ export const chatbotPromptService = {
       return null;
     }
 
-    return data;
+    return data as ChatbotPrompt;
   },
 };

@@ -84,6 +84,10 @@ For the chatbot to work, you need to set up API keys in your Supabase project:
    - Set `GEMINI_API_KEY` in your Supabase project secrets
    - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
+3. **Anthropic API Key** (required for Claude / Opus models such as Claude Opus 4.6):
+   - Set `ANTHROPIC_API_KEY` in your Supabase project secrets
+   - Create a key in the [Anthropic Console](https://console.anthropic.com/)
+
 ### Setting Environment Variables in Supabase
 
 For local development:

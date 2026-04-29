@@ -26,15 +26,13 @@ import {
 } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 
-// Default values
-const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
-
 interface PromptEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  pageSlug?: string;  // Which landing page's prompts to edit (defaults to 'default')
 }
 
-export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }) => {
+export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange, pageSlug = 'default' }) => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,7 +40,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
   
   // Current editing state
   const [systemPrompt, setSystemPrompt] = useState<string>('');
-  const [greeting, setGreeting] = useState<string>(DEFAULT_GREETING);
   
   // Version history
   const [versions, setVersions] = useState<ChatbotPrompt[]>([]);
@@ -51,26 +48,24 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
   // Track changes
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load prompts when modal opens
+  // Load prompts when modal opens or pageSlug changes
   useEffect(() => {
     if (open && user) {
       loadPrompts();
     }
-  }, [open, user]);
+  }, [open, user, pageSlug]);
 
   // Track changes
   useEffect(() => {
     if (activeVersion) {
-      const promptChanged = systemPrompt !== activeVersion.system_prompt;
-      const greetingChanged = greeting !== (activeVersion.initial_greeting || DEFAULT_GREETING);
-      setHasChanges(promptChanged || greetingChanged);
+      setHasChanges(systemPrompt !== activeVersion.system_prompt);
     }
-  }, [systemPrompt, greeting, activeVersion]);
+  }, [systemPrompt, activeVersion]);
 
   const loadPrompts = async () => {
     setIsLoading(true);
     try {
-      const allVersions = await chatbotPromptService.getAllPrompts();
+      const allVersions = await chatbotPromptService.getAllPrompts(pageSlug);
       setVersions(allVersions);
       
       // Find active version
@@ -78,12 +73,15 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
       if (active) {
         setActiveVersion(active);
         setSystemPrompt(active.system_prompt);
-        setGreeting(active.initial_greeting || DEFAULT_GREETING);
       } else if (allVersions.length > 0) {
         // Use latest if no active
         setActiveVersion(allVersions[0]);
         setSystemPrompt(allVersions[0].system_prompt);
-        setGreeting(allVersions[0].initial_greeting || DEFAULT_GREETING);
+      } else {
+        // No prompts exist for this page yet - start fresh
+        setActiveVersion(null);
+        setSystemPrompt('');
+        setHasChanges(false);
       }
     } catch (error) {
       console.error('Error loading prompts:', error);
@@ -98,9 +96,8 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
     setIsSaving(true);
     try {
       const newPrompt = await chatbotPromptService.createPrompt(
-        'therapist_discovery',
+        pageSlug,
         systemPrompt,
-        greeting,
         user.id,
         true // Make it active
       );
@@ -123,7 +120,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
   const handleRestoreVersion = async (version: ChatbotPrompt) => {
     setIsSaving(true);
     try {
-      await chatbotPromptService.activateVersion(version.id);
+      await chatbotPromptService.activateVersion(version.id, pageSlug);
       
       // Clear the prompt cache so changes take effect immediately
       clearPromptCache();
@@ -140,7 +137,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
   const handleResetToActive = () => {
     if (activeVersion) {
       setSystemPrompt(activeVersion.system_prompt);
-      setGreeting(activeVersion.initial_greeting || DEFAULT_GREETING);
     }
   };
 
@@ -155,6 +151,13 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
     });
   };
 
+  // Friendly page name for display
+  const pageLabel = pageSlug === 'default' ? 'General' :
+    pageSlug === 'sleep' ? 'Sleep' :
+    pageSlug === 'couples' ? 'Couples' :
+    pageSlug === 'work-stress' ? 'Work Stress' :
+    pageSlug;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -163,9 +166,12 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
             <div className="p-1.5 rounded-md bg-indigo-100">
               <FileText className="h-4 w-4 text-indigo-700" />
             </div>
-            <span>Chatbot Prompt Configuration</span>
+            <span>Prompt Configuration</span>
+            <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200 text-xs ml-1">
+              {pageLabel}
+            </Badge>
             {activeVersion && (
-              <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs ml-2">
+              <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs">
                 v{activeVersion.version}
               </Badge>
             )}
@@ -195,45 +201,31 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
                 </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="edit" className="flex-1 overflow-auto mt-4 space-y-6">
-                {/* Initial Greeting */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    Initial Greeting Message
-                    <Badge variant="outline" className="text-xs font-normal">Visible to users</Badge>
-                  </label>
-                  <Textarea
-                    value={greeting}
-                    onChange={(e) => setGreeting(e.target.value)}
-                    placeholder="Enter the initial greeting message..."
-                    className="min-h-[100px] text-sm bg-white resize-y"
-                  />
-                  <p className="text-xs text-gray-500">
-                    This is the first message shown when a user starts a new chat. Changes require page refresh to take effect.
-                  </p>
+              <TabsContent value="edit" className="flex-1 overflow-hidden mt-4 flex flex-col">
+                {/* Scrollable form fields */}
+                <div className="flex-1 overflow-auto space-y-6 pr-1">
+                  {/* System Prompt */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      System Prompt
+                      <Badge variant="outline" className="text-xs font-normal">Hidden from users</Badge>
+                    </label>
+                    <Textarea
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      placeholder={`Enter system prompt for the ${pageLabel} page...`}
+                      className="min-h-[250px] text-sm font-mono bg-white resize-y"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Hidden instructions that guide AI behavior for the <strong>{pageLabel}</strong> landing page.
+                    </p>
+                  </div>
                 </div>
                 
-                {/* System Prompt */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    System Prompt
-                    <Badge variant="outline" className="text-xs font-normal">Hidden from users</Badge>
-                  </label>
-                  <Textarea
-                    value={systemPrompt}
-                    onChange={(e) => setSystemPrompt(e.target.value)}
-                    placeholder="Enter system prompt..."
-                    className="min-h-[250px] text-sm font-mono bg-white resize-y"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Hidden instructions that guide AI behavior. This defines how the chatbot should respond and what information to gather.
-                  </p>
-                </div>
-                
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-4 border-t">
+                {/* Actions - pinned at bottom */}
+                <div className="flex items-center justify-between pt-4 mt-4 border-t flex-shrink-0">
                   <div className="text-sm text-gray-500">
-                    Greeting: {greeting.length} chars | System: {systemPrompt.length} chars
+                    System prompt: {systemPrompt.length} chars
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -247,14 +239,14 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
                     <Button
                       onClick={handleSaveNewVersion}
                       className="bg-indigo-600 hover:bg-indigo-700"
-                      disabled={!hasChanges || isSaving}
+                      disabled={(!hasChanges && versions.length > 0) || isSaving || !systemPrompt.trim()}
                     >
                       {isSaving ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Plus className="h-4 w-4 mr-2" />
                       )}
-                      Save as New Version
+                      {versions.length === 0 ? 'Create First Version' : 'Save as New Version'}
                     </Button>
                   </div>
                 </div>
@@ -273,7 +265,6 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
                         }`}
                         onClick={() => {
                           setSystemPrompt(version.system_prompt);
-                          setGreeting(version.initial_greeting || DEFAULT_GREETING);
                           setActiveTab('edit');
                         }}
                       >
@@ -294,19 +285,11 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
                               <Clock className="h-4 w-4" />
                               {formatDate(version.created_at)}
                             </div>
-                            <div className="space-y-2">
-                              <div className="text-sm">
-                                <span className="font-medium text-gray-700">Greeting:</span>
-                                <p className="text-gray-600 line-clamp-2 mt-0.5">
-                                  {version.initial_greeting || DEFAULT_GREETING}
-                                </p>
-                              </div>
-                              <div className="text-sm">
-                                <span className="font-medium text-gray-700">System Prompt:</span>
-                                <p className="text-gray-600 line-clamp-2 mt-0.5 font-mono text-xs">
-                                  {version.system_prompt.substring(0, 150)}...
-                                </p>
-                              </div>
+                            <div className="text-sm">
+                              <span className="font-medium text-gray-700">System Prompt:</span>
+                              <p className="text-gray-600 line-clamp-3 mt-0.5 font-mono text-xs">
+                                {version.system_prompt.substring(0, 200)}...
+                              </p>
                             </div>
                           </div>
                           {!version.is_active && (
@@ -337,8 +320,8 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
                     {versions.length === 0 && (
                       <div className="text-center py-12 text-gray-500">
                         <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No prompt versions found.</p>
-                        <p className="text-sm mt-1">Edit the prompts above and save your first version.</p>
+                        <p>No prompt versions for <strong>{pageLabel}</strong>.</p>
+                        <p className="text-sm mt-1">Switch to the Edit tab to create the first version.</p>
                       </div>
                     )}
                   </div>
@@ -350,14 +333,4 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({ open, onOpenChange }
       </DialogContent>
     </Dialog>
   );
-};
-
-// Export function to get initial greeting (for TherapistChatbot)
-export const getInitialGreeting = async (): Promise<string> => {
-  try {
-    return await chatbotPromptService.getActiveGreeting();
-  } catch (error) {
-    console.error('Error fetching greeting:', error);
-    return DEFAULT_GREETING;
-  }
 };

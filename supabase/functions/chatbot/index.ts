@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-type AIProvider = 'openai' | 'gemini'
+type AIProvider = 'openai' | 'gemini' | 'anthropic'
 
 interface ChatRequest {
   messages: Array<{ role: string; content: string }>
@@ -13,6 +13,14 @@ interface ChatRequest {
   provider?: AIProvider
   modelId?: string
 }
+
+/** Appended to every system prompt so CMS / legacy copy cannot override with “split your reply” patterns. */
+const OUTPUT_FORMAT_CONTRACT = `
+
+---
+User-visible reply format (must follow; overrides any conflicting line elsewhere in your instructions):
+Write one natural, continuous message. Do not use square-bracket tags for layout or “parts” of an answer — for example never output [SPLIT], [PART], [SECTION], [SEGMENT], [BLOCK], [END], [TURN], or similar on their own line or inline. Use normal sentences and line breaks only.
+When you're ready to end the conversation with [CONVERSATION_COMPLETE], do not ask for the user's email, name, or phone in the chat text — an in-app modal handles that afterward. Finish with normal closing reassurance only.`
 
 // Call OpenAI API using the new Responses API
 async function callOpenAI(
@@ -40,9 +48,13 @@ async function callOpenAI(
     model: string
     input: typeof input
     instructions?: string
+    temperature?: number
+    max_output_tokens?: number
   } = {
     model: modelId,
     input: input,
+    temperature: 0.9,
+    max_output_tokens: 8192,
   }
 
   // Add system instructions
@@ -279,6 +291,90 @@ async function callGemini(
   throw new Error('No response text found in Gemini API response')
 }
 
+// Call Anthropic Messages API (Claude)
+async function callAnthropic(
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string,
+  modelId: string,
+  apiKey: string,
+): Promise<string> {
+  const turns = messages.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const anthropicMessages: Array<{ role: 'user' | 'assistant'; content: string }> = []
+
+  for (const m of turns) {
+    const role = m.role === 'assistant' ? 'assistant' : 'user'
+    const last = anthropicMessages[anthropicMessages.length - 1]
+    if (last && last.role === role) {
+      last.content += '\n\n' + m.content
+    } else {
+      anthropicMessages.push({ role, content: m.content })
+    }
+  }
+
+  if (anthropicMessages.length === 0) {
+    throw new Error('No valid messages for Anthropic')
+  }
+
+  const body = {
+    model: modelId,
+    max_tokens: 8192,
+    system: systemPrompt || 'You are a helpful assistant.',
+    messages: anthropicMessages,
+    temperature: 0.9,
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    let errorMessage = 'Anthropic API error'
+    try {
+      const errData = await response.json()
+      errorMessage = errData.error?.message || JSON.stringify(errData.error || errData)
+    } catch {
+      try {
+        errorMessage = (await response.text()) || `Anthropic API error (${response.status})`
+      } catch {
+        errorMessage = `Anthropic API error (${response.status})`
+      }
+    }
+    throw new Error(errorMessage)
+  }
+
+  const data = await response.json()
+  const blocks = data.content
+  if (Array.isArray(blocks)) {
+    const texts = blocks
+      .filter((b: { type?: string }) => b.type === 'text')
+      .map((b: { text?: string }) => b.text)
+      .filter((t: string | undefined): t is string => typeof t === 'string' && t.length > 0)
+    if (texts.length > 0) return texts.join('\n')
+  }
+
+  throw new Error('No response text from Anthropic API')
+}
+
+// Strip structural meta-tags if a model still emits them (must not remove [CONVERSATION_COMPLETE]).
+const BRACKET_META_TAGS =
+  /\s*\[(?:SPLIT|PART|SECTION|SEGMENTS?|BLOCK|END|TURN|RESPONSE_[AB]|SEGMENT_\d+)\]\s*/gi
+
+function sanitizeModelMessage(text: string): string {
+  let t = text.replace(BRACKET_META_TAGS, '\n\n')
+  t = t.replace(/\n{3,}/g, '\n\n')
+  return t.trim()
+}
+
+function withOutputContract(systemPrompt: string): string {
+  return (systemPrompt || 'You are a helpful assistant.') + OUTPUT_FORMAT_CONTRACT
+}
+
 // Extract device info from request
 function getDeviceInfoFromRequest(req: Request): {
   ip_address?: string
@@ -322,6 +418,8 @@ serve(async (req) => {
     // Capture device info
     const deviceInfo = getDeviceInfoFromRequest(req)
 
+    const systemWithContract = withOutputContract(systemPrompt || '')
+
     let aiMessage: string
 
     if (provider === 'gemini') {
@@ -334,11 +432,25 @@ serve(async (req) => {
       }
       const result = await callGemini(
         messages,
-        systemPrompt || 'You are a helpful assistant.',
+        systemWithContract,
         modelId,
         geminiApiKey
       )
       aiMessage = result.message
+    } else if (provider === 'anthropic') {
+      const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')
+      if (!anthropicApiKey) {
+        return new Response(
+          JSON.stringify({ error: 'Anthropic API key not configured' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        )
+      }
+      aiMessage = await callAnthropic(
+        messages,
+        systemWithContract,
+        modelId,
+        anthropicApiKey,
+      )
     } else {
       // Default to OpenAI
       const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
@@ -350,11 +462,13 @@ serve(async (req) => {
       }
       aiMessage = await callOpenAI(
         messages,
-        systemPrompt || 'You are a helpful assistant.',
+        systemWithContract,
         modelId,
         openaiApiKey
       )
     }
+
+    aiMessage = sanitizeModelMessage(aiMessage)
 
     return new Response(
       JSON.stringify({ 

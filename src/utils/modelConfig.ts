@@ -1,5 +1,5 @@
 // Model configuration for AI providers
-export type AIProvider = 'openai' | 'gemini';
+export type AIProvider = 'openai' | 'gemini' | 'anthropic';
 
 export interface ModelConfig {
   provider: AIProvider;
@@ -10,6 +10,14 @@ export interface ModelConfig {
 
 // Available models for each provider
 export const AVAILABLE_MODELS: Record<AIProvider, ModelConfig[]> = {
+  anthropic: [
+    {
+      provider: 'anthropic',
+      modelId: 'claude-opus-4-6',
+      name: 'Claude Opus 4.6',
+      description: 'Anthropic’s most capable model — nuanced judgment and complex multi-step reasoning',
+    },
+  ],
   openai: [
     {
       provider: 'openai',
@@ -126,6 +134,7 @@ export const getSelectedModel = (): ModelConfig => {
       const parsed = JSON.parse(stored);
       // Validate that the model still exists
       const allModels = [
+        ...AVAILABLE_MODELS.anthropic,
         ...AVAILABLE_MODELS.openai,
         ...AVAILABLE_MODELS.gemini,
       ];

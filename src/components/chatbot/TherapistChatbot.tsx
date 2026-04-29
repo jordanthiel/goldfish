@@ -10,8 +10,8 @@ import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
-import { getInitialGreeting } from './PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel } from '@/utils/modelConfig';
 import ReactMarkdown from 'react-markdown';
 
@@ -20,59 +20,49 @@ interface TherapistChatbotProps {
   onTherapistSelect?: (therapist: Therapist) => void;
 }
 
-// Default greeting (used while loading from backend)
-const DEFAULT_GREETING = "Hi! I'm here to help you find a therapist who truly understands you. Let's start by getting to know you a bit. What brings you here today?";
-
 export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   therapists,
   onTherapistSelect,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: DEFAULT_GREETING,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load greeting and device info on mount
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Load greeting from backend
-        const greeting = await getInitialGreeting();
-        setMessages([
-          {
-            role: 'assistant',
-            content: greeting,
-          },
-        ]);
-        
-        // Load device info
+        const version = await chatbotPromptService.getActivePromptVersion();
+        setPromptVersion(version);
         const info = await getDeviceInfo();
         setDeviceInfo(info);
       } catch (error) {
         console.error('Error initializing chatbot:', error);
-      } finally {
-        setIsInitializing(false);
       }
     };
-    
+
     initialize();
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToLatestMessage();
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToLatestMessage = () => {
+    // Scroll to the top of the most recent message, not the bottom of all content
+    // This ensures users see the message first, not the action cards below it
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // Fallback to bottom if no message ref is set
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleSend = async () => {
@@ -86,6 +76,9 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    
+    // Keep focus on the textarea
+    textareaRef.current?.focus();
 
     try {
       const response = await chatbotService.sendMessage(
@@ -151,8 +144,21 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       {/* Chat Messages */}
       <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div key={index} className="space-y-3">
+          {messages.length === 0 && !isLoading && (
+            <div className="text-center py-10 px-4">
+              <p className="text-sm text-gray-600">
+                Tell us what you&apos;re looking for—we&apos;ll help match you with the right therapist.
+              </p>
+            </div>
+          )}
+          {messages.map((message, index) => {
+            const isLastMessage = index === messages.length - 1;
+            return (
+            <div 
+              key={index} 
+              className="space-y-3"
+              ref={isLastMessage ? lastMessageRef : undefined}
+            >
               <div
                 className={`flex gap-3 ${
                   message.role === 'user' ? 'justify-end' : 'justify-start'
@@ -284,7 +290,8 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
           {isLoading && (
             <div className="flex gap-3 justify-start">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -302,7 +309,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="border-t p-4 bg-white flex-shrink-0">
+      <div className="border-t p-4 pb-safe bg-white flex-shrink-0 sticky bottom-0 z-10">
         <div className="flex flex-col gap-2">
           {messages.length > 1 && (
             <div className="flex justify-start">
@@ -319,6 +326,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                     conversation_data: messages,
                     device_info: deviceInfo,
                     started_at: new Date().toISOString(),
+                    prompt_version: promptVersion ?? undefined,
                   };
                   chatbotConversationService.downloadCSV(conversation);
                 }}
@@ -330,11 +338,12 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
           )}
           <div className="flex gap-2 items-end">
             <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type your message... (Shift+Enter for new line)"
-            disabled={isLoading}
+              disabled={isLoading}
               className="flex-1 min-h-[44px] max-h-[200px] resize-none"
               rows={1}
               style={{ 
@@ -346,7 +355,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                 target.style.height = 'auto';
                 target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
               }}
-          />
+            />
           <Button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}

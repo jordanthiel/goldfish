@@ -5,7 +5,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import Chat from "./pages/Chat";
+import ThanksPage from "./pages/ThanksPage";
 import YoungLandingPage from "./pages/YoungLandingPage";
+import SleepLandingPage from "./pages/SleepLandingPage";
+import CouplesLandingPage from "./pages/CouplesLandingPage";
+import WorkStressLandingPage from "./pages/WorkStressLandingPage";
+import ConversationReport from "./pages/ConversationReport";
+import TherapistReferralReport from "./pages/TherapistReferralReport";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
@@ -30,6 +37,14 @@ import PatientMessages from "./pages/patient/PatientMessages";
 import PatientResources from "./pages/patient/PatientResources";
 import ClaimAccount from "./pages/patient/ClaimAccount"; // New component for claiming account
 
+// Internal CMS pages
+import InternalDashboard from "./pages/internal/InternalDashboard";
+import ConversationDetail from "./pages/internal/ConversationDetail";
+import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
+import ChatPlayground from "./pages/internal/ChatPlayground";
+import FunnelAnalytics from "./pages/internal/FunnelAnalytics";
+import { MetaPixelRouteListener } from "./components/MetaPixelRouteListener";
+
 // Create a QueryClient with better defaults for our app
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +59,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
+      <MetaPixelRouteListener />
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
@@ -51,12 +67,27 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/thanks" element={<ThanksPage />} />
+            <Route path="/chat/:id" element={<Chat />} />
+            <Route path="/chat/:id/report" element={<ConversationReport />} />
+            <Route path="/referral/:id" element={<TherapistReferralReport />} />
             <Route path="/young" element={<YoungLandingPage />} />
+            <Route path="/sleep" element={<SleepLandingPage />} />
+            <Route path="/couples" element={<CouplesLandingPage />} />
+            <Route path="/work-stress" element={<WorkStressLandingPage />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
             <Route path="/find-therapist" element={<TherapistDiscovery />} /> {/* New route for therapist discovery */}
             
+            {/* Internal CMS Routes - protected by component-level checks for isInternal */}
+            <Route path="/internal" element={<InternalDashboard />} />
+            <Route path="/internal/conversation/:id" element={<ConversationDetail />} />
+            <Route path="/internal/aggregate" element={<AggregateAnalysis />} />
+            <Route path="/internal/playground" element={<ChatPlayground />} />
+            <Route path="/internal/funnel" element={<FunnelAnalytics />} />
+
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
               {/* Therapist Dashboard Routes - only accessible to therapists */}
