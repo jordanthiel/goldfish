@@ -38,12 +38,15 @@
     fbq('init', '1485763309614533');
     fbq('track', 'PageView');
   </script>
-  <noscript><img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=1485763309614533&ev=PageView&noscript=1" alt="" /></noscript>
-  <!-- End Meta Pixel Code -->
+  <!-- End Meta Pixel Code (noscript fallback in body — not allowed inside <head> per HTML5 / vite build-html) -->
 </head>
 
 <body>
+  <!-- Meta Pixel: JS-disabled fallback must live in body, not in <head>, for valid HTML -->
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1485763309614533&amp;ev=PageView&amp;noscript=1" alt="" />
+  </noscript>
   <div id="root"></div>
   <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
   <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
