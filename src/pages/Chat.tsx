@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, FileText } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, FileText, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,10 +26,12 @@ import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
 import { trackEvent } from '@/services/analyticsService';
 import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
+import { QA_CONVERSATION_SEED_MESSAGES } from '@/utils/qaConversationSeed';
 
 const Chat = () => {
   const { id: urlConversationId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut, isInternal, loading: authLoading } = useAuth();
   
@@ -69,37 +71,46 @@ const Chat = () => {
   const qaSkipShortcutEligible =
     import.meta.env.DEV || (!!user && isInternal === true);
 
-  // Initialize: load prompt version, device info, and restore conversation if ID provided
+  const applyQaSeedFromMenu = useMemo(() => {
+    const s = location.state as { applyQaSeed?: boolean } | undefined;
+    return s?.applyQaSeed === true;
+  }, [location.state]);
+
+  /** One QA shortcut bootstrap per Router location key (avoid re-init every new message). */
+  const qaShortcutRanForLocationKeyRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    /** Wait until auth settles so internal users see the QA shortcut on prod/staging builds. */
+    qaShortcutRanForLocationKeyRef.current = undefined;
+  }, [location.key]);
+
+  // Initialize: load prompt version, device info, restore conversation / QA shortcut
+  useEffect(() => {
     if (authLoading) {
       return;
     }
 
     const initialize = async () => {
       try {
-        const allowQaConversationShortcut =
-          devQuickComplete &&
+        const shouldQaShortcut =
+          qaSkipShortcutEligible &&
           !urlConversationId &&
-          qaSkipShortcutEligible;
+          (applyQaSeedFromMenu || devQuickComplete);
 
-        if (allowQaConversationShortcut) {
-          setMessages([
-            {
-              role: 'user',
-              content:
-                '[QA] Conversation skipped — use the modal to test email capture.',
-            },
-            {
-              role: 'assistant',
-              content:
-                "You've reached the scripted end—we'll grab your email in the next step.",
-              marksConversationComplete: true,
-            },
-          ]);
-          const version = await chatbotPromptService.getActivePromptVersion(pageSlug);
-          setPromptVersion(version);
+        const canRunShortcut =
+          shouldQaShortcut &&
+          qaShortcutRanForLocationKeyRef.current !== location.key;
+
+        if (canRunShortcut) {
+          qaShortcutRanForLocationKeyRef.current = location.key;
+          autoOpenedEmailModalRef.current = false;
+          setConversationId(null);
+          setMessages(QA_CONVERSATION_SEED_MESSAGES);
+          setPromptVersion(await chatbotPromptService.getActivePromptVersion(pageSlug));
           setDeviceInfo(await getDeviceInfo());
+
+          const params = new URLSearchParams(searchParams);
+          params.delete('devComplete');
+          const qs = params.toString();
+          navigate(`/chat${qs ? `?${qs}` : ''}`, { replace: true, state: {} });
           return;
         }
 
@@ -130,10 +141,23 @@ const Chat = () => {
     urlConversationId,
     pageSlug,
     devQuickComplete,
+    applyQaSeedFromMenu,
     qaSkipShortcutEligible,
-    user,
-    isInternal,
+    searchParams,
+    navigate,
+    location.key,
   ]);
+
+  /** Header QA menu — prefers navigation state over ?devComplete=… (SPA-friendly). */
+  const seedQaConversationFromMenu = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('devComplete');
+    const qs = params.toString();
+    navigate(`/chat${qs ? `?${qs}` : ''}`, {
+      replace: true,
+      state: { applyQaSeed: true },
+    });
+  }, [navigate, searchParams]);
 
   // Meta Pixel: conversion only on post-completion UI (email capture shown), once per conversation.
   useEffect(() => {
@@ -354,6 +378,37 @@ const Chat = () => {
           </Link>
           
           <div className="flex items-center gap-2">
+            {qaSkipShortcutEligible && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 px-2.5 border-dashed text-gray-700"
+                    title="Internal QA tools"
+                  >
+                    <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="text-xs hidden sm:inline">QA</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuItem
+                    className="cursor-pointer flex-col items-start gap-1 py-2.5"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      seedQaConversationFromMenu();
+                    }}
+                  >
+                    <span className="font-medium">Seed completed conversation</span>
+                    <span className="text-xs font-normal text-muted-foreground leading-snug">
+                      Loads a scripted end-state so you can test the email modal — no{' '}
+                      <span className="font-mono">?devComplete=1</span> in the URL.
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {user ? (
               <>
                 <ModelSelector compact />
@@ -591,16 +646,6 @@ const Chat = () => {
           )}
         </div>
       </div>
-
-      {qaSkipShortcutEligible && (
-        <p className="fixed bottom-2 left-0 right-0 text-center text-[11px] text-gray-400 pointer-events-none z-30 px-4">
-          QA shortcut: append{' '}
-          <span className="font-mono">?devComplete=1</span> to skip to completion + email modal
-          {import.meta.env.DEV
-            ? ' (Vite dev, or logged-in internal users on staging/prod)'
-            : ' (logged-in accounts with internal access only)'}.
-        </p>
-      )}
 
       <EmailCaptureDialog
         open={emailCaptureDialogOpen}
