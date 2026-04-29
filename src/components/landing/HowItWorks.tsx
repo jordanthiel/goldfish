@@ -5,7 +5,7 @@ import { HOW_IT_WORKS_UNIVERSAL } from '@/utils/landingUtmContent';
 export function HowItWorksSection() {
   return (
     <section
-      className="w-full max-w-2xl mx-auto mb-14"
+      className="w-full max-w-2xl mx-auto mb-0"
       aria-labelledby="how-it-works-heading"
     >
       <h2

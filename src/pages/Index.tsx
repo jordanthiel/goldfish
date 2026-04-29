@@ -137,8 +137,6 @@ const Index = () => {
             </p>
           </div>
 
-          <HowItWorksSection />
-
           {/* Chat input card */}
           <div className="w-full max-w-2xl">
             <Card className="bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl overflow-hidden">
@@ -164,6 +162,10 @@ const Index = () => {
                 </div>
               </div>
             </Card>
+          </div>
+
+          <div className="w-full mt-12 mb-10">
+            <HowItWorksSection />
           </div>
         </main>
 
