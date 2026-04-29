@@ -49,6 +49,8 @@ export const clearPromptCache = () => {
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** Set when assistant response ended with [CONVERSATION_COMPLETE]; persisted so post-navigate/remount restores completion UI */
+  marksConversationComplete?: boolean;
 }
 
 export const CONVERSATION_COMPLETE_MARKER = '[CONVERSATION_COMPLETE]';

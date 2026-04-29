@@ -19,7 +19,8 @@ const OUTPUT_FORMAT_CONTRACT = `
 
 ---
 User-visible reply format (must follow; overrides any conflicting line elsewhere in your instructions):
-Write one natural, continuous message. Do not use square-bracket tags for layout or “parts” of an answer — for example never output [SPLIT], [PART], [SECTION], [SEGMENT], [BLOCK], [END], [TURN], or similar on their own line or inline. Use normal sentences and line breaks only.`
+Write one natural, continuous message. Do not use square-bracket tags for layout or “parts” of an answer — for example never output [SPLIT], [PART], [SECTION], [SEGMENT], [BLOCK], [END], [TURN], or similar on their own line or inline. Use normal sentences and line breaks only.
+When you're ready to end the conversation with [CONVERSATION_COMPLETE], do not ask for the user's email, name, or phone in the chat text — an in-app modal handles that afterward. Finish with normal closing reassurance only.`
 
 // Call OpenAI API using the new Responses API
 async function callOpenAI(

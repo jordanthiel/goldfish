@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ const Chat = () => {
   const { id: urlConversationId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isInternal, loading: authLoading } = useAuth();
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -41,13 +41,21 @@ const Chat = () => {
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
-  const [conversationComplete, setConversationComplete] = useState(false);
   const [emailCaptureDialogOpen, setEmailCaptureDialogOpen] = useState(false);
 
   const [abVariant] = useState(() => getEmailCaptureVariant());
   
   // Read page slug from URL params (e.g. ?page=sleep)
   const pageSlug = searchParams.get('page') || undefined;
+  const devQuickComplete = searchParams.get('devComplete') === '1';
+
+  const conversationComplete = useMemo(
+    () => messages.some((m) => m.marksConversationComplete === true),
+    [messages],
+  );
+
+  /** Ensures modal auto-opens once per “completed conversation” lifecycle (survives /chat → /chat/:id remount). */
+  const autoOpenedEmailModalRef = useRef(false);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -57,19 +65,53 @@ const Chat = () => {
   // Track if we've already sent the initial message
   const initialMessageSentRef = useRef(false);
 
+  /** Local Vite builds, or signed-in users with profiles.is_internal (via user_roles.is_internal). */
+  const qaSkipShortcutEligible =
+    import.meta.env.DEV || (!!user && isInternal === true);
+
   // Initialize: load prompt version, device info, and restore conversation if ID provided
   useEffect(() => {
+    /** Wait until auth settles so internal users see the QA shortcut on prod/staging builds. */
+    if (authLoading) {
+      return;
+    }
+
     const initialize = async () => {
       try {
+        const allowQaConversationShortcut =
+          devQuickComplete &&
+          !urlConversationId &&
+          qaSkipShortcutEligible;
+
+        if (allowQaConversationShortcut) {
+          setMessages([
+            {
+              role: 'user',
+              content:
+                '[QA] Conversation skipped — use the modal to test email capture.',
+            },
+            {
+              role: 'assistant',
+              content:
+                "You've reached the scripted end—we'll grab your email in the next step.",
+              marksConversationComplete: true,
+            },
+          ]);
+          const version = await chatbotPromptService.getActivePromptVersion(pageSlug);
+          setPromptVersion(version);
+          setDeviceInfo(await getDeviceInfo());
+          return;
+        }
+
         const version = await chatbotPromptService.getActivePromptVersion(pageSlug);
         setPromptVersion(version);
-        
+
         const info = await getDeviceInfo();
         setDeviceInfo(info);
 
-        // If we have a conversation ID, try to load it
         if (urlConversationId) {
-          const savedConversation = await chatbotConversationService.getConversation(urlConversationId);
+          const savedConversation =
+            await chatbotConversationService.getConversation(urlConversationId);
           if (savedConversation && savedConversation.conversation_data) {
             setMessages(savedConversation.conversation_data);
             setConversationId(urlConversationId);
@@ -81,9 +123,17 @@ const Chat = () => {
         setIsInitializing(false);
       }
     };
-    
-    initialize();
-  }, [urlConversationId, pageSlug]);
+
+    void initialize();
+  }, [
+    authLoading,
+    urlConversationId,
+    pageSlug,
+    devQuickComplete,
+    qaSkipShortcutEligible,
+    user,
+    isInternal,
+  ]);
 
   // Meta Pixel: conversion only on post-completion UI (email capture shown), once per conversation.
   useEffect(() => {
@@ -95,8 +145,16 @@ const Chat = () => {
 
   useEffect(() => {
     if (!conversationComplete) {
+      autoOpenedEmailModalRef.current = false;
       setEmailCaptureDialogOpen(false);
     }
+  }, [conversationComplete]);
+
+  useEffect(() => {
+    if (!conversationComplete) return;
+    if (autoOpenedEmailModalRef.current) return;
+    autoOpenedEmailModalRef.current = true;
+    setEmailCaptureDialogOpen(true);
   }, [conversationComplete]);
 
   // Send initial message from URL params after initialization
@@ -132,15 +190,11 @@ const Chat = () => {
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
+        ...(response.conversationComplete ? { marksConversationComplete: true } : {}),
       };
 
       const updatedMessages = [userMessage, assistantMessage];
       setMessages(updatedMessages);
-
-      if (response.conversationComplete) {
-        setConversationComplete(true);
-        setEmailCaptureDialogOpen(true);
-      }
 
       const modelConfig = getSelectedModel();
       const combinedDeviceInfo = {
@@ -225,14 +279,13 @@ const Chat = () => {
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: response.message,
+        ...(response.conversationComplete ? { marksConversationComplete: true } : {}),
       };
 
       const updatedMessages = [...messages, userMessage, assistantMessage];
       setMessages(updatedMessages);
 
       if (response.conversationComplete) {
-        setConversationComplete(true);
-        setEmailCaptureDialogOpen(true);
         const cid = conversationId;
         trackEvent('conversation_complete', { conversationId: cid, pageSlug, variant: abVariant });
         trackEvent('email_capture_shown', { conversationId: cid, pageSlug, variant: abVariant });
@@ -275,12 +328,14 @@ const Chat = () => {
     }
   };
 
-  if (isInitializing) {
+  if (authLoading || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-therapy-purple mx-auto mb-4" />
-          <p className="text-gray-600">Loading your conversation...</p>
+          <p className="text-gray-600">
+            {authLoading ? 'Signing you in…' : 'Loading your conversation...'}
+          </p>
         </div>
       </div>
     );
@@ -536,6 +591,16 @@ const Chat = () => {
           )}
         </div>
       </div>
+
+      {qaSkipShortcutEligible && (
+        <p className="fixed bottom-2 left-0 right-0 text-center text-[11px] text-gray-400 pointer-events-none z-30 px-4">
+          QA shortcut: append{' '}
+          <span className="font-mono">?devComplete=1</span> to skip to completion + email modal
+          {import.meta.env.DEV
+            ? ' (Vite dev, or logged-in internal users on staging/prod)'
+            : ' (logged-in accounts with internal access only)'}.
+        </p>
+      )}
 
       <EmailCaptureDialog
         open={emailCaptureDialogOpen}

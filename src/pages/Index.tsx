@@ -1,11 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
+import { HowItWorksSection } from '@/components/landing/HowItWorks';
 import { usePageView } from '@/hooks/usePageView';
+import {
+  getLandingHeroVersion,
+  LANDING_HERO_COPY,
+} from '@/utils/landingUtmContent';
 
 // Animated placeholder prompts
 const PLACEHOLDER_PROMPTS = [
@@ -23,8 +28,14 @@ const PAGE_SLUG = 'default';
 
 const Index = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [input, setInput] = useState('');
   usePageView(PAGE_SLUG);
+
+  const hero = useMemo(() => {
+    const version = getLandingHeroVersion(searchParams.get('utm_content'));
+    return LANDING_HERO_COPY[version];
+  }, [searchParams]);
   
   // Animated placeholder state
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -77,9 +88,10 @@ const Index = () => {
   const handleSend = () => {
     if (!input.trim()) return;
 
-    // Navigate to chat page with the initial message and page slug
-    const encodedMessage = encodeURIComponent(input.trim());
-    navigate(`/chat?message=${encodedMessage}&page=${PAGE_SLUG}`);
+    const next = new URLSearchParams(searchParams);
+    next.set('message', input.trim());
+    next.set('page', PAGE_SLUG);
+    navigate(`/chat?${next.toString()}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -115,17 +127,17 @@ const Index = () => {
         />
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-32">
-          <div className="text-center max-w-3xl mx-auto mb-12">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-light text-gray-800 mb-6 leading-tight tracking-tight">
-              Find Your Path to
-              <br />
-              <span className="italic text-therapy-purple">Mental Wellness</span>
+        <main className="flex-1 flex flex-col items-center justify-center px-4 pb-32 pt-8 sm:pt-12">
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
+            <h1 className="text-[1.625rem] sm:text-4xl lg:text-[2.65rem] font-serif font-light text-gray-800 mb-6 leading-[1.2] tracking-tight">
+              {hero.headline}
             </h1>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Connect with the right therapist for you. Our AI assistant helps match you with mental health professionals who understand your unique needs.
+            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              {hero.subtext}
             </p>
           </div>
+
+          <HowItWorksSection />
 
           {/* Chat input card */}
           <div className="w-full max-w-2xl">

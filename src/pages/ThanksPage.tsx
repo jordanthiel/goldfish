@@ -33,8 +33,8 @@ const ThanksPage = () => {
           {pageSlug && (
             <p className="text-xs text-gray-400">We&apos;ll use what you shared in this conversation.</p>
           )}
-          <Button asChild className="w-full bg-therapy-purple hover:bg-therapy-purple/90 mt-2">
-            <Link to="/">Back to home</Link>
+          <Button asChild className="w-full bg-therapy-purple hover:bg-therapy-purple/90 mt-2 text-base py-6">
+            <Link to="/">Take me home</Link>
           </Button>
         </Card>
       </main>
