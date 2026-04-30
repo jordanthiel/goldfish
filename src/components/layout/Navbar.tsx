@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { AlignRight, X, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,6 +30,7 @@ const Navbar = () => {
     <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 py-4">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <Link to="/" className="flex items-center gap-2">
+          <BrandAppIcon size="md" className="rounded-xl" />
           <span className="font-bold text-2xl gradient-text">Goldfish</span>
         </Link>
 

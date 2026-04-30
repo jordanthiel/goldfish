@@ -13,7 +13,7 @@ import {
   Brain,
   User,
   Send,
-  Sparkles,
+  Wand2,
   MessageSquare,
   Users,
   TrendingUp,
@@ -331,7 +331,7 @@ const AggregateAnalysis: React.FC = () => {
               <Card className="bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl overflow-hidden h-full flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-gray-800 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-therapy-pink" />
+                    <Wand2 className="h-5 w-5 text-therapy-pink" />
                     Ask About All Conversations
                   </CardTitle>
                   <CardDescription className="text-gray-500">
@@ -384,7 +384,7 @@ const AggregateAnalysis: React.FC = () => {
                               {msg.role === 'user' ? (
                                 <User className="h-4 w-4 text-gray-600" />
                               ) : (
-                                <Sparkles className="h-4 w-4 text-white" />
+                                <Wand2 className="h-4 w-4 text-white" />
                               )}
                             </div>
                             <div
@@ -404,7 +404,7 @@ const AggregateAnalysis: React.FC = () => {
                       {chatLoading && (
                         <div className="flex gap-3">
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                            <Sparkles className="h-4 w-4 text-white animate-pulse" />
+                            <Wand2 className="h-4 w-4 text-white animate-pulse" />
                           </div>
                           <div className="flex-1 p-4 rounded-2xl bg-gradient-to-br from-therapy-purple/5 to-therapy-pink/5 border border-purple-100">
                             <div className="flex gap-1">

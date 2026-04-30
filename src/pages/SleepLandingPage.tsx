@@ -103,11 +103,9 @@ const SleepLandingPage = () => {
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         <LandingPageHeader
-          icon={Moon}
           label="Sleep"
           pageSlug={PAGE_SLUG}
           theme="dark"
-          iconBgClass="bg-gradient-to-br from-blue-400 to-indigo-600"
           labelClass="text-blue-300"
           signupBtnClass="bg-blue-500 hover:bg-blue-600 text-white"
         />

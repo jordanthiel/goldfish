@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Sparkles, ArrowUp } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -119,10 +119,8 @@ const Index = () => {
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         <LandingPageHeader
-          icon={Sparkles}
           pageSlug={PAGE_SLUG}
           theme="light"
-          iconBgClass="bg-gradient-to-br from-therapy-purple to-therapy-pink"
           signupBtnClass="bg-therapy-purple hover:bg-therapy-purple/90"
         />
 

@@ -13,19 +13,16 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
 
 interface LandingPageHeaderProps {
-  /** The icon component to show in the logo */
-  icon: React.ElementType;
   /** Label shown next to "Goldfish" */
   label?: string;
   /** Page slug for the prompt editor */
   pageSlug: string;
   /** Theme variant for styling */
   theme?: 'light' | 'dark';
-  /** Custom class for the logo icon background */
-  iconBgClass?: string;
   /** Custom class for the label text */
   labelClass?: string;
   /** Custom class for login button */
@@ -37,11 +34,9 @@ interface LandingPageHeaderProps {
 }
 
 const LandingPageHeader: React.FC<LandingPageHeaderProps> = ({
-  icon: Icon,
   label,
   pageSlug,
   theme = 'light',
-  iconBgClass = 'bg-gradient-to-br from-purple-500 to-pink-500',
   labelClass = 'text-gray-500',
   loginClass,
   signupBtnClass = 'bg-therapy-purple hover:bg-therapy-purple/90',
@@ -58,9 +53,7 @@ const LandingPageHeader: React.FC<LandingPageHeaderProps> = ({
       <header className="w-full py-6 px-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className={`w-10 h-10 rounded-xl ${iconBgClass} flex items-center justify-center`}>
-              <Icon className="h-5 w-5 text-white" />
-            </div>
+            <BrandAppIcon size="md" />
             <span className={`text-xl font-bold ${brandClass || (isDark ? 'text-white' : 'text-gray-800')}`}>
               Goldfish
             </span>

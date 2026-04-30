@@ -96,11 +96,9 @@ const CouplesLandingPage = () => {
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         <LandingPageHeader
-          icon={HeartHandshake}
           label="Couples"
           pageSlug={PAGE_SLUG}
           theme="light"
-          iconBgClass="bg-gradient-to-br from-rose-400 to-pink-600"
           labelClass="text-rose-500"
           signupBtnClass="bg-rose-500 hover:bg-rose-600 text-white"
         />

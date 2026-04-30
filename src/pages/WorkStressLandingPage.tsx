@@ -97,11 +97,9 @@ const WorkStressLandingPage = () => {
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
         <LandingPageHeader
-          icon={Briefcase}
           label="Work & Stress"
           pageSlug={PAGE_SLUG}
           theme="light"
-          iconBgClass="bg-gradient-to-br from-teal-500 to-cyan-600"
           labelClass="text-teal-600"
           signupBtnClass="bg-teal-600 hover:bg-teal-700 text-white"
         />
