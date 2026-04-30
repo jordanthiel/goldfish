@@ -63,6 +63,27 @@ export type Database = {
           },
         ]
       }
+      chatbot_app_defaults: {
+        Row: {
+          id: number
+          default_chat_provider: string
+          default_chat_model_id: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          default_chat_provider: string
+          default_chat_model_id: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          default_chat_provider?: string
+          default_chat_model_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chatbot_prompts: {
         Row: {
           id: string

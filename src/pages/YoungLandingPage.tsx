@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import RootLayout from '@/components/layout/RootLayout';
-import { ArrowRight, BadgePercent, Wallet, Users, Sparkles } from 'lucide-react';
+import { ArrowRight, BadgePercent, Wallet, Users } from 'lucide-react';
 
 const YoungLandingPage = () => {
   return (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Sparkles } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -13,9 +14,7 @@ const ThanksPage = () => {
       <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
+            <BrandAppIcon size="sm" className="rounded-lg" />
             <span className="text-lg font-bold text-gray-800">Goldfish</span>
           </Link>
         </div>

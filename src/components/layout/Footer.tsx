@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -40,7 +41,8 @@ const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div>
-            <Link to="/" className="inline-block mb-4">
+            <Link to="/" className="inline-flex items-center gap-2 mb-4">
+              <BrandAppIcon size="md" />
               <span className="font-bold text-2xl gradient-text">Goldfish</span>
             </Link>
             <p className="text-gray-600 mb-4 max-w-xs">

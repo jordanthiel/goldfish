@@ -31,7 +31,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
+  Wand2,
   RefreshCw,
   LogOut,
   Eye,
@@ -39,8 +39,10 @@ import {
   LayoutDashboard,
   FlaskConical,
   Mail,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 
 const InternalDashboard: React.FC = () => {
   const { user, isInternal, signOut, loading: authLoading } = useAuth();
@@ -181,9 +183,7 @@ const InternalDashboard: React.FC = () => {
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
+                <BrandAppIcon size="md" />
                 <span className="text-xl font-bold text-gray-800">Goldfish</span>
               </Link>
               <div className="h-6 w-px bg-gray-200" />
@@ -198,6 +198,12 @@ const InternalDashboard: React.FC = () => {
                 <Button variant="outline" className="border-therapy-purple/30 text-therapy-purple hover:bg-therapy-purple/5">
                   <FlaskConical className="h-4 w-4 mr-2" />
                   Chat Playground
+                </Button>
+              </Link>
+              <Link to="/internal/developer">
+                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" />
+                  Developer settings
                 </Button>
               </Link>
               <Link to="/internal/funnel">
@@ -487,7 +493,7 @@ const InternalDashboard: React.FC = () => {
                                 {extractingId === conv.id ? (
                                   <RefreshCw className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <Sparkles className="h-4 w-4" />
+                                  <Wand2 className="h-4 w-4" />
                                 )}
                               </Button>
                             </div>

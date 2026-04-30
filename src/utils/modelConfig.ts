@@ -114,12 +114,43 @@ export const AVAILABLE_MODELS: Record<AIProvider, ModelConfig[]> = {
   ],
 };
 
-// Default model (used in production)
+// Default model (used when DB has no row and no localStorage override)
 export const DEFAULT_MODEL: ModelConfig = {
   provider: 'openai',
   modelId: 'gpt-5.2',
   name: 'GPT-5.2',
 };
+
+/** Resolved from `chatbot_app_defaults` after {@link hydrateServerDefaultChatModel}. */
+let serverDefaultModelCache: ModelConfig | null = null;
+
+export function clearServerDefaultChatModelCache(): void {
+  serverDefaultModelCache = null;
+}
+
+/** Fetches product default model from Supabase (public read). Call early in chat bootstrap. */
+export async function hydrateServerDefaultChatModel(): Promise<void> {
+  try {
+    const { chatbotAppDefaultsService } = await import('@/services/chatbotAppDefaultsService');
+    const row = await chatbotAppDefaultsService.getDefaults();
+    if (!row) {
+      serverDefaultModelCache = null;
+      return;
+    }
+    const allModels = [
+      ...AVAILABLE_MODELS.anthropic,
+      ...AVAILABLE_MODELS.openai,
+      ...AVAILABLE_MODELS.gemini,
+    ];
+    const found = allModels.find(
+      (m) => m.provider === row.default_chat_provider && m.modelId === row.default_chat_model_id,
+    );
+    serverDefaultModelCache = found ?? null;
+  } catch (e) {
+    console.error('[modelConfig] hydrateServerDefaultChatModel', e);
+    serverDefaultModelCache = null;
+  }
+}
 
 // Check if we're in development mode
 export const isDevMode = (): boolean => {
@@ -147,6 +178,10 @@ export const getSelectedModel = (): ModelConfig => {
     }
   } catch (error) {
     console.error('Error loading model selection:', error);
+  }
+
+  if (serverDefaultModelCache) {
+    return serverDefaultModelCache;
   }
 
   return DEFAULT_MODEL;

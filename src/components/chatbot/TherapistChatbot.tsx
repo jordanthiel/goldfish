@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Bot, User, Download } from 'lucide-react';
+import { Send, Loader2, User, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,8 +12,9 @@ import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
 import { chatbotPromptService } from '@/services/chatbotPromptService';
-import { getSelectedModel } from '@/utils/modelConfig';
+import { getSelectedModel, hydrateServerDefaultChatModel } from '@/utils/modelConfig';
 import ReactMarkdown from 'react-markdown';
+import { BrandChatAvatar } from '@/components/brand/BrandLogo';
 
 interface TherapistChatbotProps {
   therapists: Therapist[];
@@ -38,6 +39,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
   useEffect(() => {
     const initialize = async () => {
       try {
+        await hydrateServerDefaultChatModel();
         const version = await chatbotPromptService.getActivePromptVersion();
         setPromptVersion(version);
         const info = await getDeviceInfo();
@@ -165,9 +167,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
                 }`}
               >
                 {message.role === 'assistant' && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-blue-600" />
-                  </div>
+                  <BrandChatAvatar bubble="light" className="h-8 w-8" />
                 )}
                 <Card
                   className={`max-w-[80%] ${
@@ -294,9 +294,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
           })}
           {isLoading && (
             <div className="flex gap-3 justify-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-blue-600" />
-              </div>
+              <BrandChatAvatar bubble="light" className="h-8 w-8" />
               <Card className="bg-gray-100">
                 <div className="p-3">
                   <Loader2 className="h-4 w-4 animate-spin text-gray-400" />

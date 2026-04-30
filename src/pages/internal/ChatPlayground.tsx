@@ -38,12 +38,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  Sparkles,
   LayoutDashboard,
   LogOut,
   Plus,
   X,
-  Bot,
   User,
   Loader2,
   ArrowUp,
@@ -58,6 +56,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
+import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -320,7 +319,9 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
         <div className="p-3 space-y-3">
           {instance.messages.length === 0 && !instance.isLoading && (
             <div className="text-center py-8 text-gray-400">
-              <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <div className="mx-auto mb-2 flex justify-center opacity-50">
+                <BrandChatAvatar bubble="gradient" className="h-10 w-10" />
+              </div>
               <p className="text-xs">Send a message to start chatting</p>
             </div>
           )}
@@ -328,9 +329,7 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
           {instance.messages.map((message, index) => (
             <div key={index} className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {message.role === 'assistant' && (
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                  <Bot className="h-3 w-3 text-white" />
-                </div>
+                <BrandChatAvatar bubble="gradient" className="h-6 w-6" />
               )}
               <div
                 className={`max-w-[85%] rounded-lg px-3 py-2 text-xs ${
@@ -372,9 +371,7 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
 
           {instance.isLoading && (
             <div className="flex gap-2 justify-start">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                <Bot className="h-3 w-3 text-white" />
-              </div>
+              <BrandChatAvatar bubble="gradient" className="h-6 w-6" />
               <div className="rounded-lg px-3 py-2 bg-gray-50">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-therapy-purple" />
               </div>
@@ -760,9 +757,7 @@ const ChatPlayground: React.FC = () => {
           <div className="max-w-[1600px] mx-auto flex justify-between items-center">
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-white" />
-                </div>
+                <BrandAppIcon size="sm" className="h-9 w-9 min-h-9 min-w-9 rounded-xl" />
                 <span className="text-lg font-bold text-gray-800">Goldfish</span>
               </Link>
               <div className="h-5 w-px bg-gray-200" />

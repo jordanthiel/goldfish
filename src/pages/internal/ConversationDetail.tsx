@@ -13,9 +13,8 @@ import {
   ArrowLeft,
   Brain,
   User,
-  Bot,
   Send,
-  Sparkles,
+  Wand2,
   RefreshCw,
   Calendar,
   MessageSquare,
@@ -27,6 +26,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -210,9 +210,7 @@ const ConversationDetail: React.FC = () => {
               </Link>
               <div className="h-6 w-px bg-gray-200" />
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                  <Brain className="h-5 w-5 text-white" />
-                </div>
+                <BrandAppIcon size="md" />
                 <div>
                   <h1 className="text-lg font-bold text-gray-800">Conversation Analysis</h1>
                   <p className="text-xs text-gray-500 font-mono">
@@ -230,7 +228,7 @@ const ConversationDetail: React.FC = () => {
                 {extracting ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Wand2 className="h-4 w-4 mr-2" />
                 )}
                 {conversation?.extraction ? 'Re-Extract' : 'Extract Data'}
               </Button>
@@ -295,19 +293,13 @@ const ConversationDetail: React.FC = () => {
                                   msg.role === 'user' ? 'flex-row-reverse' : ''
                                 }`}
                               >
-                                <div
-                                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                                    msg.role === 'user'
-                                      ? 'bg-gray-200'
-                                      : 'bg-gradient-to-br from-therapy-purple to-therapy-pink'
-                                  }`}
-                                >
-                                  {msg.role === 'user' ? (
+                                {msg.role === 'user' ? (
+                                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                                     <User className="h-4 w-4 text-gray-600" />
-                                  ) : (
-                                    <Bot className="h-4 w-4 text-white" />
-                                  )}
-                                </div>
+                                  </div>
+                                ) : (
+                                  <BrandChatAvatar bubble="gradient" className="h-8 w-8" />
+                                )}
                                 <div
                                   className={`flex-1 p-4 rounded-2xl ${
                                     msg.role === 'user'
@@ -374,19 +366,13 @@ const ConversationDetail: React.FC = () => {
                                     msg.role === 'user' ? 'flex-row-reverse' : ''
                                   }`}
                                 >
-                                  <div
-                                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                                      msg.role === 'user'
-                                        ? 'bg-gray-200'
-                                        : 'bg-gradient-to-br from-therapy-purple to-therapy-pink'
-                                    }`}
-                                  >
-                                    {msg.role === 'user' ? (
+                                  {msg.role === 'user' ? (
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                                       <User className="h-4 w-4 text-gray-600" />
-                                    ) : (
-                                      <Sparkles className="h-4 w-4 text-white" />
-                                    )}
-                                  </div>
+                                    </div>
+                                  ) : (
+                                    <BrandChatAvatar bubble="gradient" className="h-8 w-8" />
+                                  )}
                                   <div
                                     className={`flex-1 p-4 rounded-2xl ${
                                       msg.role === 'user'
@@ -403,9 +389,7 @@ const ConversationDetail: React.FC = () => {
                             )}
                             {chatLoading && (
                               <div className="flex gap-3">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                                  <Sparkles className="h-4 w-4 text-white animate-pulse" />
-                                </div>
+                                <BrandChatAvatar bubble="gradient" className="h-8 w-8 animate-pulse" />
                                 <div className="flex-1 p-4 rounded-2xl bg-gradient-to-br from-therapy-purple/5 to-therapy-pink/5 border border-purple-100">
                                   <div className="flex gap-1">
                                     <div className="w-2 h-2 rounded-full bg-therapy-purple animate-bounce" />
@@ -492,7 +476,7 @@ const ConversationDetail: React.FC = () => {
                   <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl overflow-hidden">
                     <CardHeader>
                       <CardTitle className="text-gray-800 text-sm flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-therapy-pink" />
+                        <Wand2 className="h-4 w-4 text-therapy-pink" />
                         Extracted Data
                       </CardTitle>
                     </CardHeader>
@@ -574,7 +558,7 @@ const ConversationDetail: React.FC = () => {
                         {extracting ? (
                           <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
-                          <Sparkles className="h-4 w-4 mr-2" />
+                          <Wand2 className="h-4 w-4 mr-2" />
                         )}
                         Extract Data
                       </Button>

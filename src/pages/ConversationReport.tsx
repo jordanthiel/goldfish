@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Loader2,
-  Sparkles,
   FileText,
   Heart,
   Brain,
@@ -60,7 +59,7 @@ const TOPIC_CONFIG: Record<string, {
   },
   default: {
     label: 'Mental Wellness',
-    icon: Sparkles,
+    icon: Heart,
     color: 'text-purple-600',
     bgGradient: 'from-indigo-50 via-purple-50 to-pink-50',
     accentColor: 'purple',

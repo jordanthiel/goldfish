@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Loader2, Bot, User, Download, Settings, Sparkles, ArrowUp, LogOut, LayoutDashboard, FileText, FlaskConical } from 'lucide-react';
+import { Loader2, User, Download, Settings, ArrowUp, LogOut, LayoutDashboard, FileText, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
 import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
 import { chatbotPromptService } from '@/services/chatbotPromptService';
-import { getSelectedModel } from '@/utils/modelConfig';
+import { getSelectedModel, hydrateServerDefaultChatModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
@@ -27,6 +27,7 @@ import { trackEvent } from '@/services/analyticsService';
 import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
 import { QA_CONVERSATION_SEED_MESSAGES } from '@/utils/qaConversationSeed';
+import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
 
 const Chat = () => {
   const { id: urlConversationId } = useParams<{ id?: string }>();
@@ -90,6 +91,8 @@ const Chat = () => {
 
     const initialize = async () => {
       try {
+        await hydrateServerDefaultChatModel();
+
         const shouldQaShortcut =
           qaSkipShortcutEligible &&
           !urlConversationId &&
@@ -371,9 +374,7 @@ const Chat = () => {
       <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
+            <BrandAppIcon size="sm" className="rounded-lg" />
             <span className="text-lg font-bold text-gray-800">Goldfish</span>
           </Link>
           
@@ -508,8 +509,8 @@ const Chat = () => {
             <div className="space-y-4 pb-4">
               {messages.length === 0 && !isLoading && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-therapy-purple/20 to-therapy-pink/20 flex items-center justify-center">
-                    <Bot className="h-8 w-8 text-therapy-purple" />
+                  <div className="mx-auto mb-4 flex justify-center">
+                    <BrandChatAvatar bubble="gradient" className="h-16 w-16" />
                   </div>
                   <h2 className="text-xl font-semibold text-gray-800 mb-2">Start your conversation</h2>
                   <p className="text-gray-600 max-w-md mx-auto">
@@ -528,9 +529,7 @@ const Chat = () => {
                 >
                   <div className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {message.role === 'assistant' && (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center shadow-sm">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
+                      <BrandChatAvatar bubble="gradient" className="h-8 w-8 shadow-sm" />
                     )}
                     <Card className={`max-w-[80%] shadow-sm ${
                       message.role === 'user'
@@ -575,9 +574,7 @@ const Chat = () => {
               
               {isLoading && (
                 <div className="flex gap-3 justify-start">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-white" />
-                  </div>
+                  <BrandChatAvatar bubble="gradient" className="h-8 w-8" />
                   <Card className="bg-white/90 backdrop-blur-sm shadow-sm">
                     <div className="p-4">
                       <Loader2 className="h-4 w-4 animate-spin text-therapy-purple" />
