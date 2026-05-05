@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,8 @@ export interface EmailCaptureDialogProps {
   variant: EmailCaptureVariant;
   conversationId: string | null;
   pageSlug?: string;
+  /** From chat intake (GOLDFISH_META_NAME); pre-fills name when modal opens */
+  prefillName?: string | null;
 }
 
 export const EmailCaptureDialog: React.FC<EmailCaptureDialogProps> = ({
@@ -44,6 +46,7 @@ export const EmailCaptureDialog: React.FC<EmailCaptureDialogProps> = ({
   variant,
   conversationId,
   pageSlug,
+  prefillName,
 }) => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -51,6 +54,13 @@ export const EmailCaptureDialog: React.FC<EmailCaptureDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const config = VARIANT_CONFIG[variant];
+
+  useEffect(() => {
+    if (!open) return;
+    const next = prefillName?.trim();
+    if (!next) return;
+    setName((prev) => (prev.trim() ? prev : next));
+  }, [open, prefillName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -20,7 +20,16 @@ const OUTPUT_FORMAT_CONTRACT = `
 ---
 User-visible reply format (must follow; overrides any conflicting line elsewhere in your instructions):
 Write one natural, continuous message. Do not use square-bracket tags for layout or “parts” of an answer — for example never output [SPLIT], [PART], [SECTION], [SEGMENT], [BLOCK], [END], [TURN], or similar on their own line or inline. Use normal sentences and line breaks only.
-When you're ready to end the conversation with [CONVERSATION_COMPLETE], do not ask for the user's email, name, or phone in the chat text — an in-app modal handles that afterward. Finish with normal closing reassurance only.`
+
+When you're ready to end the conversation with [CONVERSATION_COMPLETE]:
+• In that same assistant message, do not ask for the user's email or phone — an in-app form collects contact details afterward.
+• If the user just answered your final intake question (e.g. name, age, how they identify) or they clearly gave a preferred name earlier, thank them warmly and **address them by the name they provided** in the visible text when it feels natural (e.g., "Thank you, Sam…").
+• After all user-visible sentences, output exactly two trailing lines so the client can parse them (these lines are stripped from chat):
+First line — use this exact prefix and plain text after it (same line only, no quotation marks around the value): 
+GOLDFISH_META_NAME: NAME_OR_NONE
+Replace NAME_OR_NONE with how they introduced themselves when they answered the name/intake prompt (full name if they gave it, otherwise first name). If no name was clearly given, write exactly NONE on that line instead.
+Second line: [CONVERSATION_COMPLETE]
+Nothing may follow after [CONVERSATION_COMPLETE].`
 
 // Call OpenAI API using the new Responses API
 async function callOpenAI(

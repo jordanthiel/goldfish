@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ChatMessage } from '@/services/chatbotService';
+import { ChatMessage, stripIntakeMetaFromAssistantRaw } from '@/services/chatbotService';
 import { chatbotPromptService, ChatbotPrompt } from '@/services/chatbotPromptService';
 import { chatbotConversationService, getSessionId, getDeviceInfo, DeviceInfo } from '@/services/chatbotConversationService';
 import { landingPageService, LandingPage } from '@/services/landingPageService';
@@ -114,7 +114,8 @@ async function sendChatMessage(
     throw new Error(data.error || data.message || `HTTP ${response.status}`);
   }
 
-  return data.message;
+  const raw = data.message as string;
+  return stripIntakeMetaFromAssistantRaw(raw).cleaned;
 }
 
 // ─── Chat Instance Panel ────────────────────────────────────────────

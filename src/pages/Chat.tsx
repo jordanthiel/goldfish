@@ -57,6 +57,17 @@ const Chat = () => {
     [messages],
   );
 
+  /** Latest assistant message that carried parsed intake name (shown when email modal opens). */
+  const emailCapturePrefillName = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'assistant' && m.intakePreferredName?.trim()) {
+        return m.intakePreferredName.trim();
+      }
+    }
+    return null;
+  }, [messages]);
+
   /** Ensures modal auto-opens once per “completed conversation” lifecycle (survives /chat → /chat/:id remount). */
   const autoOpenedEmailModalRef = useRef(false);
   
@@ -218,6 +229,9 @@ const Chat = () => {
         role: 'assistant',
         content: response.message,
         ...(response.conversationComplete ? { marksConversationComplete: true } : {}),
+        ...(response.intakePreferredName?.trim()
+          ? { intakePreferredName: response.intakePreferredName.trim() }
+          : {}),
       };
 
       const updatedMessages = [userMessage, assistantMessage];
@@ -307,6 +321,9 @@ const Chat = () => {
         role: 'assistant',
         content: response.message,
         ...(response.conversationComplete ? { marksConversationComplete: true } : {}),
+        ...(response.intakePreferredName?.trim()
+          ? { intakePreferredName: response.intakePreferredName.trim() }
+          : {}),
       };
 
       const updatedMessages = [...messages, userMessage, assistantMessage];
@@ -650,6 +667,7 @@ const Chat = () => {
         variant={abVariant}
         conversationId={conversationId}
         pageSlug={pageSlug}
+        prefillName={emailCapturePrefillName}
       />
 
       {/* Prompt Editor Dialog */}

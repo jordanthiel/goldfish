@@ -51,18 +51,53 @@ export interface ChatMessage {
   content: string;
   /** Set when assistant response ended with [CONVERSATION_COMPLETE]; persisted so post-navigate/remount restores completion UI */
   marksConversationComplete?: boolean;
+  /** Parsed from assistant raw GOLDFISH_META_NAME; used to pre-fill email modal */
+  intakePreferredName?: string;
 }
 
 export const CONVERSATION_COMPLETE_MARKER = '[CONVERSATION_COMPLETE]';
 
+/** Stripped server meta line; emitted with [CONVERSATION_COMPLETE]. See OUTPUT_FORMAT_CONTRACT in Edge Function `chatbot`. */
+const GOLDFISH_META_NAME_PREFIX = /^\s*GOLDFISH_META_NAME:\s*(.*)$/i;
+
 export interface ChatbotResponse {
   message: string;
   conversationComplete: boolean;
+  /** From GOLDFISH_META_NAME — use to pre-fill email capture only when conversation completes */
+  intakePreferredName?: string | null;
   deviceInfo?: {
     ip_address?: string;
     user_agent?: string;
     location?: string;
   };
+}
+
+/** Remove completion marker & GOLDFISH_META_NAME line (any order). */
+export function stripIntakeMetaFromAssistantRaw(rawMessage: string): {
+  cleaned: string;
+  conversationComplete: boolean;
+  intakePreferredName: string | null;
+} {
+  const conversationComplete = rawMessage.includes(CONVERSATION_COMPLETE_MARKER);
+  let t = rawMessage.replaceAll(CONVERSATION_COMPLETE_MARKER, '');
+
+  let intakePreferredName: string | null = null;
+  const lines = t.split('\n');
+  const kept: string[] = [];
+  for (const line of lines) {
+    const m = line.match(GOLDFISH_META_NAME_PREFIX);
+    if (m) {
+      const val = m[1].trim();
+      if (val.length > 0 && val.toUpperCase() !== 'NONE') {
+        intakePreferredName = val;
+      }
+    } else {
+      kept.push(line);
+    }
+  }
+  const cleaned = kept.join('\n').trim();
+
+  return { cleaned, conversationComplete, intakePreferredName };
 }
 
 export const chatbotService = {
@@ -125,12 +160,13 @@ export const chatbotService = {
       }
 
       const rawMessage: string = responseData.message;
-      const conversationComplete = rawMessage.includes(CONVERSATION_COMPLETE_MARKER);
-      const cleanMessage = rawMessage.replace(CONVERSATION_COMPLETE_MARKER, '').trim();
+      const { cleaned, conversationComplete, intakePreferredName } =
+        stripIntakeMetaFromAssistantRaw(rawMessage);
 
       return {
-        message: cleanMessage,
+        message: cleaned,
         conversationComplete,
+        intakePreferredName,
         deviceInfo: responseData.deviceInfo,
       };
     } catch (error) {
