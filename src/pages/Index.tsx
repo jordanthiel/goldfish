@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import LandingPageHeader from '@/components/landing/LandingPageHeader';
+import { BrandAppIcon } from '@/components/brand/BrandLogo';
 import { HowItWorksSection } from '@/components/landing/HowItWorks';
 import { usePageView } from '@/hooks/usePageView';
 import {
@@ -94,13 +95,6 @@ const Index = () => {
     navigate(`/chat?${next.toString()}`);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Gradient background */}
@@ -144,7 +138,6 @@ const Index = () => {
                     ref={textareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
                     placeholder={displayedPlaceholder || "Tell us what you're looking for..."}
                     className="min-h-[120px] resize-none border-0 bg-transparent text-lg placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
                     style={{ fontSize: '17px', lineHeight: '1.6' }}

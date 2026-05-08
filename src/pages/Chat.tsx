@@ -94,6 +94,17 @@ const Chat = () => {
     qaShortcutRanForLocationKeyRef.current = undefined;
   }, [location.key]);
 
+  /** After the model finishes, return focus to the composer (disabled inputs drop focus). */
+  const prevIsLoadingRef = useRef(false);
+  useEffect(() => {
+    if (prevIsLoadingRef.current && !isLoading && !conversationComplete) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus({ preventScroll: true });
+      });
+    }
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading, conversationComplete]);
+
   // Initialize: load prompt version, device info, restore conversation / QA shortcut
   useEffect(() => {
     if (authLoading) {
@@ -365,13 +376,6 @@ const Chat = () => {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   if (authLoading || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
@@ -628,9 +632,15 @@ const Chat = () => {
                         ref={textareaRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            void handleSend();
+                          }
+                        }}
                         placeholder="Type your message..."
-                        disabled={isLoading}
+                        title="Ctrl+Enter (⌘+Enter on Mac) to send · Enter adds a line"
+                        aria-label="Message composer. Ctrl or Command plus Enter sends."
                         className="min-h-[52px] max-h-[150px] resize-none border-0 bg-transparent text-base placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14"
                         rows={1}
                         style={{ height: 'auto', minHeight: '52px' }}

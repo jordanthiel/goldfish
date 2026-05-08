@@ -129,14 +129,6 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-    // Shift+Enter allows new line (default textarea behavior)
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Model Selector (for logged-in users) */}
@@ -339,8 +331,7 @@ export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message... (Shift+Enter for new line)"
+              placeholder="Type your message…"
               disabled={isLoading}
               className="flex-1 min-h-[44px] max-h-[200px] resize-none"
               rows={1}

@@ -151,13 +151,6 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [instance.messages]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSend(instance.id);
-    }
-  };
-
   return (
     <Card className="flex flex-col h-full bg-white/80 backdrop-blur-sm border-0 shadow-lg rounded-xl overflow-hidden">
       {/* Config Bar */}
@@ -389,7 +382,6 @@ const ChatInstancePanel: React.FC<ChatInstancePanelProps> = ({
             ref={textareaRef}
             value={instance.input}
             onChange={(e) => onUpdate(instance.id, { input: e.target.value })}
-            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             disabled={instance.isLoading}
             className="min-h-[40px] max-h-[100px] resize-none border-gray-200 bg-white text-xs placeholder:text-gray-400 focus-visible:ring-therapy-purple/30 pr-10 rounded-lg"

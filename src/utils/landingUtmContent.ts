@@ -37,34 +37,31 @@ export const LANDING_HERO_COPY: Record<
   1: {
     headline: 'No lists. No guessing. Just the right click.',
     subtext:
-      'Most people spend hours googling therapy types and still end up picking based on a profile photo. Tell us what\'s going on — our specialist clinical team finds the right fit for you, for free.',
+      'Skip the bios and guesswork — tell us what\'s going on in chat. Our clinical team hand-picks therapists who fit. Free.',
   },
   2: {
     headline: 'Find your click, finally.',
     subtext:
-      'Opening up was hard enough, but something doesn\'t click with your therapist. There\'s a better way to find someone who gets you. Tell us what matters to you — our specialist clinical team will hand-pick your match, for free.',
+      'Hard to click with someone new? Say what matters to you — we hand-pick stronger matches from our trusted network. Free.',
   },
   3: {
     headline: 'No lists. No guessing. Just the right click.',
     subtext:
-      'Most people don\'t know exactly what they should be looking for in therapy until someone asks the right questions. Our AI-assisted intake helps you understand and articulate what you need, and our specialist clinical team will hand-pick your match, for free.',
+      'We ask the questions that sharpen what you need. AI-assisted intake, then our team picks your match. Free.',
   },
 };
 
 export const HOW_IT_WORKS_UNIVERSAL = [
   {
     title: 'Tell us what\'s going on',
-    body:
-      'No forms, no checkboxes. A real conversation that helps you work out what matters to you.',
+    body: 'Short chat — no forms. Figure out what actually matters.',
   },
   {
-    title: 'Leave the research to us',
-    body:
-      'Our specialist clinical team hand-picks the right potentials for you from a network of trusted therapists — free of charge.',
+    title: 'We narrow the field',
+    body: 'Our team vets options from trusted therapists — you skip the doom-scroll.',
   },
   {
-    title: 'We make the intro',
-    body:
-      'No pressure, no commitment. We\'ll pass the info to you — you decide the next step, free of charge.',
+    title: 'You get the intro',
+    body: 'We send possibilities; you decide if and when to reach out. No obligation.',
   },
 ] as const;
