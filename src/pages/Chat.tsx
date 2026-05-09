@@ -17,14 +17,24 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { chatbotService, ChatMessage } from '@/services/chatbotService';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
-import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import {
+  chatbotConversationService,
+  getDeviceInfo,
+  getSessionId,
+  type DeviceInfo,
+} from '@/services/chatbotConversationService';
 import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel, hydrateServerDefaultChatModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
 import { trackEvent } from '@/services/analyticsService';
-import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
+import {
+  trackMetaChatCompletedOnce,
+  trackMetaChatMessageSent,
+  trackMetaChatStarted,
+  trackMetaEmailCaptureShownOnce,
+} from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
 import { QA_CONVERSATION_SEED_MESSAGES } from '@/utils/qaConversationSeed';
 import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
@@ -41,7 +51,7 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(urlConversationId || null);
-  const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>();
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [emailCaptureDialogOpen, setEmailCaptureDialogOpen] = useState(false);
@@ -189,8 +199,23 @@ const Chat = () => {
     if (isInitializing || !conversationComplete) return;
     const cid = conversationId ?? urlConversationId;
     if (!cid) return;
-    trackMetaChatCompletedOnce(cid);
-  }, [isInitializing, conversationComplete, conversationId, urlConversationId]);
+    trackMetaChatCompletedOnce(cid, { pageSlug, variant: abVariant });
+  }, [isInitializing, conversationComplete, conversationId, urlConversationId, pageSlug, abVariant]);
+
+  useEffect(() => {
+    if (isInitializing || !conversationComplete || !emailCaptureDialogOpen) return;
+    const cid = conversationId ?? urlConversationId;
+    if (!cid) return;
+    trackMetaEmailCaptureShownOnce(cid, { pageSlug, variant: abVariant });
+  }, [
+    isInitializing,
+    conversationComplete,
+    emailCaptureDialogOpen,
+    conversationId,
+    urlConversationId,
+    pageSlug,
+    abVariant,
+  ]);
 
   useEffect(() => {
     if (!conversationComplete) {
@@ -230,8 +255,14 @@ const Chat = () => {
     setIsLoading(true);
 
     trackEvent('chat_started', { pageSlug, variant: abVariant });
-    trackMetaCustom('chat_started');
+    trackMetaChatStarted({ pageSlug, variant: abVariant, source: 'url' });
     trackEvent('message_sent', { pageSlug, variant: abVariant, metadata: { messageIndex: 0 } });
+    trackMetaChatMessageSent({
+      pageSlug,
+      variant: abVariant,
+      messageIndex: 0,
+      source: 'url',
+    });
 
     try {
       const response = await chatbotService.sendMessage([userMessage], undefined, pageSlug);
@@ -322,8 +353,20 @@ const Chat = () => {
     });
 
     if (userMessageIndex === 0) {
-      trackMetaCustom('chat_started');
+      trackMetaChatStarted({
+        conversationId,
+        pageSlug,
+        variant: abVariant,
+        source: 'composer',
+      });
     }
+    trackMetaChatMessageSent({
+      conversationId,
+      pageSlug,
+      variant: abVariant,
+      messageIndex: userMessageIndex,
+      source: 'composer',
+    });
 
     try {
       const response = await chatbotService.sendMessage([...messages, userMessage], undefined, pageSlug);
