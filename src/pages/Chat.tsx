@@ -17,7 +17,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { chatbotService, ChatMessage } from '@/services/chatbotService';
 import { ModelSelector } from '@/components/chatbot/ModelSelector';
 import { PromptEditor } from '@/components/chatbot/PromptEditor';
-import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import {
+  chatbotConversationService,
+  getDeviceInfo,
+  getSessionId,
+  type DeviceInfo,
+} from '@/services/chatbotConversationService';
 import { chatbotPromptService } from '@/services/chatbotPromptService';
 import { getSelectedModel, hydrateServerDefaultChatModel } from '@/utils/modelConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -46,7 +51,7 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(urlConversationId || null);
-  const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>();
   const [promptVersion, setPromptVersion] = useState<number | null>(null);
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [emailCaptureDialogOpen, setEmailCaptureDialogOpen] = useState(false);
