@@ -618,6 +618,63 @@ export type Database = {
           }
         ]
       }
+      share_links: {
+        Row: {
+          id: string
+          label: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          label?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          label?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      share_link_visits: {
+        Row: {
+          id: string
+          tracking_id: string
+          session_id: string
+          page_slug: string | null
+          referrer: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tracking_id: string
+          session_id: string
+          page_slug?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tracking_id?: string
+          session_id?: string
+          page_slug?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       waitlist_submissions: {
         Row: {
           id: string

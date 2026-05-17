@@ -40,6 +40,7 @@ import {
   FlaskConical,
   Mail,
   SlidersHorizontal,
+  Link2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { BrandAppIcon } from '@/components/brand/BrandLogo';
@@ -204,6 +205,12 @@ const InternalDashboard: React.FC = () => {
                 <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
                   <SlidersHorizontal className="h-4 w-4 mr-2" />
                   Developer settings
+                </Button>
+              </Link>
+              <Link to="/internal/share-links">
+                <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Share Links
                 </Button>
               </Link>
               <Link to="/internal/funnel">

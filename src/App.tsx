@@ -44,6 +44,7 @@ import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
 import ChatPlayground from "./pages/internal/ChatPlayground";
 import FunnelAnalytics from "./pages/internal/FunnelAnalytics";
 import InternalDeveloperSettings from "./pages/internal/InternalDeveloperSettings";
+import ShareLinks from "./pages/internal/ShareLinks";
 import { MetaPixelRouteListener } from "./components/MetaPixelRouteListener";
 
 // Create a QueryClient with better defaults for our app
@@ -89,6 +90,7 @@ const App = () => (
             <Route path="/internal/playground" element={<ChatPlayground />} />
             <Route path="/internal/funnel" element={<FunnelAnalytics />} />
             <Route path="/internal/developer" element={<InternalDeveloperSettings />} />
+            <Route path="/internal/share-links" element={<ShareLinks />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>

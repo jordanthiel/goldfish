@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionId } from './chatbotConversationService';
 import { EmailCaptureVariant } from '@/utils/abTest';
+import { getStoredTrackingId } from '@/utils/trackingId';
 
 /**
  * Funnel event names — ordered by expected funnel position.
@@ -41,13 +42,19 @@ export function trackEvent(
   eventName: FunnelEventName,
   options: TrackOptions = {},
 ) {
+  const trackingId = getStoredTrackingId();
+  const metadata = {
+    ...options.metadata,
+    ...(trackingId ? { trackingId } : {}),
+  };
+
   const row = {
     event_name: eventName,
     session_id: getSessionId(),
     conversation_id: options.conversationId ?? null,
     ab_variant: options.variant ?? null,
     page_slug: options.pageSlug ?? null,
-    metadata: options.metadata ?? {},
+    metadata,
   };
 
   supabase

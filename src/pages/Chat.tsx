@@ -24,6 +24,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
 import { trackEvent } from '@/services/analyticsService';
+import { captureTrackingIdFromSearchParams } from '@/utils/trackingId';
 import { trackMetaChatCompletedOnce, trackMetaCustom } from '@/services/metaPixelService';
 import ReactMarkdown from 'react-markdown';
 import { QA_CONVERSATION_SEED_MESSAGES } from '@/utils/qaConversationSeed';
@@ -51,6 +52,10 @@ const Chat = () => {
   // Read page slug from URL params (e.g. ?page=sleep)
   const pageSlug = searchParams.get('page') || undefined;
   const devQuickComplete = searchParams.get('devComplete') === '1';
+
+  useEffect(() => {
+    captureTrackingIdFromSearchParams(searchParams);
+  }, [searchParams]);
 
   const conversationComplete = useMemo(
     () => messages.some((m) => m.marksConversationComplete === true),
