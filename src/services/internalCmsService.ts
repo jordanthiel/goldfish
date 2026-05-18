@@ -34,9 +34,17 @@ export interface WaitlistSubmission {
   email: string;
   ab_variant: string;
   conversation_id: string | null;
+  linked_conversation_id: string | null;
   session_id: string | null;
   page_slug: string | null;
   created_at: string;
+}
+
+/** Conversation id stored at waitlist signup (prefers linked_conversation_id). */
+export function getWaitlistLinkedConversationId(
+  row: Pick<WaitlistSubmission, 'conversation_id' | 'linked_conversation_id'>,
+): string | null {
+  return row.linked_conversation_id ?? row.conversation_id ?? null;
 }
 
 export interface WaitlistConversationSummary {
@@ -120,6 +128,7 @@ export interface WaitlistSubmissionRow {
   email: string;
   ab_variant: string;
   conversation_id: string | null;
+  linked_conversation_id: string | null;
   session_id: string | null;
   page_slug: string | null;
   created_at: string;
@@ -174,7 +183,11 @@ export const internalCmsService = {
 
       const rows = (submissions || []) as WaitlistSubmission[];
       const conversationIds = Array.from(
-        new Set(rows.map((row) => row.conversation_id).filter(Boolean) as string[])
+        new Set(
+          rows
+            .map((row) => getWaitlistLinkedConversationId(row))
+            .filter(Boolean) as string[],
+        ),
       );
       const sessionIds = Array.from(
         new Set(rows.map((row) => row.session_id).filter(Boolean) as string[])
@@ -238,14 +251,19 @@ export const internalCmsService = {
 
       return {
         data: rows.map((row) => {
-          const directMatch = row.conversation_id ? conversationById.get(row.conversation_id) : undefined;
+          const linkedId = getWaitlistLinkedConversationId(row);
+          const directMatch = linkedId ? conversationById.get(linkedId) : undefined;
           const sessionMatch = row.session_id ? conversationBySession.get(row.session_id) : undefined;
           const conversation = directMatch || sessionMatch;
 
           return {
             ...row,
             conversation,
-            conversationMatch: directMatch ? 'conversation_id' : conversation ? 'session_id' : null,
+            conversationMatch: directMatch
+              ? 'conversation_id'
+              : conversation
+                ? 'session_id'
+                : null,
           };
         }),
         count: count || 0,
@@ -359,7 +377,7 @@ export const internalCmsService = {
         supabase
           .from('waitlist_submissions')
           .select('*')
-          .eq('conversation_id', id)
+          .or(`conversation_id.eq.${id},linked_conversation_id.eq.${id}`)
           .order('created_at', { ascending: false }),
         supabase
           .from('waitlist_submissions')

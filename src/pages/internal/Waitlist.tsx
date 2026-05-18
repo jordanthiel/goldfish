@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import {
+  getWaitlistLinkedConversationId,
   internalCmsService,
   type WaitlistSubmissionRow,
 } from '@/services/internalCmsService';
@@ -256,9 +257,11 @@ const Waitlist: React.FC = () => {
                                 <Copy className="h-4 w-4" />
                               )}
                             </Button>
-                            {row.conversation_id && (
+                            {getWaitlistLinkedConversationId(row) && (
                               <Button size="sm" variant="ghost" asChild title="View conversation">
-                                <Link to={`/internal/conversation/${row.conversation_id}`}>
+                                <Link
+                                  to={`/internal/conversation/${getWaitlistLinkedConversationId(row)}`}
+                                >
                                   <ExternalLink className="h-4 w-4" />
                                 </Link>
                               </Button>

@@ -461,7 +461,10 @@ const ConversationDetail: React.FC = () => {
                               </a>
                             </div>
                             <Badge className="bg-green-100 text-green-700 border-green-200">
-                              {submission.conversation_id === conversation.id ? 'Direct' : 'Session'}
+                              {submission.linked_conversation_id === conversation.id ||
+                              submission.conversation_id === conversation.id
+                                ? 'Linked at signup'
+                                : 'Session'}
                             </Badge>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">

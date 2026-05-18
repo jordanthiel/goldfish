@@ -685,6 +685,7 @@ export type Database = {
           email: string
           ab_variant: string
           conversation_id: string | null
+          linked_conversation_id: string | null
           session_id: string | null
           page_slug: string | null
           created_at: string
@@ -695,6 +696,7 @@ export type Database = {
           email: string
           ab_variant: string
           conversation_id?: string | null
+          linked_conversation_id?: string | null
           session_id?: string | null
           page_slug?: string | null
           created_at?: string
@@ -705,6 +707,7 @@ export type Database = {
           email?: string
           ab_variant?: string
           conversation_id?: string | null
+          linked_conversation_id?: string | null
           session_id?: string | null
           page_slug?: string | null
           created_at?: string
@@ -713,6 +716,13 @@ export type Database = {
           {
             foreignKeyName: "waitlist_submissions_conversation_id_fkey"
             columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_submissions_linked_conversation_id_fkey"
+            columns: ["linked_conversation_id"]
             isOneToOne: false
             referencedRelation: "chatbot_conversations"
             referencedColumns: ["id"]

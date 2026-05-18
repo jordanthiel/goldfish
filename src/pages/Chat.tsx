@@ -230,9 +230,11 @@ const Chat = () => {
   useEffect(() => {
     if (!conversationComplete) return;
     if (autoOpenedEmailModalRef.current) return;
+    const cid = conversationId ?? urlConversationId ?? null;
+    if (!cid) return;
     autoOpenedEmailModalRef.current = true;
     setEmailCaptureDialogOpen(true);
-  }, [conversationComplete]);
+  }, [conversationComplete, conversationId, urlConversationId]);
 
   // Send initial message from URL params after initialization
   useEffect(() => {
@@ -387,30 +389,40 @@ const Chat = () => {
       const updatedMessages = [...messages, userMessage, assistantMessage];
       setMessages(updatedMessages);
 
-      if (response.conversationComplete) {
-        const cid = conversationId;
-        trackEvent('conversation_complete', { conversationId: cid, pageSlug, variant: abVariant });
-        trackEvent('email_capture_shown', { conversationId: cid, pageSlug, variant: abVariant });
-      }
-
       const modelConfig = getSelectedModel();
       const combinedDeviceInfo = {
         ...deviceInfo,
         ...(response.deviceInfo || {}),
       };
-      
+
       const savedId = await chatbotConversationService.saveConversation(
         updatedMessages,
         modelConfig,
         combinedDeviceInfo,
         conversationId
       );
-      
-      if (savedId && !conversationId) {
+
+      if (savedId) {
         setConversationId(savedId);
-        const params = new URLSearchParams(searchParams);
-        if (pageSlug) params.set('page', pageSlug);
-        navigate(buildChatPath(`/chat/${savedId}`, params), { replace: true });
+
+        if (response.conversationComplete) {
+          trackEvent('conversation_complete', {
+            conversationId: savedId,
+            pageSlug,
+            variant: abVariant,
+          });
+          trackEvent('email_capture_shown', {
+            conversationId: savedId,
+            pageSlug,
+            variant: abVariant,
+          });
+        }
+
+        if (!conversationId) {
+          const params = new URLSearchParams(searchParams);
+          if (pageSlug) params.set('page', pageSlug);
+          navigate(buildChatPath(`/chat/${savedId}`, params), { replace: true });
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -718,7 +730,7 @@ const Chat = () => {
         open={emailCaptureDialogOpen}
         onOpenChange={setEmailCaptureDialogOpen}
         variant={abVariant}
-        conversationId={conversationId}
+        conversationId={conversationId ?? urlConversationId ?? null}
         pageSlug={pageSlug}
         prefillName={emailCapturePrefillName}
       />
