@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { buildChatPath } from '@/utils/trackingId';
 import { ArrowUp, Heart, HeartHandshake, MessageCircleHeart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,7 @@ const PLACEHOLDER_PROMPTS = [
 
 const CouplesLandingPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [input, setInput] = useState('');
   usePageView(PAGE_SLUG);
 
@@ -67,8 +69,10 @@ const CouplesLandingPage = () => {
 
   const handleSend = () => {
     if (!input.trim()) return;
-    const encodedMessage = encodeURIComponent(input.trim());
-    navigate(`/chat?message=${encodedMessage}&page=${PAGE_SLUG}`);
+    const next = new URLSearchParams(searchParams);
+    next.set('message', input.trim());
+    next.set('page', PAGE_SLUG);
+    navigate(buildChatPath('/chat', next));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -100,7 +104,6 @@ const CouplesLandingPage = () => {
           pageSlug={PAGE_SLUG}
           theme="light"
           labelClass="text-rose-500"
-          signupBtnClass="bg-rose-500 hover:bg-rose-600 text-white"
         />
 
         {/* Main content */}

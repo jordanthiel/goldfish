@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { internalCmsService, ConversationWithExtraction } from '@/services/internalCmsService';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  ArrowLeft,
   Brain,
   User,
   Send,
@@ -23,10 +22,10 @@ import {
   FileText,
   Lightbulb,
   Clock,
-  LayoutDashboard,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
+import { BrandChatAvatar } from '@/components/brand/BrandLogo';
+import { useInternalPageHeader } from '@/components/internal/InternalLayoutContext';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -36,8 +35,7 @@ interface ChatMessage {
 
 const ConversationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { isInternal, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isInternal } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -47,17 +45,6 @@ const ConversationDetail: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have access to the internal dashboard.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
 
   useEffect(() => {
     if (isInternal && id) {
@@ -175,68 +162,35 @@ const ConversationDetail: React.FC = () => {
     });
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple" />
-      </div>
-    );
-  }
+  useInternalPageHeader(
+    {
+      title: conversation
+        ? `Session ${conversation.session_id.slice(0, 16)}…`
+        : 'Conversation',
+      description: conversation ? formatDate(conversation.started_at) : undefined,
+      headerActions: conversation ? (
+        <Button
+          onClick={() => handleExtract(false)}
+          disabled={extracting}
+          size="sm"
+          className="bg-gradient-to-r from-therapy-purple to-therapy-pink hover:opacity-90 text-white"
+        >
+          {extracting ? (
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Wand2 className="h-4 w-4 mr-2" />
+          )}
+          {conversation.extraction ? 'Re-Extract' : 'Extract Data'}
+        </Button>
+      ) : undefined,
+    },
+    [conversation, extracting],
+  );
 
-  if (!isInternal) {
-    return null;
-  }
+  if (!isInternal) return null;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      
-      {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Link to="/internal">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-              </Link>
-              <div className="h-6 w-px bg-gray-200" />
-              <div className="flex items-center gap-3">
-                <BrandAppIcon size="md" />
-                <div>
-                  <h1 className="text-lg font-bold text-gray-800">Conversation Analysis</h1>
-                  <p className="text-xs text-gray-500 font-mono">
-                    {conversation?.session_id.slice(0, 24) || '...'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => handleExtract(false)}
-                disabled={extracting}
-                className="bg-gradient-to-r from-therapy-purple to-therapy-pink hover:opacity-90 text-white"
-              >
-                {extracting ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4 mr-2" />
-                )}
-                {conversation?.extraction ? 'Re-Extract' : 'Extract Data'}
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+    <>
           {loading ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
@@ -568,9 +522,7 @@ const ConversationDetail: React.FC = () => {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </>
   );
 };
 

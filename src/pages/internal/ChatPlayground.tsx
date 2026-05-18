@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ChatMessage, stripIntakeMetaFromAssistantRaw } from '@/services/chatbotService';
@@ -30,16 +29,6 @@ import {
   SelectSeparator,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  LayoutDashboard,
-  LogOut,
   Plus,
   X,
   User,
@@ -48,15 +37,13 @@ import {
   LayoutGrid,
   Columns3,
   MessageSquare,
-  BarChart3,
-  FlaskConical,
   Download,
   History,
   Search,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
-import { BrandAppIcon, BrandChatAvatar } from '@/components/brand/BrandLogo';
+import { BrandChatAvatar } from '@/components/brand/BrandLogo';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -431,8 +418,7 @@ function createInstance(pageSlug: string = 'default'): ChatInstance {
 }
 
 const ChatPlayground: React.FC = () => {
-  const { user, isInternal, signOut, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isInternal } = useAuth();
   const { toast } = useToast();
 
   const [viewMode, setViewMode] = useState<'tabs' | 'grid'>('tabs');
@@ -451,18 +437,6 @@ const ChatPlayground: React.FC = () => {
   useEffect(() => {
     getDeviceInfo().then(setDeviceInfo);
   }, []);
-
-  // Auth guard
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have access to the internal dashboard.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
 
   // Load landing pages on mount
   useEffect(() => {
@@ -724,86 +698,12 @@ const ChatPlayground: React.FC = () => {
 
   // ─── Render ─────────────────────────────────────────────────────
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple" />
-      </div>
-    );
-  }
-
   if (!isInternal) return null;
 
   const activeInstance = instances.find(i => i.id === activeTab) || instances[0];
 
   return (
-    <div className="h-[100dvh] flex flex-col relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-
-      {/* Content */}
-      <div className="relative z-10 h-full flex flex-col">
-        {/* Header */}
-        <header className="flex-shrink-0 w-full py-3 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-[1600px] mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center gap-2">
-                <BrandAppIcon size="sm" className="h-9 w-9 min-h-9 min-w-9 rounded-xl" />
-                <span className="text-lg font-bold text-gray-800">Goldfish</span>
-              </Link>
-              <div className="h-5 w-px bg-gray-200" />
-              <div className="flex items-center gap-1.5">
-                <FlaskConical className="h-4 w-4 text-therapy-purple" />
-                <span className="text-sm font-medium text-gray-600">Chat Playground</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link to="/internal">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800">
-                  <LayoutDashboard className="h-4 w-4 mr-1.5" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Link to="/internal/aggregate">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800">
-                  <BarChart3 className="h-4 w-4 mr-1.5" />
-                  Aggregate
-                </Button>
-              </Link>
-
-              <div className="h-5 w-px bg-gray-200 mx-1" />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-therapy-purple text-white text-sm">
-                        {user?.email?.charAt(0).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium text-sm">{user?.email}</p>
-                      <p className="text-xs text-muted-foreground">Internal User</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { signOut(); navigate('/'); }} className="cursor-pointer text-red-600 focus:text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </header>
-
+    <div className="flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
         <div className="flex-shrink-0 px-4 py-2 bg-white/50 backdrop-blur-sm border-b border-gray-100">
           <div className="max-w-[1600px] mx-auto flex items-center gap-3">
@@ -957,7 +857,6 @@ const ChatPlayground: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
 
       {/* Load Previous Chat Dialog */}
       <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>

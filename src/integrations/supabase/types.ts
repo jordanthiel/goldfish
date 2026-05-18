@@ -582,6 +582,7 @@ export type Database = {
           id: string
           event_name: string
           session_id: string
+          tracking_id: string | null
           conversation_id: string | null
           ab_variant: string | null
           page_slug: string | null
@@ -592,6 +593,7 @@ export type Database = {
           id?: string
           event_name: string
           session_id: string
+          tracking_id?: string | null
           conversation_id?: string | null
           ab_variant?: string | null
           page_slug?: string | null
@@ -602,6 +604,7 @@ export type Database = {
           id?: string
           event_name?: string
           session_id?: string
+          tracking_id?: string | null
           conversation_id?: string | null
           ab_variant?: string | null
           page_slug?: string | null

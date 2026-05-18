@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { internalCmsService, AggregateStats } from '@/services/internalCmsService';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import {
-  ArrowLeft,
   Brain,
   User,
   Send,
@@ -30,8 +28,7 @@ interface ChatMessage {
 }
 
 const AggregateAnalysis: React.FC = () => {
-  const { isInternal, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isInternal } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,17 +37,6 @@ const AggregateAnalysis: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have access to the internal dashboard.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
 
   useEffect(() => {
     if (isInternal) {
@@ -140,54 +126,11 @@ const AggregateAnalysis: React.FC = () => {
     return Object.values(stats.genderBreakdown).reduce((a, b) => a + b, 0);
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple" />
-      </div>
-    );
-  }
+  if (!isInternal) return null;
 
-  if (!isInternal) {
-    return null;
-  }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      
-      {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Link to="/internal">
-                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-              </Link>
-              <div className="h-6 w-px bg-gray-200" />
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-therapy-purple to-therapy-pink flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-gray-800">Aggregate Analysis</h1>
-                  <p className="text-xs text-gray-500">Ask questions about all conversations</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+    <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Stats Panel */}
             <div className="space-y-6">
@@ -450,9 +393,7 @@ const AggregateAnalysis: React.FC = () => {
               </Card>
             </div>
           </div>
-        </main>
-      </div>
-    </div>
+    </>
   );
 };
 

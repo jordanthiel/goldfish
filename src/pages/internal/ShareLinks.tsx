@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import {
   shareLinkService,
   type ShareLinkAnalytics,
+  type ShareLinkVisitor,
 } from '@/services/shareLinkService';
 import { FUNNEL_STEPS, type FunnelEventName } from '@/services/analyticsService';
 import { Button } from '@/components/ui/button';
@@ -35,15 +36,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  ArrowLeft,
   Check,
+  ChevronDown,
+  ChevronRight,
   Copy,
-  Link2,
+  ExternalLink,
   Plus,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useInternalPageHeader } from '@/components/internal/InternalLayoutContext';
 import {
   buildShareUrl,
   generateTrackingId,
@@ -60,8 +63,7 @@ const STEP_LABELS: Record<FunnelEventName, string> = {
 };
 
 const ShareLinks: React.FC = () => {
-  const { isInternal, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isInternal } = useAuth();
   const { toast } = useToast();
 
   const [rows, setRows] = useState<ShareLinkAnalytics[]>([]);
@@ -72,17 +74,9 @@ const ShareLinks: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have access to this page.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [visitorsByLink, setVisitorsByLink] = useState<Record<string, ShareLinkVisitor[]>>({});
+  const [visitorsLoadingId, setVisitorsLoadingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,6 +167,39 @@ const ShareLinks: React.FC = () => {
     }
   };
 
+  const visitorLabel = (visitor: ShareLinkVisitor) => {
+    if (visitor.waitlistEmail) {
+      return visitor.waitlistName
+        ? `${visitor.waitlistName} (${visitor.waitlistEmail})`
+        : visitor.waitlistEmail;
+    }
+    return `Visitor …${visitor.sessionId.slice(-10)}`;
+  };
+
+  const toggleVisitors = async (trackingId: string) => {
+    if (expandedId === trackingId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(trackingId);
+    if (visitorsByLink[trackingId]) return;
+
+    setVisitorsLoadingId(trackingId);
+    try {
+      const visitors = await shareLinkService.getLinkVisitors(trackingId);
+      setVisitorsByLink((prev) => ({ ...prev, [trackingId]: visitors }));
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to load visitor activity for this link.',
+        variant: 'destructive',
+      });
+      setExpandedId(null);
+    } finally {
+      setVisitorsLoadingId(null);
+    }
+  };
+
   const handleDelete = async (trackingId: string) => {
     if (!window.confirm(`Remove registered link "${trackingId}"? Visits are kept.`)) {
       return;
@@ -190,54 +217,33 @@ const ShareLinks: React.FC = () => {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple" />
-      </div>
-    );
-  }
+  useInternalPageHeader(
+    {
+      headerActions: (
+        <>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading} className="h-9">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            size="sm"
+            className="bg-therapy-purple hover:bg-therapy-purple/90 h-9"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            New link
+          </Button>
+        </>
+      ),
+    },
+    [loading, load],
+  );
 
   if (!isInternal) return null;
 
   const openedCount = rows.filter((r) => r.opened).length;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-
-      <div className="relative z-10 min-h-screen flex flex-col">
-        <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <Link to="/internal">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Internal
-                </Button>
-              </Link>
-              <Link2 className="h-5 w-5 text-therapy-purple" />
-              <span className="font-semibold text-gray-800">Share Links</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button
-                size="sm"
-                className="bg-therapy-purple hover:bg-therapy-purple/90"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                New link
-              </Button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+    <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0">
               <CardHeader className="pb-2">
@@ -280,7 +286,8 @@ const ShareLinks: React.FC = () => {
             <CardHeader>
               <CardTitle>Link tracking</CardTitle>
               <CardDescription>
-                See who opened personalized links and how far they went in the funnel.
+                Each visitor is a browser session. Expand a link to see their full journey
+                (page views, chat, waitlist) tied to that personalized URL.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -299,8 +306,10 @@ const ShareLinks: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-8" />
                         <TableHead>Name / ID</TableHead>
                         <TableHead>Opened</TableHead>
+                        <TableHead>Visitors</TableHead>
                         <TableHead>Visits</TableHead>
                         <TableHead>First open</TableHead>
                         <TableHead>Last open</TableHead>
@@ -309,8 +318,30 @@ const ShareLinks: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rows.map((row) => (
-                        <TableRow key={row.trackingId}>
+                      {rows.map((row) => {
+                        const isExpanded = expandedId === row.trackingId;
+                        const visitors = visitorsByLink[row.trackingId];
+                        const loadingVisitors = visitorsLoadingId === row.trackingId;
+
+                        return (
+                        <React.Fragment key={row.trackingId}>
+                        <TableRow>
+                          <TableCell className="w-8">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => toggleVisitors(row.trackingId)}
+                              disabled={!row.opened}
+                              title={row.opened ? 'View visitors' : 'No activity yet'}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
                           <TableCell>
                             <div className="font-medium text-gray-800">
                               {row.label ?? (
@@ -338,13 +369,10 @@ const ShareLinks: React.FC = () => {
                             )}
                           </TableCell>
                           <TableCell>
+                            <span className="font-medium">{row.visitorCount}</span>
+                          </TableCell>
+                          <TableCell>
                             {row.visitCount}
-                            {row.uniqueSessions > 0 && (
-                              <span className="text-xs text-gray-400 block">
-                                {row.uniqueSessions} session
-                                {row.uniqueSessions === 1 ? '' : 's'}
-                              </span>
-                            )}
                           </TableCell>
                           <TableCell className="text-sm text-gray-600">
                             {formatDate(row.firstOpenedAt)}
@@ -401,15 +429,124 @@ const ShareLinks: React.FC = () => {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        {isExpanded && (
+                          <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                            <TableCell colSpan={9} className="p-0">
+                              <div className="px-4 py-4 border-t border-gray-100">
+                                {loadingVisitors ? (
+                                  <div className="space-y-2 py-4">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                  </div>
+                                ) : !visitors?.length ? (
+                                  <p className="text-sm text-gray-500 py-4 text-center">
+                                    No visitor activity recorded for this link yet.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-4">
+                                    {visitors.map((visitor) => (
+                                      <div
+                                        key={visitor.sessionId}
+                                        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                                      >
+                                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                          <div>
+                                            <p className="font-medium text-gray-800">
+                                              {visitorLabel(visitor)}
+                                            </p>
+                                            <p className="text-xs text-gray-500 font-mono mt-0.5">
+                                              {visitor.sessionId}
+                                            </p>
+                                          </div>
+                                          <div className="text-right text-xs text-gray-500">
+                                            <p>First: {formatDate(visitor.firstSeenAt)}</p>
+                                            <p>Last: {formatDate(visitor.lastSeenAt)}</p>
+                                          </div>
+                                        </div>
+                                        {visitor.landingPages.length > 0 && (
+                                          <p className="text-xs text-gray-600 mb-3">
+                                            Landing:{' '}
+                                            {visitor.landingPages.join(', ')}
+                                          </p>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                          {FUNNEL_STEPS.map((step) => {
+                                            const done = visitor.completedSteps.includes(step);
+                                            return (
+                                              <Badge
+                                                key={step}
+                                                variant={done ? 'default' : 'outline'}
+                                                className={`text-xs font-normal ${
+                                                  done
+                                                    ? 'bg-therapy-purple/90'
+                                                    : 'text-gray-400 border-gray-200'
+                                                }`}
+                                              >
+                                                {STEP_LABELS[step]}
+                                                {step === 'message_sent' && done
+                                                  ? ` (${visitor.messageCount})`
+                                                  : ''}
+                                              </Badge>
+                                            );
+                                          })}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {visitor.conversationId && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              asChild
+                                              className="h-8 text-xs"
+                                            >
+                                              <Link
+                                                to={`/internal/conversation/${visitor.conversationId}`}
+                                              >
+                                                View conversation
+                                                <ExternalLink className="ml-1 h-3 w-3" />
+                                              </Link>
+                                            </Button>
+                                          )}
+                                        </div>
+                                        <details className="mt-3">
+                                          <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                                            Event log ({visitor.events.length})
+                                          </summary>
+                                          <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                                            {visitor.events.map((ev, i) => (
+                                              <li
+                                                key={`${ev.createdAt}-${i}`}
+                                                className="text-xs text-gray-600 font-mono flex gap-2"
+                                              >
+                                                <span className="text-gray-400 shrink-0">
+                                                  {formatDate(ev.createdAt)}
+                                                </span>
+                                                <span>{STEP_LABELS[ev.eventName]}</span>
+                                                {ev.pageSlug && (
+                                                  <span className="text-gray-400">
+                                                    · {ev.pageSlug}
+                                                  </span>
+                                                )}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </details>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        </React.Fragment>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
               )}
             </CardContent>
           </Card>
-        </main>
-      </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -462,7 +599,7 @@ const ShareLinks: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 };
 

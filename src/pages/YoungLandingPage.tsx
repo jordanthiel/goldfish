@@ -1,12 +1,21 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { buildChatPath } from '@/utils/trackingId';
+import { usePageView } from '@/hooks/usePageView';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import RootLayout from '@/components/layout/RootLayout';
 import { ArrowRight, BadgePercent, Wallet, Users } from 'lucide-react';
 
+const PAGE_SLUG = 'young';
+
 const YoungLandingPage = () => {
+  const [searchParams] = useSearchParams();
+  usePageView(PAGE_SLUG);
+
+  const chatHref = buildChatPath('/chat', new URLSearchParams(searchParams));
+
   return (
     <RootLayout>
       {/* Hero Section */}
@@ -26,7 +35,7 @@ const YoungLandingPage = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild className="btn-gradient text-lg py-6 px-8">
-                  <Link to="/signup">
+                  <Link to={chatHref}>
                     Start Your Journey
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -123,9 +132,9 @@ const YoungLandingPage = () => {
               <div className="bg-accent rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-6">
                 <span className="text-2xl font-bold">1</span>
               </div>
-              <h3 className="text-xl font-semibold mb-3">Sign Up</h3>
+              <h3 className="text-xl font-semibold mb-3">Get Started</h3>
               <p className="text-muted-foreground">
-                Create your free account and complete a brief questionnaire about your needs.
+                Share what you&apos;re looking for in a brief conversation about your needs.
               </p>
             </div>
 
@@ -152,7 +161,7 @@ const YoungLandingPage = () => {
 
           <div className="flex justify-center mt-16">
             <Button asChild className="btn-gradient text-lg py-6 px-8">
-              <Link to="/signup">Get Started Now</Link>
+              <Link to={chatHref}>Get Started Now</Link>
             </Button>
           </div>
         </div>
@@ -214,12 +223,9 @@ const YoungLandingPage = () => {
             <p className="text-xl mb-8 opacity-90">
               Connect with new therapists offering quality care at rates you can afford.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Button asChild variant="secondary" className="text-lg py-6 px-8 bg-white text-primary hover:bg-white/90">
-                <Link to="/signup">Sign Up Now</Link>
-              </Button>
-              <Button asChild variant="outline" className="text-lg text-white py-6 px-8 border-white hover:bg-white/10">
-                <Link to="/login">Already Have an Account?</Link>
+                <Link to={chatHref}>Get Started Now</Link>
               </Button>
             </div>
           </div>

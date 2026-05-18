@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +19,7 @@ import {
   clearServerDefaultChatModelCache,
   hydrateServerDefaultChatModel,
 } from '@/utils/modelConfig';
-import { ChevronLeft, SlidersHorizontal } from 'lucide-react';
-import { BrandAppIcon } from '@/components/brand/BrandLogo';
+import { SlidersHorizontal } from 'lucide-react';
 
 const allModelsList = [
   ...AVAILABLE_MODELS.anthropic,
@@ -30,24 +28,12 @@ const allModelsList = [
 ];
 
 const InternalDeveloperSettings: React.FC = () => {
-  const { user, isInternal, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { user, isInternal } = useAuth();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<ModelConfig | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access denied',
-        description: 'Internal access only.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
 
   useEffect(() => {
     if (!isInternal) return;
@@ -106,24 +92,7 @@ const InternalDeveloperSettings: React.FC = () => {
   const currentValue = selected ? `${selected.provider}:${selected.modelId}` : '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-      <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-3xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/internal" className="gap-1">
-              <ChevronLeft className="h-4 w-4" />
-              Internal
-            </Link>
-          </Button>
-          <div className="flex items-center gap-2">
-            <BrandAppIcon size="sm" />
-            <span className="font-semibold text-gray-800">Developer settings</span>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+        <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm max-w-3xl w-full">
           <CardHeader>
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="h-5 w-5 text-therapy-purple" />
@@ -194,8 +163,6 @@ const InternalDeveloperSettings: React.FC = () => {
             )}
           </CardContent>
         </Card>
-      </main>
-    </div>
   );
 };
 

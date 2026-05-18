@@ -88,6 +88,17 @@ export interface FunnelAnalyticsData {
   totalEvents: number;
 }
 
+export interface WaitlistSubmissionRow {
+  id: string;
+  name: string;
+  email: string;
+  ab_variant: string;
+  conversation_id: string | null;
+  session_id: string | null;
+  page_slug: string | null;
+  created_at: string;
+}
+
 export const internalCmsService = {
   // Check if current user is internal
   async isInternalUser(): Promise<boolean> {
@@ -551,5 +562,34 @@ export const internalCmsService = {
         totalEvents: 0,
       };
     }
+  },
+
+  async getWaitlistSubmissions(options?: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+  }): Promise<{ data: WaitlistSubmissionRow[]; count: number }> {
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    const search = options?.search?.trim();
+
+    let query = supabase
+      .from('waitlist_submissions')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (search) {
+      const term = `%${search}%`;
+      query = query.or(`name.ilike.${term},email.ilike.${term}`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return {
+      data: (data ?? []) as WaitlistSubmissionRow[],
+      count: count ?? 0,
+    };
   },
 };

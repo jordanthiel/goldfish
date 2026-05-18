@@ -69,3 +69,24 @@ export function buildShareUrl(trackingId: string, path = '/'): string {
   url.searchParams.set('id', trackingId);
   return url.toString();
 }
+
+/** Ensures `?id=` is on query params when we have a stored tracking id. */
+export function withTrackingSearchParams(
+  params: URLSearchParams,
+): URLSearchParams {
+  const next = new URLSearchParams(params);
+  const stored = getStoredTrackingId();
+  if (stored) {
+    next.set('id', stored);
+  }
+  return next;
+}
+
+/** Build a chat path with current tracking + optional query keys. */
+export function buildChatPath(
+  basePath: string,
+  params: URLSearchParams,
+): string {
+  const qs = withTrackingSearchParams(params).toString();
+  return qs ? `${basePath}?${qs}` : basePath;
+}

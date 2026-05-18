@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { buildChatPath } from '@/utils/trackingId';
 import { ArrowUp, Briefcase, Brain, BatteryLow, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +23,7 @@ const PLACEHOLDER_PROMPTS = [
 
 const WorkStressLandingPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [input, setInput] = useState('');
   usePageView(PAGE_SLUG);
 
@@ -67,8 +69,10 @@ const WorkStressLandingPage = () => {
 
   const handleSend = () => {
     if (!input.trim()) return;
-    const encodedMessage = encodeURIComponent(input.trim());
-    navigate(`/chat?message=${encodedMessage}&page=${PAGE_SLUG}`);
+    const next = new URLSearchParams(searchParams);
+    next.set('message', input.trim());
+    next.set('page', PAGE_SLUG);
+    navigate(buildChatPath('/chat', next));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -101,7 +105,6 @@ const WorkStressLandingPage = () => {
           pageSlug={PAGE_SLUG}
           theme="light"
           labelClass="text-teal-600"
-          signupBtnClass="bg-teal-600 hover:bg-teal-700 text-white"
         />
 
         {/* Main content */}

@@ -25,10 +25,6 @@ interface LandingPageHeaderProps {
   theme?: 'light' | 'dark';
   /** Custom class for the label text */
   labelClass?: string;
-  /** Custom class for login button */
-  loginClass?: string;
-  /** Custom class for signup button */
-  signupBtnClass?: string;
   /** Custom class for the brand text */
   brandClass?: string;
 }
@@ -38,8 +34,6 @@ const LandingPageHeader: React.FC<LandingPageHeaderProps> = ({
   pageSlug,
   theme = 'light',
   labelClass = 'text-gray-500',
-  loginClass,
-  signupBtnClass = 'bg-therapy-purple hover:bg-therapy-purple/90',
   brandClass,
 }) => {
   const { user, signOut } = useAuth();
@@ -106,20 +100,7 @@ const LandingPageHeader: React.FC<LandingPageHeaderProps> = ({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  asChild
-                  className={loginClass || (isDark ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-gray-600')}
-                >
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button asChild className={signupBtnClass}>
-                  <Link to="/signup">Sign up</Link>
-                </Button>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </header>

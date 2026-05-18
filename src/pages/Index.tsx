@@ -12,6 +12,7 @@ import {
   getLandingHeroVersion,
   LANDING_HERO_COPY,
 } from '@/utils/landingUtmContent';
+import { buildChatPath } from '@/utils/trackingId';
 
 // Animated placeholder prompts
 const PLACEHOLDER_PROMPTS = [
@@ -92,7 +93,7 @@ const Index = () => {
     const next = new URLSearchParams(searchParams);
     next.set('message', input.trim());
     next.set('page', PAGE_SLUG);
-    navigate(`/chat?${next.toString()}`);
+    navigate(buildChatPath('/chat', next));
   };
 
   return (
@@ -115,7 +116,6 @@ const Index = () => {
         <LandingPageHeader
           pageSlug={PAGE_SLUG}
           theme="light"
-          signupBtnClass="bg-therapy-purple hover:bg-therapy-purple/90"
         />
 
         {/* Main content */}

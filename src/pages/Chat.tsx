@@ -29,7 +29,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getEmailCaptureVariant } from '@/utils/abTest';
 import { EmailCaptureDialog } from '@/components/chatbot/EmailCaptureDialog';
 import { trackEvent } from '@/services/analyticsService';
-import { captureTrackingIdFromSearchParams } from '@/utils/trackingId';
+import { buildChatPath, captureTrackingIdFromSearchParams } from '@/utils/trackingId';
 import {
   trackMetaChatCompletedOnce,
   trackMetaChatMessageSent,
@@ -149,8 +149,7 @@ const Chat = () => {
 
           const params = new URLSearchParams(searchParams);
           params.delete('devComplete');
-          const qs = params.toString();
-          navigate(`/chat${qs ? `?${qs}` : ''}`, { replace: true, state: {} });
+          navigate(buildChatPath('/chat', params), { replace: true, state: {} });
           return;
         }
 
@@ -192,8 +191,7 @@ const Chat = () => {
   const seedQaConversationFromMenu = useCallback(() => {
     const params = new URLSearchParams(searchParams);
     params.delete('devComplete');
-    const qs = params.toString();
-    navigate(`/chat${qs ? `?${qs}` : ''}`, {
+    navigate(buildChatPath('/chat', params), {
       replace: true,
       state: { applyQaSeed: true },
     });
@@ -305,8 +303,9 @@ const Chat = () => {
           trackEvent('email_capture_shown', { conversationId: savedId, pageSlug, variant: abVariant });
         }
 
-        const pageParam = pageSlug ? `?page=${pageSlug}` : '';
-        navigate(`/chat/${savedId}${pageParam}`, { replace: true });
+        const params = new URLSearchParams(searchParams);
+        if (pageSlug) params.set('page', pageSlug);
+        navigate(buildChatPath(`/chat/${savedId}`, params), { replace: true });
       }
     } catch (error) {
       console.error('Error sending initial message:', error);
@@ -409,8 +408,9 @@ const Chat = () => {
       
       if (savedId && !conversationId) {
         setConversationId(savedId);
-        const pageParam = pageSlug ? `?page=${pageSlug}` : '';
-        navigate(`/chat/${savedId}${pageParam}`, { replace: true });
+        const params = new URLSearchParams(searchParams);
+        if (pageSlug) params.set('page', pageSlug);
+        navigate(buildChatPath(`/chat/${savedId}`, params), { replace: true });
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -497,7 +497,11 @@ const Chat = () => {
                         variant="ghost"
                         size="sm"
                         title="View Report"
-                        onClick={() => navigate(`/chat/${conversationId}/report${pageSlug ? `?page=${pageSlug}` : ''}`)}
+                        onClick={() => {
+                          const params = new URLSearchParams(searchParams);
+                          if (pageSlug) params.set('page', pageSlug);
+                          navigate(buildChatPath(`/chat/${conversationId}/report`, params));
+                        }}
                       >
                         <FileText className="h-4 w-4" />
                       </Button>
@@ -557,16 +561,7 @@ const Chat = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" asChild className="text-gray-600">
-                  <Link to="/login">Log in</Link>
-                </Button>
-                <Button size="sm" asChild className="bg-therapy-purple hover:bg-therapy-purple/90">
-                  <Link to="/signup">Sign up</Link>
-                </Button>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </header>

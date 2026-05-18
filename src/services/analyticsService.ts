@@ -51,6 +51,7 @@ export function trackEvent(
   const row = {
     event_name: eventName,
     session_id: getSessionId(),
+    tracking_id: trackingId,
     conversation_id: options.conversationId ?? null,
     ab_variant: options.variant ?? null,
     page_slug: options.pageSlug ?? null,

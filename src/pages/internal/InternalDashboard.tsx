@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { internalCmsService, ConversationWithExtraction, AggregateStats, FunnelAnalyticsData } from '@/services/internalCmsService';
 import { Button } from '@/components/ui/button';
@@ -16,14 +16,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
   MessageSquare,
   Users,
   Brain,
@@ -33,21 +25,13 @@ import {
   ChevronRight,
   Wand2,
   RefreshCw,
-  LogOut,
   Eye,
-  BarChart3,
-  LayoutDashboard,
-  FlaskConical,
   Mail,
-  SlidersHorizontal,
-  Link2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { BrandAppIcon } from '@/components/brand/BrandLogo';
 
 const InternalDashboard: React.FC = () => {
-  const { user, isInternal, signOut, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
+  const { isInternal } = useAuth();
   const { toast } = useToast();
 
   const [conversations, setConversations] = useState<ConversationWithExtraction[]>([]);
@@ -59,17 +43,6 @@ const InternalDashboard: React.FC = () => {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 15;
-
-  useEffect(() => {
-    if (!authLoading && !isInternal) {
-      navigate('/');
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have access to the internal dashboard.',
-        variant: 'destructive',
-      });
-    }
-  }, [authLoading, isInternal, navigate, toast]);
 
   useEffect(() => {
     if (isInternal) {
@@ -135,11 +108,6 @@ const InternalDashboard: React.FC = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
@@ -156,105 +124,13 @@ const InternalDashboard: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-therapy-purple" />
-      </div>
-    );
-  }
 
   if (!isInternal) {
     return null;
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50" />
-      
-      {/* Decorative elements */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-purple-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl" />
-
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header */}
-        <header className="w-full py-4 px-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center gap-2">
-                <BrandAppIcon size="md" />
-                <span className="text-xl font-bold text-gray-800">Goldfish</span>
-              </Link>
-              <div className="h-6 w-px bg-gray-200" />
-              <div className="flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4 text-therapy-purple" />
-                <span className="text-sm font-medium text-gray-600">Internal CMS</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Link to="/internal/playground">
-                <Button variant="outline" className="border-therapy-purple/30 text-therapy-purple hover:bg-therapy-purple/5">
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Chat Playground
-                </Button>
-              </Link>
-              <Link to="/internal/developer">
-                <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-                  <SlidersHorizontal className="h-4 w-4 mr-2" />
-                  Developer settings
-                </Button>
-              </Link>
-              <Link to="/internal/share-links">
-                <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Share Links
-                </Button>
-              </Link>
-              <Link to="/internal/funnel">
-                <Button variant="outline" className="border-therapy-pink/30 text-therapy-pink hover:bg-therapy-pink/5">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Funnel Analytics
-                </Button>
-              </Link>
-              <Link to="/internal/aggregate">
-                <Button className="bg-gradient-to-r from-therapy-purple to-therapy-pink hover:opacity-90 text-white">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Aggregate Analysis
-                </Button>
-              </Link>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-therapy-purple text-white">
-                        {user?.email?.charAt(0).toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium text-sm">{user?.email}</p>
-                      <p className="text-xs text-muted-foreground">Internal User</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+    <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0">
@@ -326,21 +202,23 @@ const InternalDashboard: React.FC = () => {
 
           {/* Funnel KPI row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-gray-500 flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-therapy-purple" />
-                  Waitlist Signups (30d)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <p className="text-3xl font-bold text-therapy-purple">{funnelData?.waitlistSubmissions ?? 0}</p>
-                )}
-              </CardContent>
-            </Card>
+            <Link to="/internal/waitlist" className="block">
+              <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 hover:border-therapy-purple/30 border border-transparent transition-colors h-full">
+                <CardHeader className="pb-2">
+                  <CardDescription className="text-gray-500 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-therapy-purple" />
+                    Waitlist Signups (30d)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <p className="text-3xl font-bold text-therapy-purple">{funnelData?.waitlistSubmissions ?? 0}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
 
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0">
               <CardHeader className="pb-2">
@@ -544,9 +422,7 @@ const InternalDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </main>
-      </div>
-    </div>
+    </>
   );
 };
 

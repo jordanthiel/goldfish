@@ -38,6 +38,7 @@ import PatientResources from "./pages/patient/PatientResources";
 import ClaimAccount from "./pages/patient/ClaimAccount"; // New component for claiming account
 
 // Internal CMS pages
+import InternalLayout from "./components/internal/InternalLayout";
 import InternalDashboard from "./pages/internal/InternalDashboard";
 import ConversationDetail from "./pages/internal/ConversationDetail";
 import AggregateAnalysis from "./pages/internal/AggregateAnalysis";
@@ -45,6 +46,7 @@ import ChatPlayground from "./pages/internal/ChatPlayground";
 import FunnelAnalytics from "./pages/internal/FunnelAnalytics";
 import InternalDeveloperSettings from "./pages/internal/InternalDeveloperSettings";
 import ShareLinks from "./pages/internal/ShareLinks";
+import Waitlist from "./pages/internal/Waitlist";
 import { MetaPixelRouteListener } from "./components/MetaPixelRouteListener";
 
 // Create a QueryClient with better defaults for our app
@@ -83,14 +85,17 @@ const App = () => (
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
             <Route path="/find-therapist" element={<TherapistDiscovery />} /> {/* New route for therapist discovery */}
             
-            {/* Internal CMS Routes - protected by component-level checks for isInternal */}
-            <Route path="/internal" element={<InternalDashboard />} />
-            <Route path="/internal/conversation/:id" element={<ConversationDetail />} />
-            <Route path="/internal/aggregate" element={<AggregateAnalysis />} />
-            <Route path="/internal/playground" element={<ChatPlayground />} />
-            <Route path="/internal/funnel" element={<FunnelAnalytics />} />
-            <Route path="/internal/developer" element={<InternalDeveloperSettings />} />
-            <Route path="/internal/share-links" element={<ShareLinks />} />
+            {/* Internal CMS — layout enforces isInternal; pages use shared left nav */}
+            <Route path="/internal" element={<InternalLayout />}>
+              <Route index element={<InternalDashboard />} />
+              <Route path="conversation/:id" element={<ConversationDetail />} />
+              <Route path="aggregate" element={<AggregateAnalysis />} />
+              <Route path="playground" element={<ChatPlayground />} />
+              <Route path="funnel" element={<FunnelAnalytics />} />
+              <Route path="waitlist" element={<Waitlist />} />
+              <Route path="developer" element={<InternalDeveloperSettings />} />
+              <Route path="share-links" element={<ShareLinks />} />
+            </Route>
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
