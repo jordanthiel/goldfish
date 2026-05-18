@@ -162,6 +162,16 @@ const ConversationDetail: React.FC = () => {
     });
   };
 
+  const formatCompactDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   useInternalPageHeader(
     {
       title: conversation
@@ -186,6 +196,7 @@ const ConversationDetail: React.FC = () => {
     },
     [conversation, extracting],
   );
+
 
   if (!isInternal) return null;
 
@@ -424,6 +435,47 @@ const ConversationDetail: React.FC = () => {
                     )}
                   </CardContent>
                 </Card>
+
+                {conversation.waitlistSubmissions && conversation.waitlistSubmissions.length > 0 && (
+                  <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl overflow-hidden">
+                    <CardHeader>
+                      <CardTitle className="text-gray-800 text-sm flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-therapy-purple" />
+                        Waitlist Signup
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {conversation.waitlistSubmissions.map((submission) => (
+                        <div
+                          key={submission.id}
+                          className="p-3 bg-gradient-to-br from-therapy-purple/5 to-therapy-pink/5 border border-purple-100 rounded-xl"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                              <p className="text-gray-800 text-sm font-medium">{submission.name}</p>
+                              <a
+                                href={`mailto:${submission.email}`}
+                                className="text-xs text-therapy-purple hover:underline"
+                              >
+                                {submission.email}
+                              </a>
+                            </div>
+                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                              {submission.conversation_id === conversation.id ? 'Direct' : 'Session'}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                            <span>Variant {submission.ab_variant}</span>
+                            <span>{submission.page_slug ? `/${submission.page_slug}` : 'Default chat'}</span>
+                            <span className="col-span-2">
+                              Submitted {formatCompactDate(submission.created_at)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Extracted Data Card */}
                 {conversation.extraction ? (

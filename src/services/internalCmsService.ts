@@ -28,6 +28,31 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface WaitlistSubmission {
+  id: string;
+  name: string;
+  email: string;
+  ab_variant: string;
+  conversation_id: string | null;
+  session_id: string | null;
+  page_slug: string | null;
+  created_at: string;
+}
+
+export interface WaitlistConversationSummary {
+  id: string;
+  session_id: string;
+  model_id: string;
+  started_at: string;
+  ended_at: string | null;
+  message_count: number;
+}
+
+export interface WaitlistSubmissionWithConversation extends WaitlistSubmission {
+  conversation?: WaitlistConversationSummary;
+  conversationMatch: 'conversation_id' | 'session_id' | null;
+}
+
 export interface ConversationWithExtraction {
   id: string;
   user_id: string | null;
@@ -42,6 +67,7 @@ export interface ConversationWithExtraction {
   updated_at: string;
   extraction?: ConversationExtraction;
   profile?: UserProfile;
+  waitlistSubmissions?: WaitlistSubmission[];
 }
 
 export interface AnalysisThread {
@@ -121,6 +147,112 @@ export const internalCmsService = {
     } catch (error) {
       console.error('Error in isInternalUser:', error);
       return false;
+    }
+  },
+
+  async getWaitlistSubmissions(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: WaitlistSubmissionWithConversation[]; count: number }> {
+    try {
+      let query = supabase
+        .from('waitlist_submissions')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
+
+      if (options?.limit) {
+        const offset = options.offset ?? 0;
+        query = query.range(offset, offset + options.limit - 1);
+      }
+
+      const { data: submissions, error, count } = await query;
+
+      if (error) {
+        console.error('Error fetching waitlist submissions:', error);
+        return { data: [], count: 0 };
+      }
+
+      const rows = (submissions || []) as WaitlistSubmission[];
+      const conversationIds = Array.from(
+        new Set(rows.map((row) => row.conversation_id).filter(Boolean) as string[])
+      );
+      const sessionIds = Array.from(
+        new Set(rows.map((row) => row.session_id).filter(Boolean) as string[])
+      );
+
+      const conversationById = new Map<string, WaitlistConversationSummary>();
+      const conversationBySession = new Map<string, WaitlistConversationSummary>();
+
+      if (conversationIds.length > 0) {
+        const { data: conversations, error: conversationError } = await supabase
+          .from('chatbot_conversations')
+          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
+          .in('id', conversationIds);
+
+        if (conversationError) {
+          console.error('Error fetching waitlist conversations by id:', conversationError);
+        }
+
+        for (const conversation of conversations || []) {
+          const summary = {
+            id: conversation.id,
+            session_id: conversation.session_id,
+            model_id: conversation.model_id,
+            started_at: conversation.started_at,
+            ended_at: conversation.ended_at,
+            message_count: Array.isArray(conversation.conversation_data)
+              ? conversation.conversation_data.length
+              : 0,
+          };
+          conversationById.set(conversation.id, summary);
+          conversationBySession.set(conversation.session_id, summary);
+        }
+      }
+
+      if (sessionIds.length > 0) {
+        const { data: conversations, error: conversationError } = await supabase
+          .from('chatbot_conversations')
+          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
+          .in('session_id', sessionIds)
+          .order('started_at', { ascending: false });
+
+        if (conversationError) {
+          console.error('Error fetching waitlist conversations by session:', conversationError);
+        }
+
+        for (const conversation of conversations || []) {
+          if (conversationBySession.has(conversation.session_id)) continue;
+
+          conversationBySession.set(conversation.session_id, {
+            id: conversation.id,
+            session_id: conversation.session_id,
+            model_id: conversation.model_id,
+            started_at: conversation.started_at,
+            ended_at: conversation.ended_at,
+            message_count: Array.isArray(conversation.conversation_data)
+              ? conversation.conversation_data.length
+              : 0,
+          });
+        }
+      }
+
+      return {
+        data: rows.map((row) => {
+          const directMatch = row.conversation_id ? conversationById.get(row.conversation_id) : undefined;
+          const sessionMatch = row.session_id ? conversationBySession.get(row.session_id) : undefined;
+          const conversation = directMatch || sessionMatch;
+
+          return {
+            ...row,
+            conversation,
+            conversationMatch: directMatch ? 'conversation_id' : conversation ? 'session_id' : null,
+          };
+        }),
+        count: count || 0,
+      };
+    } catch (error) {
+      console.error('Error in getWaitlistSubmissions:', error);
+      return { data: [], count: 0 };
     }
   },
 
@@ -223,10 +355,32 @@ export const internalCmsService = {
         profile = profileData as UserProfile | undefined;
       }
 
+      const [{ data: waitlistByConversation }, { data: waitlistBySession }] = await Promise.all([
+        supabase
+          .from('waitlist_submissions')
+          .select('*')
+          .eq('conversation_id', id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('waitlist_submissions')
+          .select('*')
+          .eq('session_id', conversation.session_id)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      const waitlistMap = new Map<string, WaitlistSubmission>();
+      for (const submission of [
+        ...(waitlistByConversation || []),
+        ...(waitlistBySession || []),
+      ] as WaitlistSubmission[]) {
+        waitlistMap.set(submission.id, submission);
+      }
+
       return {
         ...conversation,
         extraction: extraction || undefined,
         profile,
+        waitlistSubmissions: Array.from(waitlistMap.values()),
       } as ConversationWithExtraction;
     } catch (error) {
       console.error('Error in getConversation:', error);
