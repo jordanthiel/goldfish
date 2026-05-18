@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { internalCmsService, ConversationWithExtraction, AggregateStats, FunnelAnalyticsData } from '@/services/internalCmsService';
+import {
+  internalCmsService,
+  ConversationWithExtraction,
+  AggregateStats,
+  FunnelAnalyticsData,
+  WaitlistSubmissionWithConversation,
+} from '@/services/internalCmsService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +64,12 @@ const InternalDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [waitlistSubmissions, setWaitlistSubmissions] = useState<WaitlistSubmissionWithConversation[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(true);
+  const [waitlistPage, setWaitlistPage] = useState(0);
+  const [waitlistCount, setWaitlistCount] = useState(0);
   const pageSize = 15;
+  const waitlistPageSize = 10;
 
   useEffect(() => {
     if (!authLoading && !isInternal) {
@@ -76,6 +87,12 @@ const InternalDashboard: React.FC = () => {
       loadData();
     }
   }, [isInternal, page]);
+
+  useEffect(() => {
+    if (isInternal) {
+      loadWaitlistData();
+    }
+  }, [isInternal, waitlistPage]);
 
   const loadData = async () => {
     setLoading(true);
@@ -102,6 +119,28 @@ const InternalDashboard: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWaitlistData = async () => {
+    setWaitlistLoading(true);
+    try {
+      const result = await internalCmsService.getWaitlistSubmissions({
+        limit: waitlistPageSize,
+        offset: waitlistPage * waitlistPageSize,
+      });
+
+      setWaitlistSubmissions(result.data);
+      setWaitlistCount(result.count);
+    } catch (error) {
+      console.error('Error loading waitlist submissions:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load waitlist signups.',
+        variant: 'destructive',
+      });
+    } finally {
+      setWaitlistLoading(false);
     }
   };
 
@@ -154,7 +193,13 @@ const InternalDashboard: React.FC = () => {
     return conv.conversation_data?.length || 0;
   };
 
+  const formatShortId = (value?: string | null, maxLength: number = 18) => {
+    if (!value) return '—';
+    return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
+  const totalWaitlistPages = Math.ceil(waitlistCount / waitlistPageSize);
 
   if (authLoading) {
     return (
@@ -382,6 +427,169 @@ const InternalDashboard: React.FC = () => {
               </Card>
             </Link>
           </div>
+
+          {/* Waitlist submissions */}
+          <Card className="bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl overflow-hidden mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-gray-800 flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-therapy-purple" />
+                    Waitlist Signups
+                  </CardTitle>
+                  <CardDescription className="text-gray-500">
+                    Users who submitted the waitlist form, mapped back to their chat conversation when available
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className="border-purple-100 text-therapy-purple bg-purple-50">
+                    {waitlistCount} total
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadWaitlistData}
+                    className="border-gray-200"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {waitlistLoading ? (
+                <div className="space-y-4">
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-14" />
+                  ))}
+                </div>
+              ) : waitlistSubmissions.length === 0 ? (
+                <div className="py-10 text-center">
+                  <Mail className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No waitlist signups found yet.</p>
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-gray-100">
+                        <TableHead className="text-gray-500">Submitted</TableHead>
+                        <TableHead className="text-gray-500">User</TableHead>
+                        <TableHead className="text-gray-500">Source</TableHead>
+                        <TableHead className="text-gray-500">Conversation Mapping</TableHead>
+                        <TableHead className="text-gray-500 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {waitlistSubmissions.map((submission) => (
+                        <TableRow key={submission.id} className="hover:bg-purple-50/50 border-gray-100">
+                          <TableCell className="text-gray-700">
+                            {formatDate(submission.created_at)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium text-gray-800">{submission.name}</p>
+                              <a
+                                href={`mailto:${submission.email}`}
+                                className="text-sm text-therapy-purple hover:underline"
+                              >
+                                {submission.email}
+                              </a>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-2">
+                              <Badge variant="outline" className="border-gray-200 text-gray-600 bg-white">
+                                Variant {submission.ab_variant}
+                              </Badge>
+                              <p className="text-xs text-gray-500">
+                                {submission.page_slug ? `/${submission.page_slug}` : 'Default chat'}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {submission.conversation ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                                    {submission.conversationMatch === 'conversation_id' ? 'Direct link' : 'Session match'}
+                                  </Badge>
+                                  <span className="text-xs text-gray-500">
+                                    {submission.conversation.message_count} messages
+                                  </span>
+                                </div>
+                                <p className="font-mono text-xs text-gray-500">
+                                  {formatShortId(submission.conversation.id, 22)}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  Started {formatDate(submission.conversation.started_at)}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50">
+                                  No conversation found
+                                </Badge>
+                                <p className="font-mono text-xs text-gray-400">
+                                  Session {formatShortId(submission.session_id, 22)}
+                                </p>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {submission.conversation ? (
+                              <Link to={`/internal/conversation/${submission.conversation.id}`}>
+                                <Button size="sm" variant="ghost" className="text-therapy-purple hover:text-therapy-purple hover:bg-purple-50">
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View chat
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Button size="sm" variant="ghost" disabled>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View chat
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                    <p className="text-sm text-gray-500">
+                      Showing {waitlistPage * waitlistPageSize + 1} to{' '}
+                      {Math.min((waitlistPage + 1) * waitlistPageSize, waitlistCount)} of{' '}
+                      {waitlistCount} waitlist signups
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWaitlistPage(waitlistPage - 1)}
+                        disabled={waitlistPage === 0}
+                        className="border-gray-200"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-gray-600 px-2">
+                        Page {waitlistPage + 1} of {totalWaitlistPages || 1}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWaitlistPage(waitlistPage + 1)}
+                        disabled={waitlistPage >= totalWaitlistPages - 1}
+                        className="border-gray-200"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Conversations Table */}
           <Card className="bg-white/80 backdrop-blur-sm shadow-xl border-0 rounded-2xl overflow-hidden">
