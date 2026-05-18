@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { SortableTableHead } from './SortableTableHead';
 import { AnalyticsTruncationBanner } from './AnalyticsTruncationBanner';
+import { VariantBadge } from '@/components/internal/VariantBadge';
 
 const STEP_LABELS: Record<FunnelEventName, string> = {
   page_view: 'Page view',
@@ -240,13 +241,7 @@ export const AnalyticsEventsTab: React.FC<Props> = ({ filters, refreshKey }) => 
                         {trackingId(row) ?? '—'}
                       </TableCell>
                       <TableCell>
-                        {row.ab_variant ? (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {row.ab_variant}
-                          </Badge>
-                        ) : (
-                          '—'
-                        )}
+                        <VariantBadge variant={row.ab_variant as 'A' | 'B' | null} showName={false} />
                       </TableCell>
                       <TableCell className="text-right">
                         {row.conversation_id ? (

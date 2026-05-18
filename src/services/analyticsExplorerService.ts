@@ -83,6 +83,37 @@ export interface AnalyticsFilterOptions {
   eventNames: FunnelEventName[];
 }
 
+const VARIANT_STEP_LABELS: Record<FunnelEventName, string> = {
+  page_view: 'Page view',
+  chat_started: 'Chat started',
+  message_sent: 'Sent message',
+  conversation_complete: 'Chat complete',
+  email_capture_shown: 'Email form shown',
+  email_capture_submitted: 'Waitlist signup',
+};
+
+export interface VariantFunnelRow {
+  step: FunnelEventName;
+  stepLabel: string;
+  sessionsA: number;
+  sessionsB: number;
+  stepConversionA: number | null;
+  stepConversionB: number | null;
+}
+
+export interface VariantComparisonData {
+  funnelByStep: VariantFunnelRow[];
+  assignedSessionsA: number;
+  assignedSessionsB: number;
+  waitlistSignupsA: number;
+  waitlistSignupsB: number;
+  formToSignupRateA: number | null;
+  formToSignupRateB: number | null;
+  pageToSignupRateA: number | null;
+  pageToSignupRateB: number | null;
+  truncated: boolean;
+}
+
 export const DEFAULT_ANALYTICS_FILTERS = (): AnalyticsFilters => {
   const to = new Date();
   const from = new Date();
@@ -114,10 +145,35 @@ function resolveTrackingId(row: FunnelEventRow): string | null {
   return typeof meta === 'string' ? meta : null;
 }
 
+type AbVariant = 'A' | 'B';
+
+function isAbVariant(v: string | null | undefined): v is AbVariant {
+  return v === 'A' || v === 'B';
+}
+
+/** First A/B variant recorded for each session (from any funnel event). */
+function buildSessionVariantMap(rows: FunnelEventRow[]): Map<string, AbVariant> {
+  const map = new Map<string, AbVariant>();
+  for (const r of rows) {
+    if (!isAbVariant(r.ab_variant) || map.has(r.session_id)) continue;
+    map.set(r.session_id, r.ab_variant);
+  }
+  return map;
+}
+
+function effectiveAbVariant(
+  row: FunnelEventRow,
+  sessionVariants: Map<string, AbVariant>,
+): string | null {
+  if (isAbVariant(row.ab_variant)) return row.ab_variant;
+  return sessionVariants.get(row.session_id) ?? null;
+}
+
 function applyClientFilters(
   rows: FunnelEventRow[],
   filters: AnalyticsFilters,
 ): FunnelEventRow[] {
+  const sessionVariants = buildSessionVariantMap(rows);
   return rows.filter((r) => {
     if (filters.eventNames.length > 0 && !filters.eventNames.includes(r.event_name as FunnelEventName)) {
       return false;
@@ -126,7 +182,7 @@ function applyClientFilters(
       if (!r.page_slug || !filters.pageSlugs.includes(r.page_slug)) return false;
     }
     if (filters.abVariants.length > 0) {
-      const v = r.ab_variant ?? 'none';
+      const v = effectiveAbVariant(r, sessionVariants) ?? 'none';
       if (!filters.abVariants.includes(v)) return false;
     }
     if (filters.trackingId.trim()) {
@@ -178,10 +234,11 @@ function buildAggregated(rows: FunnelEventRow[], filters: AnalyticsFilters): Fun
     count: sessionsByEvent.get(name)?.size ?? 0,
   }));
 
+  const sessionVariants = buildSessionVariantMap(filtered);
   const variantKey = (e: string, v: string | null) => `${e}|${v ?? 'none'}`;
   const variantSessions = new Map<string, Set<string>>();
   for (const r of filtered) {
-    const k = variantKey(r.event_name, r.ab_variant);
+    const k = variantKey(r.event_name, effectiveAbVariant(r, sessionVariants));
     if (!variantSessions.has(k)) variantSessions.set(k, new Set());
     variantSessions.get(k)!.add(r.session_id);
   }
@@ -220,6 +277,7 @@ function buildAggregated(rows: FunnelEventRow[], filters: AnalyticsFilters): Fun
 }
 
 function buildSessionRows(rows: FunnelEventRow[]): SessionAnalyticsRow[] {
+  const sessionVariants = buildSessionVariantMap(rows);
   const bySession = new Map<string, FunnelEventRow[]>();
   for (const r of rows) {
     const list = bySession.get(r.session_id) ?? [];
@@ -242,7 +300,7 @@ function buildSessionRows(rows: FunnelEventRow[]): SessionAnalyticsRow[] {
       [...sorted].reverse().find((e) => e.conversation_id)?.conversation_id ?? null;
     const trackingId =
       [...sorted].reverse().map(resolveTrackingId).find(Boolean) ?? null;
-    const abVariant = sorted.find((e) => e.ab_variant)?.ab_variant ?? null;
+    const abVariant = sessionVariants.get(sessionId) ?? null;
 
     sessions.push({
       sessionId,
@@ -336,6 +394,8 @@ function buildBreakdown(
   rows: FunnelEventRow[],
   groupBy: 'page_slug' | 'tracking_id' | 'ab_variant' | 'event_name',
 ): BreakdownRow[] {
+  const sessionVariants =
+    groupBy === 'ab_variant' ? buildSessionVariantMap(rows) : new Map<string, AbVariant>();
   const groups = new Map<string, FunnelEventRow[]>();
   for (const r of rows) {
     let key = '';
@@ -347,7 +407,7 @@ function buildBreakdown(
         key = resolveTrackingId(r) ?? '(none)';
         break;
       case 'ab_variant':
-        key = r.ab_variant ?? '(none)';
+        key = effectiveAbVariant(r, sessionVariants) ?? '(none)';
         break;
       case 'event_name':
         key = r.event_name;
@@ -382,6 +442,90 @@ function buildBreakdown(
   }
 
   return result.sort((a, b) => b.sessions - a.sessions);
+}
+
+function uniqueSessionsForStep(
+  rows: FunnelEventRow[],
+  step: FunnelEventName,
+  variant: 'A' | 'B',
+  sessionVariants: Map<string, AbVariant>,
+): number {
+  const sessionsWithStep = new Set(
+    rows.filter((r) => r.event_name === step).map((r) => r.session_id),
+  );
+  let count = 0;
+  for (const sessionId of sessionsWithStep) {
+    if (sessionVariants.get(sessionId) === variant) count++;
+  }
+  return count;
+}
+
+function buildVariantComparison(filtered: FunnelEventRow[]): Omit<VariantComparisonData, 'truncated'> {
+  const sessionVariants = buildSessionVariantMap(filtered);
+  const funnelByStep: VariantFunnelRow[] = FUNNEL_STEPS.map((step, index) => {
+    const sessionsA = uniqueSessionsForStep(filtered, step, 'A', sessionVariants);
+    const sessionsB = uniqueSessionsForStep(filtered, step, 'B', sessionVariants);
+    const prevStep = index > 0 ? FUNNEL_STEPS[index - 1] : null;
+    const prevA = prevStep
+      ? uniqueSessionsForStep(filtered, prevStep, 'A', sessionVariants)
+      : sessionsA;
+    const prevB = prevStep
+      ? uniqueSessionsForStep(filtered, prevStep, 'B', sessionVariants)
+      : sessionsB;
+
+    return {
+      step,
+      stepLabel: VARIANT_STEP_LABELS[step],
+      sessionsA,
+      sessionsB,
+      stepConversionA:
+        prevStep && prevA > 0 ? (sessionsA / prevA) * 100 : null,
+      stepConversionB:
+        prevStep && prevB > 0 ? (sessionsB / prevB) * 100 : null,
+    };
+  });
+
+  const assignedSessionsA = [...sessionVariants.values()].filter((v) => v === 'A').length;
+  const assignedSessionsB = [...sessionVariants.values()].filter((v) => v === 'B').length;
+
+  const waitlistSignupsA = uniqueSessionsForStep(
+    filtered,
+    'email_capture_submitted',
+    'A',
+    sessionVariants,
+  );
+  const waitlistSignupsB = uniqueSessionsForStep(
+    filtered,
+    'email_capture_submitted',
+    'B',
+    sessionVariants,
+  );
+  const formShownA = uniqueSessionsForStep(
+    filtered,
+    'email_capture_shown',
+    'A',
+    sessionVariants,
+  );
+  const formShownB = uniqueSessionsForStep(
+    filtered,
+    'email_capture_shown',
+    'B',
+    sessionVariants,
+  );
+  const pageViewsA = uniqueSessionsForStep(filtered, 'page_view', 'A', sessionVariants);
+  const pageViewsB = uniqueSessionsForStep(filtered, 'page_view', 'B', sessionVariants);
+
+  return {
+    funnelByStep,
+    assignedSessionsA,
+    assignedSessionsB,
+    waitlistSignupsA,
+    waitlistSignupsB,
+    formToSignupRateA: formShownA > 0 ? (waitlistSignupsA / formShownA) * 100 : null,
+    formToSignupRateB: formShownB > 0 ? (waitlistSignupsB / formShownB) * 100 : null,
+    pageToSignupRateA: pageViewsA > 0 ? (waitlistSignupsA / pageViewsA) * 100 : null,
+    pageToSignupRateB: pageViewsB > 0 ? (waitlistSignupsB / pageViewsB) * 100 : null,
+  };
 }
 
 export const analyticsExplorerService = {
@@ -441,11 +585,15 @@ export const analyticsExplorerService = {
     const { fromISO, toISO } = filtersToDateRange(filters);
     const rows = await fetchEventsInRange(fromISO, toISO);
     const filtered = applyClientFilters(rows, filters);
+    const sessionVariants = buildSessionVariantMap(filtered);
     const sorted = sortEvents(
       filtered,
       options.sortField ?? 'created_at',
       options.sortDirection ?? 'desc',
-    );
+    ).map((r) => ({
+      ...r,
+      ab_variant: effectiveAbVariant(r, sessionVariants),
+    }));
 
     const pageSize = options.pageSize ?? 50;
     const page = options.page ?? 0;
@@ -488,6 +636,17 @@ export const analyticsExplorerService = {
     };
   },
 
+  async getVariantComparison(filters: AnalyticsFilters): Promise<VariantComparisonData> {
+    const { fromISO, toISO } = filtersToDateRange(filters);
+    const rows = await fetchEventsInRange(fromISO, toISO);
+    const filtered = applyClientFilters(rows, filters);
+    const comparison = buildVariantComparison(filtered);
+    return {
+      ...comparison,
+      truncated: rows.length >= ANALYTICS_FETCH_LIMIT,
+    };
+  },
+
   async getBreakdowns(filters: AnalyticsFilters) {
     const { fromISO, toISO } = filtersToDateRange(filters);
     const rows = await fetchEventsInRange(fromISO, toISO);
@@ -510,6 +669,7 @@ export const analyticsExplorerService = {
     const { fromISO, toISO } = filtersToDateRange(filters);
     const rows = await fetchEventsInRange(fromISO, toISO);
     const filtered = applyClientFilters(rows, filters);
+    const sessionVariants = buildSessionVariantMap(filtered);
     const sorted = sortEvents(filtered, sortField, sortDirection);
 
     const header = [
@@ -529,7 +689,7 @@ export const analyticsExplorerService = {
         r.session_id,
         resolveTrackingId(r) ?? '',
         r.page_slug ?? '',
-        r.ab_variant ?? '',
+        effectiveAbVariant(r, sessionVariants) ?? '',
         r.conversation_id ?? '',
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)

@@ -35,6 +35,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { VariantBadge } from '@/components/internal/VariantBadge';
 
 const InternalDashboard: React.FC = () => {
   const { isInternal } = useAuth();
@@ -513,6 +514,7 @@ const InternalDashboard: React.FC = () => {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent border-gray-100">
                         <TableHead className="text-gray-500">Session</TableHead>
+                        <TableHead className="text-gray-500">A/B variant</TableHead>
                         <TableHead className="text-gray-500">Date</TableHead>
                         <TableHead className="text-gray-500">Model</TableHead>
                         <TableHead className="text-gray-500">Messages</TableHead>
@@ -526,6 +528,9 @@ const InternalDashboard: React.FC = () => {
                         <TableRow key={conv.id} className="hover:bg-purple-50/50 border-gray-100">
                           <TableCell className="font-mono text-xs text-gray-500">
                             {conv.session_id.slice(0, 16)}...
+                          </TableCell>
+                          <TableCell>
+                            <VariantBadge variant={conv.emailCaptureVariant} />
                           </TableCell>
                           <TableCell className="text-gray-700">
                             {formatDate(conv.started_at)}

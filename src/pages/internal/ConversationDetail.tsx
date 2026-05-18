@@ -26,6 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { BrandChatAvatar } from '@/components/brand/BrandLogo';
 import { useInternalPageHeader } from '@/components/internal/InternalLayoutContext';
+import { VariantBadge } from '@/components/internal/VariantBadge';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -420,6 +421,10 @@ const ConversationDetail: React.FC = () => {
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span className="text-gray-500">Started:</span>
                       <span className="text-gray-700">{formatDate(conversation.started_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-gray-500 shrink-0">A/B variant:</span>
+                      <VariantBadge variant={conversation.emailCaptureVariant} />
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <Clock className="h-4 w-4 text-gray-400" />

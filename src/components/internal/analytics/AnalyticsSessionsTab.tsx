@@ -30,6 +30,7 @@ import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SortableTableHead } from './SortableTableHead';
 import { AnalyticsTruncationBanner } from './AnalyticsTruncationBanner';
+import { VariantBadge } from '@/components/internal/VariantBadge';
 
 const STEP_LABELS: Record<FunnelEventName, string> = {
   page_view: 'Page view',
@@ -148,6 +149,7 @@ export const AnalyticsSessionsTab: React.FC<Props> = ({ filters, refreshKey }) =
                       onSort={handleSort}
                     />
                     <TableHead>Session</TableHead>
+                    <TableHead>Variant</TableHead>
                     <TableHead>Link ID</TableHead>
                     <TableHead>Pages</TableHead>
                     <TableHead>Journey</TableHead>
@@ -182,6 +184,9 @@ export const AnalyticsSessionsTab: React.FC<Props> = ({ filters, refreshKey }) =
                         title={row.sessionId}
                       >
                         …{row.sessionId.slice(-12)}
+                      </TableCell>
+                      <TableCell>
+                        <VariantBadge variant={row.abVariant} showName={false} />
                       </TableCell>
                       <TableCell className="text-xs font-mono">
                         {row.trackingId ?? '—'}

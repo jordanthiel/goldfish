@@ -17,6 +17,7 @@ import { AnalyticsOverviewTab } from '@/components/internal/analytics/AnalyticsO
 import { AnalyticsEventsTab } from '@/components/internal/analytics/AnalyticsEventsTab';
 import { AnalyticsSessionsTab } from '@/components/internal/analytics/AnalyticsSessionsTab';
 import { AnalyticsBreakdownTab } from '@/components/internal/analytics/AnalyticsBreakdownTab';
+import { AnalyticsVariantsTab } from '@/components/internal/analytics/AnalyticsVariantsTab';
 
 type OverviewData = FunnelAnalyticsData & {
   uniqueSessions?: number;
@@ -118,6 +119,7 @@ const FunnelAnalytics: React.FC = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="events">Event log</TabsTrigger>
+          <TabsTrigger value="variants">A/B variants</TabsTrigger>
           <TabsTrigger value="breakdown">Breakdowns</TabsTrigger>
         </TabsList>
 
@@ -131,6 +133,10 @@ const FunnelAnalytics: React.FC = () => {
 
         <TabsContent value="events" className="mt-6">
           <AnalyticsEventsTab filters={appliedFilters} refreshKey={refreshKey} />
+        </TabsContent>
+
+        <TabsContent value="variants" className="mt-6">
+          <AnalyticsVariantsTab filters={appliedFilters} refreshKey={refreshKey} />
         </TabsContent>
 
         <TabsContent value="breakdown" className="mt-6">

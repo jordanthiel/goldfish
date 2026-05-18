@@ -76,6 +76,57 @@ export interface ConversationWithExtraction {
   extraction?: ConversationExtraction;
   profile?: UserProfile;
   waitlistSubmissions?: WaitlistSubmission[];
+  /** A/B email capture variant (from waitlist signup or funnel events). */
+  emailCaptureVariant?: 'A' | 'B' | null;
+}
+
+async function enrichConversationsWithVariants(
+  conversations: Array<{ id: string; session_id: string }>,
+): Promise<Map<string, 'A' | 'B'>> {
+  const variantByConversationId = new Map<string, 'A' | 'B'>();
+  if (conversations.length === 0) return variantByConversationId;
+
+  const conversationIds = conversations.map((c) => c.id);
+  const sessionIds = [...new Set(conversations.map((c) => c.session_id))];
+
+  const [{ data: waitlistRows }, { data: funnelRows }] = await Promise.all([
+    supabase
+      .from('waitlist_submissions')
+      .select('ab_variant, session_id, conversation_id, linked_conversation_id')
+      .or(
+        `conversation_id.in.(${conversationIds.join(',')}),linked_conversation_id.in.(${conversationIds.join(',')}),session_id.in.(${sessionIds.join(',')})`,
+      ),
+    supabase
+      .from('funnel_events')
+      .select('session_id, ab_variant')
+      .in('session_id', sessionIds)
+      .in('ab_variant', ['A', 'B']),
+  ]);
+
+  const sessionToConv = new Map(conversations.map((c) => [c.session_id, c.id]));
+
+  for (const row of waitlistRows ?? []) {
+    if (row.ab_variant !== 'A' && row.ab_variant !== 'B') continue;
+    const linkedId =
+      row.linked_conversation_id ?? row.conversation_id ?? null;
+    if (linkedId) variantByConversationId.set(linkedId, row.ab_variant);
+    if (row.session_id) {
+      const convId = sessionToConv.get(row.session_id);
+      if (convId && !variantByConversationId.has(convId)) {
+        variantByConversationId.set(convId, row.ab_variant);
+      }
+    }
+  }
+
+  for (const row of funnelRows ?? []) {
+    if (row.ab_variant !== 'A' && row.ab_variant !== 'B') continue;
+    const convId = sessionToConv.get(row.session_id);
+    if (convId && !variantByConversationId.has(convId)) {
+      variantByConversationId.set(convId, row.ab_variant);
+    }
+  }
+
+  return variantByConversationId;
 }
 
 export interface AnalysisThread {
@@ -329,10 +380,15 @@ export const internalCmsService = {
         (extractions || []).map(e => [e.conversation_id, e])
       );
 
-      const result = (conversations || []).map(conv => ({
+      const variantByConvId = await enrichConversationsWithVariants(
+        (conversations || []).map((c) => ({ id: c.id, session_id: c.session_id })),
+      );
+
+      const result = (conversations || []).map((conv) => ({
         ...conv,
         extraction: extractionMap.get(conv.id) || undefined,
         profile: conv.user_id ? profileMap.get(conv.user_id) : undefined,
+        emailCaptureVariant: variantByConvId.get(conv.id) ?? null,
       })) as ConversationWithExtraction[];
 
       return { data: result, count: count || 0 };
@@ -394,11 +450,22 @@ export const internalCmsService = {
         waitlistMap.set(submission.id, submission);
       }
 
+      const variantRows = Array.from(waitlistMap.values());
+      const fromWaitlist =
+        variantRows[0]?.ab_variant === 'A' || variantRows[0]?.ab_variant === 'B'
+          ? variantRows[0].ab_variant
+          : null;
+      const variantMap = await enrichConversationsWithVariants([
+        { id: conversation.id, session_id: conversation.session_id },
+      ]);
+      const emailCaptureVariant = fromWaitlist ?? variantMap.get(conversation.id) ?? null;
+
       return {
         ...conversation,
         extraction: extraction || undefined,
         profile,
         waitlistSubmissions: Array.from(waitlistMap.values()),
+        emailCaptureVariant,
       } as ConversationWithExtraction;
     } catch (error) {
       console.error('Error in getConversation:', error);
@@ -680,10 +747,23 @@ export const internalCmsService = {
       }));
 
       // --- Variant breakdown (unique sessions per event × variant) ---
+      const sessionVariant = new Map<string, 'A' | 'B'>();
+      for (const r of rows) {
+        if (
+          (r.ab_variant === 'A' || r.ab_variant === 'B') &&
+          !sessionVariant.has(r.session_id)
+        ) {
+          sessionVariant.set(r.session_id, r.ab_variant);
+        }
+      }
       const variantKey = (e: string, v: string | null) => `${e}|${v ?? 'none'}`;
       const variantSessions = new Map<string, Set<string>>();
       for (const r of rows) {
-        const k = variantKey(r.event_name, r.ab_variant);
+        const effectiveVariant =
+          r.ab_variant === 'A' || r.ab_variant === 'B'
+            ? r.ab_variant
+            : sessionVariant.get(r.session_id) ?? null;
+        const k = variantKey(r.event_name, effectiveVariant);
         if (!variantSessions.has(k)) variantSessions.set(k, new Set());
         variantSessions.get(k)!.add(r.session_id);
       }
