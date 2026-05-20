@@ -173,17 +173,7 @@ export interface FunnelAnalyticsData {
   totalEvents: number;
 }
 
-export interface WaitlistSubmissionRow {
-  id: string;
-  name: string;
-  email: string;
-  ab_variant: string;
-  conversation_id: string | null;
-  linked_conversation_id: string | null;
-  session_id: string | null;
-  page_slug: string | null;
-  created_at: string;
-}
+export type WaitlistSubmissionRow = WaitlistSubmissionWithConversation;
 
 export const internalCmsService = {
   // Check if current user is internal
@@ -207,121 +197,6 @@ export const internalCmsService = {
     } catch (error) {
       console.error('Error in isInternalUser:', error);
       return false;
-    }
-  },
-
-  async getWaitlistSubmissions(options?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<{ data: WaitlistSubmissionWithConversation[]; count: number }> {
-    try {
-      let query = supabase
-        .from('waitlist_submissions')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-      if (options?.limit) {
-        const offset = options.offset ?? 0;
-        query = query.range(offset, offset + options.limit - 1);
-      }
-
-      const { data: submissions, error, count } = await query;
-
-      if (error) {
-        console.error('Error fetching waitlist submissions:', error);
-        return { data: [], count: 0 };
-      }
-
-      const rows = (submissions || []) as WaitlistSubmission[];
-      const conversationIds = Array.from(
-        new Set(
-          rows
-            .map((row) => getWaitlistLinkedConversationId(row))
-            .filter(Boolean) as string[],
-        ),
-      );
-      const sessionIds = Array.from(
-        new Set(rows.map((row) => row.session_id).filter(Boolean) as string[])
-      );
-
-      const conversationById = new Map<string, WaitlistConversationSummary>();
-      const conversationBySession = new Map<string, WaitlistConversationSummary>();
-
-      if (conversationIds.length > 0) {
-        const { data: conversations, error: conversationError } = await supabase
-          .from('chatbot_conversations')
-          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
-          .in('id', conversationIds);
-
-        if (conversationError) {
-          console.error('Error fetching waitlist conversations by id:', conversationError);
-        }
-
-        for (const conversation of conversations || []) {
-          const summary = {
-            id: conversation.id,
-            session_id: conversation.session_id,
-            model_id: conversation.model_id,
-            started_at: conversation.started_at,
-            ended_at: conversation.ended_at,
-            message_count: Array.isArray(conversation.conversation_data)
-              ? conversation.conversation_data.length
-              : 0,
-          };
-          conversationById.set(conversation.id, summary);
-          conversationBySession.set(conversation.session_id, summary);
-        }
-      }
-
-      if (sessionIds.length > 0) {
-        const { data: conversations, error: conversationError } = await supabase
-          .from('chatbot_conversations')
-          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
-          .in('session_id', sessionIds)
-          .order('started_at', { ascending: false });
-
-        if (conversationError) {
-          console.error('Error fetching waitlist conversations by session:', conversationError);
-        }
-
-        for (const conversation of conversations || []) {
-          if (conversationBySession.has(conversation.session_id)) continue;
-
-          conversationBySession.set(conversation.session_id, {
-            id: conversation.id,
-            session_id: conversation.session_id,
-            model_id: conversation.model_id,
-            started_at: conversation.started_at,
-            ended_at: conversation.ended_at,
-            message_count: Array.isArray(conversation.conversation_data)
-              ? conversation.conversation_data.length
-              : 0,
-          });
-        }
-      }
-
-      return {
-        data: rows.map((row) => {
-          const linkedId = getWaitlistLinkedConversationId(row);
-          const directMatch = linkedId ? conversationById.get(linkedId) : undefined;
-          const sessionMatch = row.session_id ? conversationBySession.get(row.session_id) : undefined;
-          const conversation = directMatch || sessionMatch;
-
-          return {
-            ...row,
-            conversation,
-            conversationMatch: directMatch
-              ? 'conversation_id'
-              : conversation
-                ? 'session_id'
-                : null,
-          };
-        }),
-        count: count || 0,
-      };
-    } catch (error) {
-      console.error('Error in getWaitlistSubmissions:', error);
-      return { data: [], count: 0 };
     }
   },
 
@@ -820,28 +695,117 @@ export const internalCmsService = {
     limit?: number;
     offset?: number;
     search?: string;
-  }): Promise<{ data: WaitlistSubmissionRow[]; count: number }> {
-    const limit = options?.limit ?? 50;
-    const offset = options?.offset ?? 0;
-    const search = options?.search?.trim();
+  }): Promise<{ data: WaitlistSubmissionWithConversation[]; count: number }> {
+    try {
+      const limit = options?.limit ?? 50;
+      const offset = options?.offset ?? 0;
+      const search = options?.search?.trim();
 
-    let query = supabase
-      .from('waitlist_submissions')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      let query = supabase
+        .from('waitlist_submissions')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    if (search) {
-      const term = `%${search}%`;
-      query = query.or(`name.ilike.${term},email.ilike.${term}`);
+      if (search) {
+        const term = `%${search}%`;
+        query = query.or(`name.ilike.${term},email.ilike.${term}`);
+      }
+
+      const { data: submissions, error, count } = await query;
+
+      if (error) throw error;
+
+      const rows = (submissions ?? []) as WaitlistSubmission[];
+      const conversationIds = Array.from(
+        new Set(
+          rows
+            .map((row) => getWaitlistLinkedConversationId(row))
+            .filter(Boolean) as string[],
+        ),
+      );
+      const sessionIds = Array.from(
+        new Set(rows.map((row) => row.session_id).filter(Boolean) as string[]),
+      );
+
+      const conversationById = new Map<string, WaitlistConversationSummary>();
+      const conversationBySession = new Map<string, WaitlistConversationSummary>();
+
+      if (conversationIds.length > 0) {
+        const { data: conversations, error: conversationError } = await supabase
+          .from('chatbot_conversations')
+          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
+          .in('id', conversationIds);
+
+        if (conversationError) {
+          console.error('Error fetching waitlist conversations by id:', conversationError);
+        }
+
+        for (const conversation of conversations ?? []) {
+          const summary = {
+            id: conversation.id,
+            session_id: conversation.session_id,
+            model_id: conversation.model_id,
+            started_at: conversation.started_at,
+            ended_at: conversation.ended_at,
+            message_count: Array.isArray(conversation.conversation_data)
+              ? conversation.conversation_data.length
+              : 0,
+          };
+          conversationById.set(conversation.id, summary);
+          conversationBySession.set(conversation.session_id, summary);
+        }
+      }
+
+      if (sessionIds.length > 0) {
+        const { data: conversations, error: conversationError } = await supabase
+          .from('chatbot_conversations')
+          .select('id, session_id, model_id, started_at, ended_at, conversation_data')
+          .in('session_id', sessionIds)
+          .order('started_at', { ascending: false });
+
+        if (conversationError) {
+          console.error('Error fetching waitlist conversations by session:', conversationError);
+        }
+
+        for (const conversation of conversations ?? []) {
+          if (conversationBySession.has(conversation.session_id)) continue;
+
+          conversationBySession.set(conversation.session_id, {
+            id: conversation.id,
+            session_id: conversation.session_id,
+            model_id: conversation.model_id,
+            started_at: conversation.started_at,
+            ended_at: conversation.ended_at,
+            message_count: Array.isArray(conversation.conversation_data)
+              ? conversation.conversation_data.length
+              : 0,
+          });
+        }
+      }
+
+      return {
+        data: rows.map((row) => {
+          const linkedId = getWaitlistLinkedConversationId(row);
+          const directMatch = linkedId ? conversationById.get(linkedId) : undefined;
+          const sessionMatch = row.session_id ? conversationBySession.get(row.session_id) : undefined;
+          const conversation = directMatch || sessionMatch;
+
+          return {
+            ...row,
+            conversation,
+            conversationMatch: directMatch
+              ? 'conversation_id'
+              : conversation
+                ? 'session_id'
+                : null,
+          };
+        }),
+        count: count ?? 0,
+      };
+    } catch (error) {
+      console.error('Error in getWaitlistSubmissions:', error);
+      return { data: [], count: 0 };
     }
-
-    const { data, error, count } = await query;
-    if (error) throw error;
-
-    return {
-      data: (data ?? []) as WaitlistSubmissionRow[],
-      count: count ?? 0,
-    };
   },
 };

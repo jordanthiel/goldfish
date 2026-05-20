@@ -117,6 +117,9 @@ const Waitlist: React.FC = () => {
     setSearchQuery(searchInput.trim());
   };
 
+  const getConversationId = (row: WaitlistSubmissionRow) =>
+    row.conversation?.id ?? getWaitlistLinkedConversationId(row);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   if (!isInternal) return null;
@@ -257,10 +260,10 @@ const Waitlist: React.FC = () => {
                                 <Copy className="h-4 w-4" />
                               )}
                             </Button>
-                            {getWaitlistLinkedConversationId(row) && (
+                            {getConversationId(row) && (
                               <Button size="sm" variant="ghost" asChild title="View conversation">
                                 <Link
-                                  to={`/internal/conversation/${getWaitlistLinkedConversationId(row)}`}
+                                  to={`/internal/conversation/${getConversationId(row)}`}
                                 >
                                   <ExternalLink className="h-4 w-4" />
                                 </Link>
