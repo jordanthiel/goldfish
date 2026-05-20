@@ -105,10 +105,12 @@ export function trackMetaEmailCaptureSubmitAttempted(options: ChatFlowMetaOption
 
 export function trackMetaEmailCaptured(options: ChatFlowMetaOptions = {}): void {
   const params = chatFlowParams(options);
-  trackMetaCustom('email_capture_submitted', params);
-  trackMetaCustom('email_captured', params);
-  trackMetaStandard('Lead', {
+  const conversionParams = {
     ...params,
     content_name: 'chat_onboarding_email_capture',
-  });
+  };
+  trackMetaCustom('email_capture_submitted', params);
+  trackMetaCustom('email_captured', params);
+  trackMetaStandard('Lead', conversionParams);
+  trackMetaStandard('CompleteRegistration', conversionParams);
 }
