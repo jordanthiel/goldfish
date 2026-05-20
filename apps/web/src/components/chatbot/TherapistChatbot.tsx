@@ -1,0 +1,368 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Loader2, User, Download } from 'lucide-react';
+import { Button } from '@goldfish/shared/components/ui/button';
+import { Textarea } from '@goldfish/shared/components/ui/textarea';
+import { ScrollArea } from '@goldfish/shared/components/ui/scroll-area';
+import { Card } from '@goldfish/shared/components/ui/card';
+import { chatbotService, ChatMessage } from '@/services/chatbotService';
+import { Therapist } from '@/types/therapist';
+import { Card as TherapistCard, CardContent, CardFooter, CardHeader, CardTitle } from '@goldfish/shared/components/ui/card';
+import { Badge } from '@goldfish/shared/components/ui/badge';
+import { MapPin, Star, Check, Briefcase, Users } from 'lucide-react';
+import { ModelSelector } from './ModelSelector';
+import { chatbotConversationService, getDeviceInfo, getSessionId } from '@/services/chatbotConversationService';
+import { chatbotPromptService } from '@/services/chatbotPromptService';
+import { getSelectedModel, hydrateServerDefaultChatModel } from '@/utils/modelConfig';
+import ReactMarkdown from 'react-markdown';
+import { BrandChatAvatar } from '@goldfish/shared/components/brand/BrandLogo';
+
+interface TherapistChatbotProps {
+  therapists: Therapist[];
+  onTherapistSelect?: (therapist: Therapist) => void;
+}
+
+export const TherapistChatbot: React.FC<TherapistChatbotProps> = ({
+  therapists,
+  onTherapistSelect,
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [promptVersion, setPromptVersion] = useState<number | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await hydrateServerDefaultChatModel();
+        const version = await chatbotPromptService.getActivePromptVersion();
+        setPromptVersion(version);
+        const info = await getDeviceInfo();
+        setDeviceInfo(info);
+      } catch (error) {
+        console.error('Error initializing chatbot:', error);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    scrollToLatestMessage();
+  }, [messages]);
+
+  const scrollToLatestMessage = () => {
+    // Scroll to the top of the most recent message, not the bottom of all content
+    // This ensures users see the message first, not the action cards below it
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // Fallback to bottom if no message ref is set
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: input.trim(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+    
+    // Keep focus on the textarea
+    textareaRef.current?.focus();
+
+    try {
+      const response = await chatbotService.sendMessage(
+        [...messages, userMessage],
+        therapists
+      );
+
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: response.message,
+        matchedTherapists: response.matchedTherapists,
+      };
+
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      setMessages(updatedMessages);
+
+      // Save or update conversation in database
+      const modelConfig = getSelectedModel();
+      const combinedDeviceInfo = {
+        ...deviceInfo,
+        ...(response.deviceInfo || {}), // Merge server-side device info
+      };
+      
+      const savedId = await chatbotConversationService.saveConversation(
+        updatedMessages,
+        modelConfig,
+        combinedDeviceInfo,
+        conversationId // Pass existing conversation ID to update instead of creating new
+      );
+      
+      if (savedId && !conversationId) {
+        setConversationId(savedId);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorText = error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred';
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: `I'm sorry, I encountered an error: ${errorText}. Please try again or select a different model.`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Model Selector (for logged-in users) */}
+      <div className="px-4 pt-4">
+      </div>
+      
+      {/* Chat Messages */}
+      <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollAreaRef}>
+        <div className="space-y-4">
+          {messages.length === 0 && !isLoading && (
+            <div className="text-center py-10 px-4">
+              <p className="text-sm text-gray-600">
+                Tell us what you&apos;re looking for—we&apos;ll help match you with the right therapist.
+              </p>
+            </div>
+          )}
+          {messages.map((message, index) => {
+            const isLastMessage = index === messages.length - 1;
+            return (
+            <div 
+              key={index} 
+              className="space-y-3"
+              ref={isLastMessage ? lastMessageRef : undefined}
+            >
+              <div
+                className={`flex gap-3 ${
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                {message.role === 'assistant' && (
+                  <BrandChatAvatar bubble="light" className="h-8 w-8" />
+                )}
+                <Card
+                  className={`max-w-[80%] ${
+                    message.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100'
+                  }`}
+                >
+                  <div className={`p-3 ${message.role === 'assistant' ? 'prose prose-sm max-w-none dark:prose-invert' : ''}`}>
+                    {message.role === 'assistant' ? (
+                      <ReactMarkdown
+                        className="text-sm markdown-content"
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          code: ({ className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const isInline = !className;
+                            return isInline ? (
+                              <code className="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                {children}
+                              </code>
+                            ) : (
+                              <code className={`block bg-gray-200 dark:bg-gray-700 p-2 rounded overflow-x-auto text-xs font-mono mb-2 ${className || ''}`} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                          pre: ({ children }) => <pre className="bg-gray-200 dark:bg-gray-700 p-2 rounded overflow-x-auto mb-2">{children}</pre>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-2 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-2 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-bold mb-2 mt-2 first:mt-0">{children}</h3>,
+                          blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-3 italic mb-2 my-2">{children}</blockquote>,
+                          a: ({ href, children }) => <a href={href} className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300" target="_blank" rel="noopener noreferrer">{children}</a>,
+                          hr: () => <hr className="my-3 border-gray-300 dark:border-gray-600" />,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
+                  </div>
+                </Card>
+                {message.role === 'user' && (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-600" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Show therapist cards inline with assistant messages */}
+              {message.role === 'assistant' && message.matchedTherapists && message.matchedTherapists.length > 0 && (
+                <div className="flex gap-3 justify-start pl-11">
+                  <div className="max-w-[80%] w-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {message.matchedTherapists.map((therapist) => (
+                        <TherapistCard
+                          key={therapist.id}
+                          className="overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => onTherapistSelect?.(therapist)}
+                        >
+                          <CardHeader className="pb-2">
+                            <div className="flex gap-3">
+                              <img
+                                src={therapist.profileImage}
+                                alt={`${therapist.firstName} ${therapist.lastName}`}
+                                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <CardTitle className="text-base">
+                                  {therapist.firstName} {therapist.lastName}
+                                </CardTitle>
+                                <p className="text-xs text-gray-500 flex items-center mt-1">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  {therapist.location}
+                                </p>
+                                <div className="flex items-center mt-1">
+                                  <Star className="h-3 w-3 text-yellow-400" />
+                                  <span className="text-xs ml-1">{therapist.rating}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardHeader>
+
+                          <CardContent className="pb-2">
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {therapist.specialties.slice(0, 2).map((specialty) => (
+                                <Badge key={specialty} variant="secondary" className="text-xs">
+                                  {specialty}
+                                </Badge>
+                              ))}
+                            </div>
+                            <p className="text-xs text-gray-600 line-clamp-2 mb-2">{therapist.bio}</p>
+                            <div className="flex gap-2 text-xs text-gray-500">
+                              <span className="flex items-center">
+                                <Briefcase className="h-3 w-3 mr-1" />
+                                {therapist.yearsOfExperience} yrs
+                              </span>
+                              {therapist.acceptingNewClients && (
+                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs px-1.5 py-0">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Accepting
+                                </Badge>
+                              )}
+                            </div>
+                          </CardContent>
+
+                          <CardFooter className="pt-2 pb-3 border-t">
+                            <Button size="sm" className="w-full text-xs">Connect</Button>
+                          </CardFooter>
+                        </TherapistCard>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+          })}
+          {isLoading && (
+            <div className="flex gap-3 justify-start">
+              <BrandChatAvatar bubble="light" className="h-8 w-8" />
+              <Card className="bg-gray-100">
+                <div className="p-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                </div>
+              </Card>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+
+      {/* Input Area */}
+      <div className="border-t p-4 pb-safe bg-white flex-shrink-0 sticky bottom-0 z-10">
+        <div className="flex flex-col gap-2">
+          {messages.length > 1 && (
+            <div className="flex justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const modelConfig = getSelectedModel();
+                  const conversation = {
+                    id: conversationId || undefined,
+                    session_id: getSessionId(),
+                    model_provider: modelConfig.provider,
+                    model_id: modelConfig.modelId,
+                    conversation_data: messages,
+                    device_info: deviceInfo,
+                    started_at: new Date().toISOString(),
+                    prompt_version: promptVersion ?? undefined,
+                  };
+                  chatbotConversationService.downloadCSV(conversation);
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+          )}
+          <div className="flex gap-2 items-end">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message…"
+              disabled={isLoading}
+              className="flex-1 min-h-[44px] max-h-[200px] resize-none"
+              rows={1}
+              style={{ 
+                height: 'auto',
+                minHeight: '44px',
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+              }}
+            />
+          <Button
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            size="icon"
+              className="h-11 w-11 flex-shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+          </div>
+          <p className="text-xs text-gray-400 text-center">
+            Press Enter to send, Shift+Enter for new line
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};

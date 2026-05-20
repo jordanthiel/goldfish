@@ -1,14 +1,20 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "goldfish",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "npm run dev -w @goldfish/web",
+    "dev:web": "npm run dev -w @goldfish/web",
+    "dev:internal": "npm run dev -w @goldfish/internal",
+    "build": "npm run build -w @goldfish/web && npm run build -w @goldfish/internal",
+    "build:web": "npm run build -w @goldfish/web",
+    "build:internal": "npm run build -w @goldfish/internal",
+    "lint": "npm run lint -w @goldfish/web && npm run lint -w @goldfish/internal"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
