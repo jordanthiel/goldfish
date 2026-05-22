@@ -31,7 +31,7 @@ const Footer = () => {
         { name: 'About Us', href: '#about' },
         { name: 'Careers', href: '#careers' },
         { name: 'Privacy Policy', href: '#privacy' },
-        { name: 'Terms of Service', href: '#terms' }
+        { name: 'Terms of Service', href: '/terms' }
       ]
     }
   ];
@@ -56,12 +56,21 @@ const Footer = () => {
               <ul className="space-y-3">
                 {section.links.map((link) => (
                   <li key={link.name}>
-                    <a 
-                      href={link.href} 
-                      className="text-gray-600 hover:text-primary transition-colors"
-                    >
-                      {link.name}
-                    </a>
+                    {link.href.startsWith('/') ? (
+                      <Link
+                        to={link.href}
+                        className="text-gray-600 hover:text-primary transition-colors"
+                      >
+                        {link.name}
+                      </Link>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-gray-600 hover:text-primary transition-colors"
+                      >
+                        {link.name}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

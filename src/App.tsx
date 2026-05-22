@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import TherapistDiscovery from "./pages/TherapistDiscovery";
+import TermsOfService from "./pages/TermsOfService";
 
 // Therapist pages
 import TherapistProfile from "./pages/therapist/TherapistProfile";
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/work-stress" element={<WorkStressLandingPage />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/claim/:inviteCode" element={<ClaimAccount />} /> {/* New route for claiming account */}
             <Route path="/find-therapist" element={<TherapistDiscovery />} /> {/* New route for therapist discovery */}
             

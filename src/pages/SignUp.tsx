@@ -216,9 +216,9 @@ const SignUp = () => {
           
           <div className="mt-4 text-center text-sm">
             By creating an account, you agree to our{' '}
-            <a href="#" className="text-therapy-purple hover:underline">
+            <Link to="/terms" className="text-therapy-purple hover:underline">
               Terms of Service
-            </a>{' '}
+            </Link>{' '}
             and{' '}
             <a href="#" className="text-therapy-purple hover:underline">
               Privacy Policy
